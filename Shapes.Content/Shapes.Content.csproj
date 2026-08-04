@@ -11,8 +11,17 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!--
+    Cards and rulesets stay in separate output folders rather than being flattened into one.
+    CardLoader.FromDirectory reads every *.json under the directory it is given, so a shared
+    folder would have it try to parse default.json as a card and fail the whole content set.
+  -->
   <ItemGroup>
-    <Content Include="cards\**\*.json;rulesets\**\*.json">
+    <Content Include="cards\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Content\cards\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
+    <Content Include="rulesets\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>Content\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
     </Content>

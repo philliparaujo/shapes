@@ -7,14 +7,14 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 6 / 14     |
+| 1 — Playable engine            | 7 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-282 tests passing.
+351 tests passing.
 
-**Next up: step 1.7** — card JSON schema + loader + validation.
+**Next up: step 1.8** — action model + legal-action generation.
 
 ## 0. Confirmed ruleset
 
@@ -577,9 +577,44 @@ numbers below name the suite that lands with each piece.
   card-load validation rather than resolved here. `gain_next_turn` needed a real deferred-grant
   mechanism, not just a flag: `PlayerState.PendingNextTurnResources`, added to income once by
   `GameState.ApplyIncome` and cleared, so a second income phase can't double-grant it.*
-- [ ] **7. Card JSON schema + loader + validation** (fail loudly on an unknown op; reject
+- [x] **7. Card JSON schema + loader + validation** (fail loudly on an unknown op; reject
   multiple `chosen_*` selectors per card).
   <br>*tests: card-data validation suite.*
+  <br>*Done: 351 tests. `Shapes.Core/Cards/` — `CardDefinition`/`MoveDefinition` (domain),
+  `CardJson` (DTOs + source-generated context, verified emitting via
+  `EmitCompilerGeneratedFiles` rather than assumed), `CardLoader`, `CardValidator`,
+  `CardDatabase`. Unlike `RuleSet`, validation lives in a separate `CardValidator` rather than
+  the constructor: a card's rules are cross-cutting (the single-target rule spans every effect
+  of every move) and the message needs to name the card, move, and effect at fault.
+  <br>**Effect args are the one place "reject unknown properties" cannot apply** — for an
+  effect there is no fixed property set, since `amount` is unknown to the schema but meaningful
+  to the op. Args are captured via `[JsonExtensionData]`; the guard that replaces the unknown-key
+  check is the known-op check plus each op's accessors throwing on a missing argument. The
+  consequence worth remembering: a misspelled **argument** (`amnount`) is caught by the op at
+  use, not at load — which is what makes step 1.10's per-card smoke test load-bearing rather
+  than a nicety.
+  <br>Validation walks the **whole effect tree**, descending into `conditional`'s then/else and
+  `for_each`'s effects — a card could otherwise hide an unknown op or a second `chosen_*` in an
+  else branch and load clean. Descent is keyed off argument shape, not a list of control-flow op
+  names, so a future control-flow op is covered for free. `condition` is deliberately excluded
+  from the effect walk (it holds a **predicate**, a separate vocabulary from effect ops) but
+  included in the chosen-selector walk. The single-target rule counts **distinct** selectors per
+  **card**, not occurrences per move: `damage chosen_enemy` then `stun chosen_enemy` is one
+  decision and stays legal, while two differently-targeted moves on one card is the same chained
+  -prompt problem for the UI and is rejected.
+  <br>Two rules the plan hadn't pinned down, decided here: a **move's cost must be single-type**
+  (or free), since `MoveDefinition.AttackType` derives the attacking type from the cost and a
+  mixed cost has no single answer — rejecting beats inventing a tie-break nobody asked for; a
+  card's *play* cost may still mix freely, as it attacks nothing. And **creatures may not
+  declare top-level `effects`** — there are no passive/triggered effects, so such a list would
+  silently never run. Three mutations (single-target rule disabled, nested descent removed,
+  mixed-cost check disabled) were each confirmed to fail the suite before reverting.
+  <br>Two content-pipeline fixes came with this: `Shapes.Content` was flattening `cards/` and
+  `rulesets/` into one output folder, so `CardLoader.FromDirectory` would have tried to parse
+  `default.json` as a card once cards landed; they now copy to separate folders. And
+  `circle_cadet.json` (the plan's own worked example) is entered as the first real card, since
+  MSBuild copies files rather than empty directories — without it `ContentCardSetTests` would
+  pass vacuously, the failure mode where a whole suite silently stops testing anything.*
 - [ ] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `EndTurn` + legal-action generation.
   Legal-action generation is the single most important API in the codebase — the AI, the
   console, and the UI all consume it.
