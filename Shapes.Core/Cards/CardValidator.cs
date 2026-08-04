@@ -142,9 +142,14 @@ public static class CardValidator
         }
     }
 
+    // Walks the whole effect tree, not just the top level: a card could otherwise hide an
+    // unknown op inside a conditional's else branch and load clean. EffectTree owns the descent
+    // so this and the single-target walk below cannot disagree about what "every effect on this
+    // card" means -- and so ActionGenerator, which finds the chosen target the same way, agrees
+    // with both.
     private static void ValidateEffects(IReadOnlyList<EffectNode> effects, string at)
     {
-        foreach (var effect in effects)
+        foreach (var effect in EffectTree.WalkAll(effects))
         {
             ValidateEffect(effect, at);
         }
@@ -182,15 +187,6 @@ public static class CardValidator
                 $"{at} effect '{effect.Op}' has a negative amount ({effect.Args.Int("amount")}).");
         }
 
-        // A control-flow op's nested branches are effects and are validated as such. Its
-        // "condition" is NOT -- that is a predicate from ConditionEvaluator's separate
-        // vocabulary, so checking it against the effect registry would reject every valid
-        // conditional.
-        foreach (var nested in NestedEffectsOf(effect))
-        {
-            ValidateEffect(nested, at);
-        }
-
         if (effect.Args.Has("condition"))
         {
             foreach (var condition in effect.Args.NodesOrSingle("condition"))
@@ -212,20 +208,13 @@ public static class CardValidator
     // to the UI, and no referenced card needs it.
     private static void ValidateSingleTargetRule(CardDefinition card)
     {
-        var chosen = new List<string>();
+        var all = card.Effects.Concat(card.Moves.SelectMany(m => m.Effects)).ToList();
 
-        foreach (var effect in card.Effects)
-        {
-            CollectChosenSelectors(effect, chosen);
-        }
-
-        foreach (var move in card.Moves)
-        {
-            foreach (var effect in move.Effects)
-            {
-                CollectChosenSelectors(effect, chosen);
-            }
-        }
+        var chosen = all
+            .SelectMany(EffectTree.WalkIncludingConditions)
+            .Where(e => e.Args.Has("target"))
+            .Select(e => e.Args.String("target"))
+            .Where(raw => EffectArgs.ParseSelector(raw).IsChosen());
 
         // Several effects sharing ONE selector is fine -- "damage chosen_enemy 1, then stun
         // chosen_enemy" is a single decision resolved once by legal-action generation, which
@@ -240,50 +229,4 @@ public static class CardValidator
         }
     }
 
-    private static void CollectChosenSelectors(EffectNode effect, List<string> into)
-    {
-        if (effect.Args.Has("target"))
-        {
-            var raw = effect.Args.String("target");
-            if (EffectArgs.ParseSelector(raw).IsChosen())
-            {
-                into.Add(raw);
-            }
-        }
-
-        foreach (var nested in NestedNodesUnder(effect, AllNestedKeys))
-        {
-            CollectChosenSelectors(nested, into);
-        }
-    }
-
-    // Control-flow ops carry effect lists in their arguments. Both walks above need to descend
-    // into them, or a card could hide an unknown op -- or a second chosen target -- inside a
-    // conditional's else branch and load clean.
-    //
-    // Keyed off argument shape rather than a list of control-flow op names: any argument whose
-    // value is a nested node or node list is descended into, so a future control-flow op is
-    // covered without editing this.
-    private static IEnumerable<EffectNode> NestedEffectsOf(EffectNode effect) =>
-        NestedNodesUnder(effect, NestedEffectKeys);
-
-    private static IEnumerable<EffectNode> NestedNodesUnder(EffectNode effect, string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            foreach (var node in effect.Args.NodesOrSingle(key))
-            {
-                yield return node;
-            }
-        }
-    }
-
-    // Branches holding effect lists. "condition" is deliberately absent: a condition is a
-    // predicate, not an effect, and is checked by ValidateCondition instead.
-    private static readonly string[] NestedEffectKeys = ["effects", "then", "else"];
-
-    // The chosen-selector walk descends into conditions too. No predicate takes a target
-    // today, so this changes nothing yet -- but a future predicate that did would otherwise
-    // smuggle a second player choice past the single-target rule.
-    private static readonly string[] AllNestedKeys = ["effects", "then", "else", "condition"];
 }

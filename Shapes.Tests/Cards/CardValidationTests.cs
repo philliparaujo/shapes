@@ -91,6 +91,24 @@ public class CardValidationTests
     }
 
     [Fact]
+    public void An_unknown_selector_on_a_move_still_names_the_card_and_move()
+    {
+        // MoveDefinition precomputes its ChosenSelector in its constructor, which parses every
+        // target string -- so a bad selector is now detected during CONSTRUCTION, before
+        // CardValidator ever runs. CardLoader wrapping construction errors is what keeps the
+        // message useful; without that wrap this would surface as a bare ArgumentException with
+        // no idea which card it came from. Pinned because the precompute made it load-bearing.
+        var ex = Rejects("""
+            { "id": "squint", "name": "Squint", "kind": "creature", "health": 2, "types": ["wheel"],
+              "moves": [ { "name": "Peer", "cost": { "wheel": 1 },
+                           "effects": [ { "op": "damage", "target": "chosen_enmy", "amount": 1 } ] } ] }
+            """);
+
+        Assert.Contains("chosen_enmy", ex.Message);
+        Assert.Contains("Peer", ex.Message);
+    }
+
+    [Fact]
     public void A_negative_amount_fails_at_load()
     {
         // A negative heal is a damage effect no reader of the card would expect.

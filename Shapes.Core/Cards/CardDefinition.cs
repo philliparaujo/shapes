@@ -43,6 +43,15 @@ public sealed class CardDefinition
 
     public IReadOnlyList<EffectNode> Effects { get; }
 
+    // The one chosen_* selector this card's own effects declare, or null. Computed once here
+    // rather than by walking the effect tree per call: the tree is immutable static data, so the
+    // answer can never change, and legal-action generation asks for it on every card in hand on
+    // every turn -- inside the per-slot loop, at that. Walking it there made the search pay for
+    // an allocation-heavy tree traversal to re-derive a constant.
+    //
+    // At most one, per the single-target rule; CardValidator rejects a card declaring more.
+    public TargetSelector? ChosenSelector { get; }
+
     public CardDefinition(
         string id,
         string name,
@@ -64,6 +73,7 @@ public sealed class CardDefinition
         Types = types;
         Moves = moves ?? [];
         Effects = effects ?? [];
+        ChosenSelector = EffectTree.FindChosenSelector(Effects);
     }
 
     public bool IsCreature => Kind == CardKind.Creature;
@@ -95,6 +105,10 @@ public sealed class MoveDefinition
 
     public IReadOnlyList<EffectNode> Effects { get; }
 
+    // As CardDefinition.ChosenSelector: precomputed, because this is asked once per move per
+    // creature per generated turn and the answer is a property of static card data.
+    public TargetSelector? ChosenSelector { get; }
+
     public MoveDefinition(
         string name,
         ResourcePool cost,
@@ -109,6 +123,7 @@ public sealed class MoveDefinition
         Effects = effects;
         Condition = condition;
         AttackType = SingleCostType(cost);
+        ChosenSelector = EffectTree.FindChosenSelector(effects);
     }
 
     // The one type present in a single-type cost, or null for a zero cost. Returns null rather

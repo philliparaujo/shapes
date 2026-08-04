@@ -7,14 +7,14 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 7 / 14     |
+| 1 — Playable engine            | 8 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-351 tests passing.
+422 tests passing.
 
-**Next up: step 1.8** — action model + legal-action generation.
+**Next up: step 1.9** — turn loop: score → income → actions → end.
 
 ## 0. Confirmed ruleset
 
@@ -615,11 +615,80 @@ numbers below name the suite that lands with each piece.
   `circle_cadet.json` (the plan's own worked example) is entered as the first real card, since
   MSBuild copies files rather than empty directories — without it `ContentCardSetTests` would
   pass vacuously, the failure mode where a whole suite silently stops testing anything.*
-- [ ] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `EndTurn` + legal-action generation.
+- [x] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `EndTurn` + legal-action generation.
   Legal-action generation is the single most important API in the codebase — the AI, the
   console, and the UI all consume it.
   <br>*tests: legality rules (affordability, occupied slots, merge adjacency/depth,
   once-per-turn moves), legal-action soundness property.*
+  <br>*Done: 422 tests. `Shapes.Core/Actions/` — `GameAction` (+ the four subclasses),
+  `ActionGenerator`, `ActionExecutor`. Actions are immutable and carry **value equality**,
+  because MCTS compares and dedupes them: reference equality would silently create duplicate
+  children for identical moves and split a node's statistics across them. For the same reason
+  duplicate copies of a card in hand collapse to one action per slot — two copies are the same
+  choice, since cards are static data with no per-copy identity.
+  <br>The generator/executor split is a **one-way contract**: the generator decides legality and
+  the executor assumes it, re-checking nothing. Cost is paid through `PlayerState.Pay`, which
+  throws rather than clamping, so an illegal action reaching the executor fails loudly and
+  points upstream. `IsLegal` is a membership test against `Generate` rather than a parallel set
+  of checks — a second implementation of "legal" is exactly how a UI comes to permit what the
+  AI thinks is illegal.
+  <br>Two rules the plan left open, decided here: **an unmet move condition makes the move
+  illegal outright**, not a legal action resolving to nothing (`MoveDefinition.Condition` had
+  already anticipated this) — a no-op action wastes search iterations and shows the player a
+  visibly inert choice. And **a targeted move or spell with no valid target is not generated at
+  all**, rather than being playable for no effect. Both push "does nothing" out of the action
+  space entirely, which is worth more to the search than to the rules.
+  <br>**Merge is generated in both directions** for each eligible pair. Health and typing sum
+  commutatively, so the two look redundant — but the result occupies the *target* slot, and
+  which slot it sits in changes what it faces for scoring. Merge depth is checked against the
+  **combined** result (`source.MergeDepth + target.MergeDepth > MaxMergeDepth`) rather than
+  "neither may already be merged"; with the default cap of 2 the two are equivalent, and the
+  test that distinguishes them raises the cap to 3.
+  <br>`EffectTree` was extracted so the validator's effect-tree walk and the generator's
+  chosen-selector lookup are **one definition, not two**. They must agree: if they drifted, a
+  card could validate as single-target and then generate the wrong actions — or none, making it
+  silently unplayable. `ConditionEvaluator` moved out of `ControlFlowOps` and became public for
+  the same reason, since gating a move is now a rules concern rather than an op's internal
+  detail.
+  <br>Hand-limit discard takes from the front of the hand. **Which** card to discard is a player
+  choice the action model does not yet express, and inventing a `DiscardAction` before anything
+  needs one would add a node to every end-of-turn in the search tree; taking from the front is
+  deterministic (so seeds stay replayable) and deliberately not random (which would consume RNG
+  draws and shift every later shuffle). It becomes its own action when hand-limit discards start
+  mattering to play strength.
+  <br>Five mutations were each confirmed to fail the suite before reverting: affordability check
+  disabled (7 tests, including the soundness property), merge depth checked per operand,
+  once-per-turn disabled, condition gate disabled, duplicate-collapse disabled.
+  <br>**The chosen selector is precomputed** on `CardDefinition`/`MoveDefinition` rather than
+  re-derived per call. `FindChosenSelector` walks an effect tree and parses selector strings, and
+  generation was calling it for every card in hand every turn — *inside* the per-empty-slot loop,
+  so a card's tree was walked up to three times per generation. The answer is a property of
+  immutable static card data and can never change, so the search was paying an allocation-heavy
+  traversal to re-derive a constant. Moving it to load time cut the property suite ~25% on its
+  own and matters far more once MCTS calls generation millions of times. One consequence worth
+  knowing: a typo'd selector is now detected during card **construction**, before `CardValidator`
+  runs — `CardLoader` already wraps construction errors with the card and move name, so the
+  message quality is unchanged, and a test now pins that (it would otherwise degrade to a bare
+  `ArgumentException` if that wrap were ever removed).
+  <br>Two fixtures land with this: `TestCards`, a synthetic card set so action tests don't break
+  when a real card is rebalanced, and `RuleSetTestHelper`, which varies one `RuleSet` field off
+  the default — the seventeen-argument constructor otherwise forces every test to restate every
+  value and then silently stop tracking the defaults.
+  <br>The property suite's four cheap position-invariants (non-emptiness, affordability, no
+  duplicate actions, legal state) share **one** playthrough rather than each replaying the same
+  300 games — they are independent assertions about the same positions, so separate drivers were
+  duplicated work. Each keeps its own failure message, so a break still names the invariant and
+  seed, and a position now reports *every* invariant it violates rather than only the first test
+  to run. The clone-heavy soundness probe keeps its own driver at a lower game count (it costs a
+  branching factor more per position), and determinism keeps one because the property is that two
+  independent runs agree. Suite runtime went 2.4s → 1.0s across both this and the precompute; the
+  affordability and duplicate mutations were re-run afterwards to confirm the merged property
+  still catches what the separate ones did.
+  <br>**Also fixed:** `Shapes.Content/cards/circle_cadet.json` was missing from the working tree
+  and had never been committed, so `ContentCardSetTests` was failing (0 cards found, 2 expected)
+  before this step began. Recreated from the plan's worked example above and committed this
+  time. This is the exact failure step 1.7's notes flagged — a whole suite silently testing
+  nothing — arriving one step later than expected.*
 - [ ] **9. Turn loop:** score → income → actions → end.
   <br>*tests: scoring, income, type-effectiveness, phase-order, win-condition suites.*
 - [ ] **10. Enter all ~36 cards** from the references as JSON.

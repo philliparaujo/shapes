@@ -25,15 +25,6 @@ internal sealed class ConditionalOp : EffectOp
     }
 }
 
-internal static class ConditionEvaluator
-{
-    public static bool Evaluate(EffectContext ctx, EffectNode condition) => condition.Op switch
-    {
-        "self_at_full_health" => ctx.SourceCreature is { IsDamaged: false },
-        _ => throw new ArgumentException($"Unknown condition predicate '{condition.Op}'."),
-    };
-}
-
 // { "op": "for_each", "collection": "friendly_creatures", "effects": [ ... ] }
 //
 // Collection is one of: friendly_creatures, enemy_creatures, all_creatures, hand.
