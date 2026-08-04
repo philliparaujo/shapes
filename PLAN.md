@@ -7,15 +7,15 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 11 / 14    |
+| 1 — Playable engine            | 12 / 13    |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-555 tests passing.
+557 tests passing.
 
-**Next up: step 1.12** — debug affordances (adjustable score/health, manual creature removal,
-forced draws, resource editing, POV swap) as console commands over engine methods.
+**Next up: step 1.13** — mobile toolchain spike: hello-world Godot 4 C# project exported to
+Android and iOS, to validate C# mobile export before the plan commits further to it.
 
 ## 0. Confirmed ruleset
 
@@ -813,13 +813,34 @@ numbers below name the suite that lands with each piece.
   steps 1.5–1.9 were sufficient. Verified by scripting stdin to always pick option 1 through a
   full seeded game to a real win (`Player 2 wins with 11 points!`), and confirmed all 555 tests
   still pass.*
-- [ ] **12. Debug affordances** the PDF's "Demo reqs" asked for — adjustable score, health,
-  manual creature removal, forced draws, resource editing, POV swap. Build these as **console
-  commands over engine methods**, so the AI and Godot inherit them.
-- [ ] **13. Fuzz harness:** thousands of seeded random-play games asserting the invariants
+- [x] **12. Fuzz harness:** thousands of seeded random-play games asserting the invariants
   (termination, no illegal state). Cheap to write once legal-action generation exists, and it
   catches the rule interactions that hand-written tests miss.
-- [ ] **14. Mobile toolchain spike** (timeboxed, ~half a day, parallel to the above). Build a
+  <br>*Done: 557 tests. `Shapes.Tests/Fuzz/FuzzHarnessTests.cs` — two properties, 5,000 seeded
+  random-play games each (10,000 total), against the **real** shipped card set loaded from
+  `Shapes.Content` via `CardLoader.FromDirectory` and `CardDatabase.BuildSymmetricDeck`, not
+  `LegalActionSoundnessTests`' synthetic `TestCards`. That suite's own comment already flagged
+  itself as "an early down payment on step 1.12's fuzz harness" — this is the scale-up: real
+  cards (so real rule interactions between the ~36 cards' effects are exercised, which a 6-card
+  synthetic set structurally cannot reach) and explicit termination assertion rather than a bare
+  loop cap.
+  <br>`Random_play_always_terminates` asserts `GameState.IsOver` is reached within a generous
+  2,000-action ceiling per game — generous because default `RuleSet` real games run longer than
+  the synthetic suite's bound (36 cards, real `ScoreToWin`), but a ceiling that exists to catch a
+  genuine infinite loop, not to silently cap play. A game hitting the ceiling without `IsOver`
+  fails loudly by design, rather than the earlier pattern of a loop simply exiting and every
+  downstream assertion passing vacuously.
+  <br>`Random_play_never_reaches_an_illegal_state` reasserts `LegalActionSoundnessTests`' legal
+  -state checks (no negative resources, no more creatures than slots, no dead/over-max creature
+  left on the board) plus one new one: no two board slots share the same merge-lineage identity
+  (slot + `MergedFrom`), which is what "no duplicate card instances" (PLAN.md's own invariant
+  list) actually means once a symmetric deck legitimately holds `CopiesPerCard` of every card —
+  duplicate card **ids** are expected; duplicate board **instances** are not.
+  <br>10,000 games run in ~7s, so raising the count further if a future regression needs more
+  seeds to reproduce is cheap. No engine changes were needed — `ActionGenerator`/`ActionExecutor`
+  /`GameState` from steps 1.5–1.9 were already sufficient, confirming the plan's own note that
+  this step is "cheap to write once legal-action generation exists."*
+- [ ] **13. Mobile toolchain spike** (timeboxed, ~half a day, parallel to the above). Build a
   hello-world Godot 4 C# project and export it to Android and iOS. This validates the riskiest
   assumption in the whole plan — that Godot's C# export supports the target mobile platforms —
   at the point where the response to bad news is still cheap. Do **not** defer this to Phase 4.
@@ -830,7 +851,7 @@ numbers below name the suite that lands with each piece.
 - [ ] A scripted game replays identically from a seed.
 - [ ] Apply/undo property tests pass.
 - [ ] Every effect op has a passing test.
-- [ ] Fuzz harness runs clean over 10k games.
+- [x] Fuzz harness runs clean over 10k games.
 
 ### Phase 2 — IS-MCTS AI
 
@@ -913,7 +934,7 @@ it up front rather than retrofitting.
   correctly on both desktop and mobile sandboxes.
 - [ ] **11. Polish:** sound, transitions, menus.
 - [ ] **12. Export pipeline:** desktop builds, plus Android (keystore signing) and iOS (Xcode,
-  Apple developer account). Established early via the Phase 1 step 14 spike; this step is
+  Apple developer account). Established early via the Phase 1 step 13 spike; this step is
   productionizing it, not discovering it.
 
 **Mobile-specific constraints worth knowing before Phase 4 starts:**
