@@ -59,7 +59,41 @@ public sealed class CreatureInstance
 
     public int NextDamageTakenBonus { get; private set; }
 
-    public CreatureInstance(string cardId, int maxHealth, TypeMask types, int? health = null)
+    // Persistent, cumulative flat bonus to every future hit this creature deals, set by
+    // `attack_buff`. Unlike NextAttackBonus this never clears itself -- "increase all damage
+    // this does" is a standing buff, not a one-shot. Stacks if granted more than once.
+    public int AttackBuff { get; private set; }
+
+    // The resources paid to play this card, captured when it enters the board (see
+    // ActionExecutor.ApplyPlayCard). Lets an effect (destroy_refund_cost) refund a destroyed
+    // creature's cost without the State/Effects layers needing a CardDatabase lookup -- the
+    // one piece of card data a creature carries about itself, set once at play time and never
+    // mutated afterward. Empty for creatures constructed directly (tests, summon) that were
+    // never "played" from a hand.
+    public ResourcePool PlayCost { get; private set; }
+
+    // True when this creature's Taunt keyword was granted with an expiry ("taunt until next
+    // turn," e.g. Columns) rather than permanently. Cleared, along with the Taunt bit itself,
+    // by ResetMovesForNewTurn -- the same turn-boundary reset stun already uses. A future card
+    // granting permanent taunt would simply not set this flag.
+    private bool _tauntExpiresNextTurn;
+
+    // A pending effect to run the next time this creature takes damage from a creature-sourced
+    // attack, or the next time an attack against it ricochets, respectively. Each fires once
+    // then clears -- the same one-shot shape as NextAttackBonus, but carrying an arbitrary
+    // effect (typically a resource gain or draw) rather than a flat number. See
+    // CombatResolver for the fire points.
+    //
+    // Typed as `object?` rather than EffectNode: State must not reference Effects, which
+    // already depends on State to mutate creatures and the board. Effects.Ops casts this back
+    // to EffectNode when it sets or fires the trigger; State itself never inspects the value.
+    public object? PendingOnNextDamageTaken { get; private set; }
+
+    public object? PendingOnNextRicochet { get; private set; }
+
+    public CreatureInstance(
+        string cardId, int maxHealth, TypeMask types, int? health = null,
+        ResourcePool? playCost = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardId);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxHealth, 1);
@@ -73,6 +107,7 @@ public sealed class CreatureInstance
         MaxHealth = maxHealth;
         Health = health ?? maxHealth;
         Types = types;
+        PlayCost = playCost ?? ResourcePool.Empty;
         _mergedFrom = [cardId];
 
         ArgumentOutOfRangeException.ThrowIfGreaterThan(Health, MaxHealth);
@@ -83,7 +118,9 @@ public sealed class CreatureInstance
         string cardId, int health, int maxHealth, TypeMask types,
         List<string> mergedFrom, uint movesUsedThisTurn, KeywordFlags keywords,
         RicochetDirection ricochetDirection, bool isStunned, int nextAttackBonus,
-        int nextDamageTakenBonus)
+        int nextDamageTakenBonus, int attackBuff, ResourcePool playCost,
+        bool tauntExpiresNextTurn, object? pendingOnNextDamageTaken,
+        object? pendingOnNextRicochet)
     {
         CardId = cardId;
         Health = health;
@@ -96,6 +133,11 @@ public sealed class CreatureInstance
         IsStunned = isStunned;
         NextAttackBonus = nextAttackBonus;
         NextDamageTakenBonus = nextDamageTakenBonus;
+        AttackBuff = attackBuff;
+        PlayCost = playCost;
+        _tauntExpiresNextTurn = tauntExpiresNextTurn;
+        PendingOnNextDamageTaken = pendingOnNextDamageTaken;
+        PendingOnNextRicochet = pendingOnNextRicochet;
     }
 
     // True once this creature is the product of a merge, which locks it out of merging again
@@ -186,9 +228,27 @@ public sealed class CreatureInstance
     {
         _movesUsedThisTurn = 0;
         IsStunned = false;
+
+        if (_tauntExpiresNextTurn)
+        {
+            Keywords &= ~KeywordFlags.Taunt;
+            _tauntExpiresNextTurn = false;
+        }
     }
 
-    public void GrantKeyword(KeywordFlags keyword) => Keywords |= keyword;
+    // `untilNextTurn: true` clears the keyword again at this creature's controller's next turn
+    // (see ResetMovesForNewTurn) -- Columns' "taunt until next turn" needs an expiry that
+    // permanent taunt grants do not. Only meaningful for Taunt; a timed reflect or ricochet
+    // would need its own flag, but nothing needs that yet.
+    public void GrantKeyword(KeywordFlags keyword, bool untilNextTurn = false)
+    {
+        Keywords |= keyword;
+
+        if (untilNextTurn && keyword == KeywordFlags.Taunt)
+        {
+            _tauntExpiresNextTurn = true;
+        }
+    }
 
     // Ricochet needs a side; the other keywords ignore the argument entirely.
     public void GrantRicochet(RicochetDirection direction)
@@ -235,6 +295,29 @@ public sealed class CreatureInstance
         return bonus;
     }
 
+    // Persistent and additive: repeated grants stack, and nothing ever clears this on its own.
+    public void AddAttackBuff(int amount) => AttackBuff += amount;
+
+    public void SetPendingOnNextDamageTaken(object? trigger) => PendingOnNextDamageTaken = trigger;
+
+    // Returns the pending trigger and clears it, so a second hit this turn (or any later turn)
+    // does not refire it until granted again.
+    public object? ConsumePendingOnNextDamageTaken()
+    {
+        var trigger = PendingOnNextDamageTaken;
+        PendingOnNextDamageTaken = null;
+        return trigger;
+    }
+
+    public void SetPendingOnNextRicochet(object? trigger) => PendingOnNextRicochet = trigger;
+
+    public object? ConsumePendingOnNextRicochet()
+    {
+        var trigger = PendingOnNextRicochet;
+        PendingOnNextRicochet = null;
+        return trigger;
+    }
+
     // Folds `other` into this creature: health and max health sum, typings union, and the
     // merged-from lists concatenate. The caller is responsible for checking legality
     // (adjacency, merge depth) and for removing `other` from the board.
@@ -250,7 +333,8 @@ public sealed class CreatureInstance
 
     public CreatureInstance Clone() =>
         new(CardId, Health, MaxHealth, Types, [.. _mergedFrom], _movesUsedThisTurn, Keywords,
-            RicochetDirection, IsStunned, NextAttackBonus, NextDamageTakenBonus);
+            RicochetDirection, IsStunned, NextAttackBonus, NextDamageTakenBonus, AttackBuff,
+            PlayCost, _tauntExpiresNextTurn, PendingOnNextDamageTaken, PendingOnNextRicochet);
 
     public override string ToString() =>
         $"{CardId} [{Types}] {Health}/{MaxHealth}{(IsMerged ? $" (merged x{MergeDepth})" : string.Empty)}";

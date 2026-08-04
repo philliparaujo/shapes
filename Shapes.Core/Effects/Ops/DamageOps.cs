@@ -17,19 +17,38 @@ internal sealed class DamageOp : EffectOp
     }
 }
 
-// How damage_scaled computes its base amount before the shared resolution path.
+// How damage_scaled (and gain_resource_scaled/heal_scaled, which share this enum) compute their
+// base amount before their own resolution path.
 internal enum DamageScale
 {
     Health,
     Count,
     HandSize,
+    SelectorHealth,
+    HandComposition,
+    Resource,
 }
 
-// { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 1 }
+// { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 1,
+//   "divisor": 1 }
 //
-// "health": base = source creature's current health * multiplier.
+// "health": base = SOURCE creature's current health * multiplier / divisor (T Swarm: "1 per 2
+//   health" is scale health, divisor 2; Monk: "damage equal to health" is scale health,
+//   multiplier 1).
 // "count": base = number of friendly creatures * multiplier.
 // "hand_size": base = controller's hand size * multiplier.
+// "selector_health": base = the health of whichever creature `health_source` resolves to --
+//   NOT necessarily the creature being hit (that is `target`) and not necessarily the move's
+//   own source (that is scale "health"). Worshipper: "damage [an enemy] equal to the LEFT
+//   FRIENDLY's health" is target:opposing, scale:selector_health, health_source:left_friendly
+//   -- three independent slots (attacker, health source, victim) needed three independent
+//   selectors, which is exactly why this is not folded into "health" or "target".
+// "resource": base = the controller's current amount of `resource_type` (Champion T: "deal 1
+//   for each spike [resource]"). Needs its own argument, "resource_type", since "target" is
+//   already the damage target -- see ComputeBase.
+//
+// "divisor" defaults to 1 and applies via integer division, after the multiplier: T Swarm's
+// "1 damage per 2 health" needs the floor, not a fraction, so 5 health deals 2, not 2.5.
 internal sealed class DamageScaledOp : EffectOp
 {
     public override string Name => "damage_scaled";
@@ -38,27 +57,59 @@ internal sealed class DamageScaledOp : EffectOp
     {
         var scale = ParseScale(args.String("scale"));
         var multiplier = args.IntOrDefault("multiplier", 1);
-        var amount = ComputeBase(ctx, scale) * multiplier;
+        var divisor = args.IntOrDefault("divisor", 1);
+        var selector = args.Target();
+        var resourceType = args.Has("resource_type")
+            ? GainResourceOp.ParseResourceType(args.String("resource_type"))
+            : (ResourceType?)null;
+        var healthSource = args.Has("health_source")
+            ? args.Target("health_source")
+            : (TargetSelector?)null;
 
-        foreach (var slot in TargetResolver.Resolve(ctx, args.Target()))
+        foreach (var slot in TargetResolver.Resolve(ctx, selector))
         {
+            var amount = ComputeBase(ctx, scale, resourceType, healthSource) * multiplier / divisor;
             CombatResolver.DealDamage(ctx, slot, amount);
         }
     }
 
-    private static int ComputeBase(EffectContext ctx, DamageScale scale) => scale switch
+    // `resourceType` is meaningful for HandComposition (how many hand cards cost that type) and
+    // Resource (how much of that resource the controller currently holds). `healthSource` is
+    // meaningful only for SelectorHealth: it names a DIFFERENT selector to resolve and read the
+    // health of, independent of whatever `target` this call is hitting. Every other scale
+    // ignores whichever of the two it doesn't need.
+    internal static int ComputeBase(
+        EffectContext ctx, DamageScale scale, ResourceType? resourceType = null,
+        TargetSelector? healthSource = null) => scale switch
     {
         DamageScale.Health => ctx.SourceCreature?.Health ?? 0,
         DamageScale.Count => ctx.State.Board.CountCreatures(ctx.ControllingPlayer),
         DamageScale.HandSize => ctx.State[ctx.ControllingPlayer].Hand.Count,
+        DamageScale.SelectorHealth => ResolveSelectorHealth(ctx, healthSource),
+        DamageScale.HandComposition => resourceType is { } t ? ctx.HandComposition[t] : 0,
+        DamageScale.Resource => resourceType is { } r ? ctx.State[ctx.ControllingPlayer].Resources[r] : 0,
         _ => throw new ArgumentOutOfRangeException(nameof(scale), scale, "Unknown damage scale."),
     };
 
-    private static DamageScale ParseScale(string raw) => raw switch
+    private static int ResolveSelectorHealth(EffectContext ctx, TargetSelector? healthSource)
+    {
+        if (healthSource is not { } selector)
+        {
+            throw new ArgumentException("scale 'selector_health' requires a 'health_source' argument.");
+        }
+
+        var slots = TargetResolver.Resolve(ctx, selector);
+        return slots.Count == 1 ? ctx.State.Board[slots[0]]?.Health ?? 0 : 0;
+    }
+
+    internal static DamageScale ParseScale(string raw) => raw switch
     {
         "health" => DamageScale.Health,
         "count" => DamageScale.Count,
         "hand_size" => DamageScale.HandSize,
-        _ => throw new ArgumentException($"Unknown damage_scaled scale '{raw}'."),
+        "selector_health" => DamageScale.SelectorHealth,
+        "hand_composition" => DamageScale.HandComposition,
+        "resource" => DamageScale.Resource,
+        _ => throw new ArgumentException($"Unknown scale '{raw}'."),
     };
 }

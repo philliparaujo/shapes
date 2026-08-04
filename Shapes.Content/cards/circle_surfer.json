@@ -1,0 +1,26 @@
+{
+  "id": "circle_surfer",
+  "name": "Circle Surfer",
+  "kind": "creature",
+  "cost": { "wheel": 3 },
+  "health": 4,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Wipeout",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "discard", "amount": 2 },
+        { "op": "damage", "target": "all_enemies", "amount": 3 }
+      ]
+    },
+    {
+      "name": "Cutback",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 },
+        { "op": "draw", "amount": 1 }
+      ]
+    }
+  ]
+}

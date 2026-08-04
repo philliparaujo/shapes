@@ -84,4 +84,38 @@ public class CardOpTests
         Assert.Equal(3, state[PlayerId.One].Hand.Count);
         Assert.Single(state[PlayerId.One].Deck); // untouched, not negative draw
     }
+
+    [Fact]
+    public void Draw_scaled_draws_one_per_creature_destroyed_this_turn()
+    {
+        // Gravewarden: "draw 1 for each creature destroyed this turn".
+        var (state, ctx) = Setup(deck: ["a", "b", "c"]);
+        state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, PlayerId.Two, new SlotIndex(PlayerId.Two, 0), "x");
+        state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, PlayerId.One, new SlotIndex(PlayerId.One, 1), "y");
+
+        EffectInterpreter.Apply(Eff.Node("draw_scaled", ("scale", "destroyed_this_turn"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(2, state[PlayerId.One].Hand.Count);
+    }
+
+    [Fact]
+    public void Draw_scaled_ignores_creature_played_events()
+    {
+        var (state, ctx) = Setup(deck: ["a", "b"]);
+        state.RecordTurnEvent(TurnEventKind.CreaturePlayed, PlayerId.One, new SlotIndex(PlayerId.One, 0), "x");
+
+        EffectInterpreter.Apply(Eff.Node("draw_scaled", ("scale", "destroyed_this_turn"), ("multiplier", 1)), ctx);
+
+        Assert.Empty(state[PlayerId.One].Hand);
+    }
+
+    [Fact]
+    public void Draw_scaled_with_no_destroys_this_turn_draws_nothing()
+    {
+        var (state, ctx) = Setup(deck: ["a"]);
+
+        EffectInterpreter.Apply(Eff.Node("draw_scaled", ("scale", "destroyed_this_turn"), ("multiplier", 1)), ctx);
+
+        Assert.Empty(state[PlayerId.One].Hand);
+    }
 }

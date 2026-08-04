@@ -81,4 +81,41 @@ public class HealthOpTests
         Assert.Equal(0, creature.Health);
         Assert.True(creature.IsDead);
     }
+
+    [Fact]
+    public void Heal_scaled_by_hand_size_targets_a_chosen_friendly()
+    {
+        // Anchor: "+1 health to a friendly for each card in hand".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "caster", TypeMask.Anvil)
+                      .Slot(1, "hurt", TypeMask.Anvil, maxHealth: 10, health: 2)
+                      .Hand("a", "b", "c"))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null)
+            .WithChosenTarget(new SlotIndex(PlayerId.One, 1));
+
+        EffectInterpreter.Apply(
+            Eff.Node("heal_scaled", ("target", "chosen_friendly"), ("scale", "hand_size"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(5, state.Board[new SlotIndex(PlayerId.One, 1)]!.Health);
+    }
+
+    [Fact]
+    public void Heal_scaled_by_a_third_creatures_health_via_health_source()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "healer", TypeMask.Anvil)
+                      .Slot(1, "source", TypeMask.Anvil, maxHealth: 5, health: 4)
+                      .Slot(2, "hurt", TypeMask.Anvil, maxHealth: 10, health: 2))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null)
+            .WithChosenTarget(new SlotIndex(PlayerId.One, 2));
+
+        EffectInterpreter.Apply(
+            Eff.Node("heal_scaled", ("target", "chosen_friendly"), ("scale", "selector_health"),
+                ("health_source", "right_friendly")),
+            ctx);
+
+        Assert.Equal(6, state.Board[new SlotIndex(PlayerId.One, 2)]!.Health); // 2 + source's health (4)
+    }
 }

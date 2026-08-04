@@ -123,7 +123,8 @@ public class BoardTests
 
         var removed = board.RemoveDead();
 
-        Assert.Equal([P1(0)], removed);
+        Assert.Equal([P1(0)], removed.Select(r => r.Slot));
+        Assert.Same(dying, removed[0].Creature);
         Assert.True(board.IsEmpty(P1(0)));
         Assert.True(board.IsOccupied(P1(1)));
     }

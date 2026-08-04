@@ -23,6 +23,7 @@ public static class TargetResolver
             TargetSelector.Self => ctx.SourceSlot is { } self ? [self] : [],
             TargetSelector.Opposing => ResolveOpposing(ctx),
             TargetSelector.LeftFriendly => ResolveLeftFriendly(ctx),
+            TargetSelector.RightFriendly => ResolveRightFriendly(ctx),
             TargetSelector.AllEnemies => ctx.State.Board.CreaturesOf(ctx.ControllingPlayer.Opponent())
                 .Select(c => c.Slot).ToList(),
             TargetSelector.AllFriendlies => ctx.State.Board.CreaturesOf(ctx.ControllingPlayer)
@@ -53,6 +54,17 @@ public static class TargetResolver
 
         var left = new SlotIndex(self.Owner, self.Slot - 1);
         return ctx.State.Board.IsOccupied(left) ? [left] : [];
+    }
+
+    private static IReadOnlyList<SlotIndex> ResolveRightFriendly(EffectContext ctx)
+    {
+        if (ctx.SourceSlot is not { } self || self.Slot == SlotIndex.SlotsPerPlayer - 1)
+        {
+            return [];
+        }
+
+        var right = new SlotIndex(self.Owner, self.Slot + 1);
+        return ctx.State.Board.IsOccupied(right) ? [right] : [];
     }
 
     // Legal candidates for a chosen_* selector -- what legal-action generation expands into

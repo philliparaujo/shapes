@@ -1,0 +1,9 @@
+{
+  "id": "suffocate",
+  "name": "Suffocate",
+  "kind": "spell",
+  "cost": { "wheel": 4 },
+  "effects": [
+    { "op": "destroy_refund_cost", "target": "chosen_enemy" }
+  ]
+}

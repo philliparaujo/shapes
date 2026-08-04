@@ -33,6 +33,9 @@ public sealed class EffectArgs
     public string StringOrDefault(string key, string fallback) =>
         Has(key) ? String(key) : fallback;
 
+    public bool BoolOrDefault(string key, bool fallback) =>
+        Has(key) ? Convert.ToBoolean(Require(key)) : fallback;
+
     public TargetSelector Target(string key = "target") => ParseSelector(String(key));
 
     public static TargetSelector ParseSelector(string raw) => raw switch
@@ -40,6 +43,7 @@ public sealed class EffectArgs
         "self" => TargetSelector.Self,
         "opposing" => TargetSelector.Opposing,
         "left_friendly" => TargetSelector.LeftFriendly,
+        "right_friendly" => TargetSelector.RightFriendly,
         "all_enemies" => TargetSelector.AllEnemies,
         "all_friendlies" => TargetSelector.AllFriendlies,
         "chosen_enemy" => TargetSelector.ChosenEnemy,

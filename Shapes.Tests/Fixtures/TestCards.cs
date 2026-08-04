@@ -23,7 +23,7 @@ public static class TestCards
     // Its move requires a player-chosen enemy: the expansion case.
     public const string Chooser = "test_chooser";
 
-    // Its move is gated on self_at_full_health: the condition case.
+    // Its move is gated on creature_state(self, full_health): the condition case.
     public const string Gated = "test_gated";
 
     // A free (zero-cost) move: affordability must not accidentally exclude it.
@@ -35,6 +35,10 @@ public static class TestCards
     // A spell with no target, and one requiring a chosen enemy.
     public const string Bolt = "test_bolt";
     public const string TargetedBolt = "test_targeted_bolt";
+
+    // A spell using gain_resource_scaled(hand_composition) -- the Rally shape: ActionExecutor
+    // must precompute EffectContext.HandComposition, not just wire the op itself.
+    public const string RallyLike = "test_rally_like";
 
     public static CardDatabase Database { get; } = new(
     [
@@ -51,7 +55,7 @@ public static class TestCards
 
         Creature(Gated, 1, TypeMask.Wheel, health: 2,
             Move("Scout", Cost(wheel: 1),
-                condition: Eff.Node("self_at_full_health"),
+                condition: Eff.Node("creature_state", ("target", "self"), ("check", "full_health")),
                 effects: [Eff.Node("draw", ("amount", 1))])),
 
         Creature(FreeMove, 1, TypeMask.Spike, health: 2,
@@ -64,6 +68,9 @@ public static class TestCards
         Spell(Bolt, 1, Eff.Node("draw", ("amount", 1))),
 
         Spell(TargetedBolt, 1, Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 2))),
+
+        Spell(RallyLike, 1,
+            Eff.Node("gain_resource_scaled", ("type", "spike"), ("scale", "hand_composition"), ("multiplier", 2))),
     ]);
 
     public static ResourcePool Cost(int spike = 0, int anvil = 0, int wheel = 0) =>

@@ -62,18 +62,22 @@ public static class ActionExecutor
                 ?? throw new InvalidOperationException(
                     $"Creature '{card.Id}' was played without a target slot.");
 
-            state.Board.Place(slot, new CreatureInstance(card.Id, card.Health, card.Types));
+            // PlayCost is captured here, at the moment the card leaves hand and becomes a
+            // creature, so destroy_refund_cost can read it later without a CardDatabase lookup.
+            state.Board.Place(
+                slot, new CreatureInstance(card.Id, card.Health, card.Types, playCost: card.Cost));
+            state.RecordTurnEvent(TurnEventKind.CreaturePlayed, action.Player, slot, card.Id);
 
             // No summoning sickness: the creature may act this turn. Nothing to do here -- its
             // move-usage bitmask starts clear -- but the absence is deliberate, so it is stated.
-            ResolveEffects(state, card.Effects, action.Player, slot, action.ChosenTarget, null);
+            ResolveEffects(state, cards, card.Effects, action.Player, slot, action.ChosenTarget, null);
             return;
         }
 
         // A spell resolves and is gone. It goes to discard AFTER its effects run so a "count
         // your discard" effect cannot see the card that is still resolving.
         ResolveEffects(
-            state, card.Effects, action.Player, sourceSlot: null, action.ChosenTarget, null);
+            state, cards, card.Effects, action.Player, sourceSlot: null, action.ChosenTarget, null);
 
         player.SendToDiscard(action.CardId);
     }
@@ -103,7 +107,7 @@ public static class ActionExecutor
         creature.MarkMoveUsed(action.MoveIndex);
 
         ResolveEffects(
-            state, move.Effects, action.Player, action.SourceSlot, action.ChosenTarget,
+            state, cards, move.Effects, action.Player, action.SourceSlot, action.ChosenTarget,
             move.AttackType);
     }
 
@@ -170,7 +174,7 @@ public static class ActionExecutor
     // same list, say). The interpreter documents that it does not sweep; this is the layer that
     // does, and doing it per action rather than per effect is what makes that promise true.
     private static void ResolveEffects(
-        GameState state, IReadOnlyList<EffectNode> effects, PlayerId player,
+        GameState state, CardDatabase cards, IReadOnlyList<EffectNode> effects, PlayerId player,
         SlotIndex? sourceSlot, SlotIndex? chosenTarget, ResourceType? moveType)
     {
         if (effects.Count == 0)
@@ -178,9 +182,34 @@ public static class ActionExecutor
             return;
         }
 
-        var ctx = new EffectContext(state, player, sourceSlot, chosenTarget, moveType);
+        var ctx = new EffectContext(
+            state, player, sourceSlot, chosenTarget, moveType, HandComposition(state, cards, player));
         EffectInterpreter.ApplyAll(effects, ctx);
 
-        state.Board.RemoveDead();
+        foreach (var (slot, creature) in state.Board.RemoveDead())
+        {
+            state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, slot.Owner, slot, creature.CardId);
+        }
+    }
+
+    // How many cards in `player`'s hand cost each resource type -- see EffectContext.HandComposition.
+    // Counts CARDS, not resource amounts: a single card costing 2 spike counts once toward
+    // Spike, not twice. A mixed-cost card (a play cost may mix types freely; only a move's cost
+    // must be single-type) counts toward every type it costs.
+    internal static ResourcePool HandComposition(GameState state, CardDatabase cards, PlayerId player)
+    {
+        var spike = 0;
+        var anvil = 0;
+        var wheel = 0;
+
+        foreach (var cardId in state[player].Hand)
+        {
+            var cost = cards.Get(cardId).Cost;
+            if (cost.Spike > 0) spike++;
+            if (cost.Anvil > 0) anvil++;
+            if (cost.Wheel > 0) wheel++;
+        }
+
+        return new ResourcePool(spike, anvil, wheel);
     }
 }

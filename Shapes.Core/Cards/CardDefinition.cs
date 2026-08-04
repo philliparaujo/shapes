@@ -98,7 +98,8 @@ public sealed class MoveDefinition
     // deliberately does not model more than one attacking type.
     public ResourceType? AttackType { get; }
 
-    // Optional gate on using the move at all, e.g. { "op": "self_at_full_health" }. Evaluated
+    // Optional gate on using the move at all, e.g.
+    // { "op": "creature_state", "target": "self", "check": "full_health" }. Evaluated
     // by legal-action generation (step 1.8) -- an unmet condition means the move is not a legal
     // action, rather than a legal action that resolves to nothing.
     public EffectNode? Condition { get; }

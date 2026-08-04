@@ -78,18 +78,19 @@ public sealed class Board
 
     public bool HasRoom(PlayerId player) => SlotIndex.AllFor(player).Any(IsEmpty);
 
-    // Clears dead creatures and reports where they were, so callers can trigger
-    // death-dependent effects (draw-on-destroy and the like).
-    public List<SlotIndex> RemoveDead()
+    // Clears dead creatures and reports where they were (and which creature it was), so callers
+    // can trigger death-dependent effects (draw-on-destroy, the turn's destroyed-creature log,
+    // and the like).
+    public List<(SlotIndex Slot, CreatureInstance Creature)> RemoveDead()
     {
-        var removed = new List<SlotIndex>();
+        var removed = new List<(SlotIndex, CreatureInstance)>();
 
         foreach (var (slot, creature) in AllCreatures().ToList())
         {
             if (creature.IsDead)
             {
                 _slots[slot.ToFlatIndex()] = null;
-                removed.Add(slot);
+                removed.Add((slot, creature));
             }
         }
 

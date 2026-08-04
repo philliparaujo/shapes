@@ -56,7 +56,7 @@ public class CardValidationTests
             { "id": "sneaky", "name": "Sneaky", "kind": "spell",
               "effects": [
                 { "op": "conditional",
-                  "condition": { "op": "self_at_full_health" },
+                  "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
                   "then": [ { "op": "draw", "amount": 1 } ],
                   "else": [ { "op": "teleport" } ] }
               ] }
@@ -167,7 +167,7 @@ public class CardValidationTests
               "effects": [
                 { "op": "damage", "target": "chosen_enemy", "amount": 1 },
                 { "op": "conditional",
-                  "condition": { "op": "self_at_full_health" },
+                  "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
                   "then": [ { "op": "heal", "target": "chosen_friendly", "amount": 1 } ] }
               ] }
             """);

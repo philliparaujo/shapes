@@ -1,4 +1,32 @@
+using Shapes.Core.State;
+
 namespace Shapes.Core.Effects.Ops;
+
+// { "op": "draw_scaled", "scale": "destroyed_this_turn", "multiplier": 1 }
+//
+// The one scale outside DamageScaledOp's shared vocabulary: how many creatures were destroyed
+// THIS TURN (either side, any cause -- combat death or a direct destroy effect), read from
+// GameState.TurnEvents. Gravewarden: "draw 1 for each creature destroyed this turn". Kept
+// separate from DamageScale rather than folded in, since nothing else in the vocabulary counts
+// turn events and damage_scaled/gain_resource_scaled/heal_scaled have no use for it.
+internal sealed class DrawScaledOp : EffectOp
+{
+    public override string Name => "draw_scaled";
+
+    public override void Apply(EffectContext ctx, EffectArgs args)
+    {
+        var scale = args.String("scale");
+        if (scale != "destroyed_this_turn")
+        {
+            throw new ArgumentException($"Unknown draw_scaled scale '{scale}'.");
+        }
+
+        var multiplier = args.IntOrDefault("multiplier", 1);
+        var destroyed = ctx.State.TurnEvents.Count(e => e.Kind == TurnEventKind.CreatureDestroyed);
+
+        ctx.State[ctx.ControllingPlayer].Draw(destroyed * multiplier);
+    }
+}
 
 // { "op": "draw", "amount": 1 } -- always the controlling player's own deck/hand.
 internal sealed class DrawOp : EffectOp

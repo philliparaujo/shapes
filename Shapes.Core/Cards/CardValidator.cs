@@ -127,18 +127,49 @@ public static class CardValidator
     private static int CostTypeCount(ResourcePool cost) =>
         ResourceTypes.All.Count(t => cost[t] > 0);
 
+    private static readonly string[] KnownCreatureStateChecks = ["damaged", "full_health", "unopposed"];
+
     private static void ValidateCondition(EffectNode condition, string at)
     {
         // Conditions are a separate tiny vocabulary from effect ops -- ConditionEvaluator owns
-        // it, and it holds exactly one predicate so far. Listing it here would create the
-        // second list the registry pattern exists to avoid, so instead this only rejects the
-        // case where a condition names a known EFFECT op, which is the confusion an author is
-        // actually likely to hit.
+        // it. Listing every predicate NAME here would create the second list the registry
+        // pattern exists to avoid, so this only rejects the confusion an author is actually
+        // likely to hit: naming a known EFFECT op where a predicate belongs.
         if (EffectRegistry.IsKnown(condition.Op))
         {
             throw new CardValidationException(
                 $"{at} names the effect op '{condition.Op}'. A condition takes a predicate " +
-                "(e.g. 'self_at_full_health'), not an effect.");
+                "(e.g. 'creature_state'), not an effect.");
+        }
+
+        if (condition.Op != "creature_state")
+        {
+            throw new CardValidationException(
+                $"{at} uses unknown condition predicate '{condition.Op}'. The only predicate is 'creature_state'.");
+        }
+
+        // Parsing the target here, same as ValidateEffect does for an effect's own "target",
+        // means a typo'd selector on a CONDITION fails at load rather than the first time the
+        // gated move is evaluated.
+        if (condition.Args.Has("target"))
+        {
+            try
+            {
+                condition.Args.Target();
+            }
+            catch (ArgumentException ex)
+            {
+                throw new CardValidationException($"{at}: {ex.Message}");
+            }
+        }
+
+        var check = condition.Args.String("check");
+        if (!KnownCreatureStateChecks.Contains(check, StringComparer.Ordinal)
+            && !check.StartsWith("health_at_most:", StringComparison.Ordinal))
+        {
+            throw new CardValidationException(
+                $"{at} uses unknown creature_state check '{check}'. Known checks: " +
+                $"{string.Join(", ", KnownCreatureStateChecks)}, or 'health_at_most:<n>'.");
         }
     }
 

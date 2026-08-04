@@ -2,13 +2,12 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Core.Effects.Ops;
 
-// { "op": "conditional", "condition": { "predicate": "self_at_full_health" },
+// { "op": "conditional",
+//   "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
 //   "then": [ ... ], "else": [ ... ] }
 //
-// "else" is optional; an unmet condition with no "else" is a no-op. Only one predicate exists
-// so far -- the plan's own card example uses just this one -- so ConditionEvaluator is a
-// single-case switch rather than a general boolean-expression language, extended when a real
-// card (step 1.10) needs a second predicate.
+// "else" is optional; an unmet condition with no "else" is a no-op. See ConditionEvaluator for
+// the predicate vocabulary.
 internal sealed class ConditionalOp : EffectOp
 {
     public override string Name => "conditional";

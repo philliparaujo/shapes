@@ -24,7 +24,7 @@ public class ControlFlowOpTests
 
         EffectInterpreter.Apply(
             Eff.Node("conditional",
-                ("condition", Eff.Node("self_at_full_health")),
+                ("condition", Eff.Node("creature_state", ("target", "self"), ("check", "full_health"))),
                 ("then", new[] { Eff.Node("draw", ("amount", 1)) })),
             ctx);
 
@@ -38,7 +38,7 @@ public class ControlFlowOpTests
 
         EffectInterpreter.Apply(
             Eff.Node("conditional",
-                ("condition", Eff.Node("self_at_full_health")),
+                ("condition", Eff.Node("creature_state", ("target", "self"), ("check", "full_health"))),
                 ("then", new[] { Eff.Node("draw", ("amount", 5)) }),
                 ("else", new[] { Eff.Node("draw", ("amount", 1)) })),
             ctx);
@@ -53,7 +53,7 @@ public class ControlFlowOpTests
 
         EffectInterpreter.Apply(
             Eff.Node("conditional",
-                ("condition", Eff.Node("self_at_full_health")),
+                ("condition", Eff.Node("creature_state", ("target", "self"), ("check", "full_health"))),
                 ("then", new[] { Eff.Node("draw", ("amount", 5)) })),
             ctx);
 

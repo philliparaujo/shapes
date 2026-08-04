@@ -1,0 +1,25 @@
+{
+  "id": "circle_bender",
+  "name": "Circle Bender",
+  "kind": "creature",
+  "cost": { "wheel": 2 },
+  "health": 2,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Anticipate",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "on_next_ricochet", "target": "self",
+          "effect": { "op": "gain_resource", "type": "wheel", "amount": 3 } }
+      ]
+    },
+    {
+      "name": "Deflect",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "grant_keyword", "target": "self", "keyword": "ricochet", "direction": "right" }
+      ]
+    }
+  ]
+}

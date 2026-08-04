@@ -408,6 +408,87 @@ public class ActionExecutorTests
         Assert.Equal(TurnPhase.Ended, state.Phase);
     }
 
+    // -- Turn-loop plumbing: PlayCost capture and the turn event log ------------------------
+
+    [Fact]
+    public void Playing_a_creature_captures_its_play_cost_on_the_instance()
+    {
+        // destroy_refund_cost reads this later without a CardDatabase lookup -- see Suffocate.
+        var state = new StateBuilder()
+            .P1(p => p.Hand(TestCards.Striker).Resources(wheel: 3))
+            .Build();
+        var slot = new SlotIndex(PlayerId.One, 0);
+
+        Apply(state, new PlayCardAction(PlayerId.One, TestCards.Striker, slot));
+
+        Assert.Equal(new ResourcePool(0, 0, 1), state.Board[slot]!.PlayCost);
+    }
+
+    [Fact]
+    public void Playing_a_creature_records_a_turn_event()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Hand(TestCards.Striker).Resources(wheel: 3))
+            .Build();
+        var slot = new SlotIndex(PlayerId.One, 0);
+
+        Apply(state, new PlayCardAction(PlayerId.One, TestCards.Striker, slot));
+
+        Assert.Contains(state.TurnEvents, e =>
+            e.Kind == TurnEventKind.CreaturePlayed && e.Slot == slot && e.CardId == TestCards.Striker);
+    }
+
+    [Fact]
+    public void A_lethal_move_records_a_destroyed_turn_event_via_the_dead_sweep()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, TestCards.Striker, TypeMask.Wheel).Resources(wheel: 3))
+            .P2(p => p.Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 1))
+            .Build();
+
+        Apply(state, new UseMoveAction(PlayerId.One, new SlotIndex(PlayerId.One, 0), 0));
+
+        Assert.Contains(state.TurnEvents, e =>
+            e.Kind == TurnEventKind.CreatureDestroyed && e.Slot == new SlotIndex(PlayerId.Two, 0));
+    }
+
+    [Fact]
+    public void Ending_the_turn_clears_the_turn_event_log()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Hand(TestCards.Striker).Resources(wheel: 3))
+            .Build();
+        Apply(state, new PlayCardAction(PlayerId.One, TestCards.Striker, new SlotIndex(PlayerId.One, 0)));
+        Assert.NotEmpty(state.TurnEvents);
+
+        Apply(state, new EndTurnAction(PlayerId.One));
+
+        Assert.Empty(state.TurnEvents);
+    }
+
+    [Fact]
+    public void Playing_a_spell_computes_hand_composition_from_the_remaining_hand()
+    {
+        // The Rally shape: ActionExecutor must precompute EffectContext.HandComposition from
+        // CardDatabase before the effect runs, since Shapes.Core.Effects itself has no Cards
+        // dependency to compute it. The card being played is already removed from hand by the
+        // time this runs (see ApplyPlayCard), so it must not count itself.
+        var state = new StateBuilder()
+            .P1(p => p.Hand(TestCards.RallyLike, TestCards.Striker, TestCards.TwoMove)
+                      .Resources(wheel: 3, spike: 3))
+            .Build();
+
+        Apply(state, new PlayCardAction(PlayerId.One, TestCards.RallyLike));
+
+        // RallyLike costs 1 wheel to play. HandComposition[Spike] counts hand cards whose cost
+        // includes spike -- faithful to Rally's real text ("per SPIKE card in hand"), not just
+        // hand size. Of the two cards left in hand after RallyLike is removed, only TwoMove
+        // (spike-cost) qualifies; Striker costs wheel. So gain 2 * 1 = 2, added to the 3 already
+        // held.
+        Assert.Equal(2, state[PlayerId.One].Resources.Wheel);
+        Assert.Equal(5, state[PlayerId.One].Resources.Spike);
+    }
+
     // -- Action identity -------------------------------------------------------------------
 
     [Fact]

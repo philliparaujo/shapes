@@ -1,0 +1,25 @@
+{
+  "id": "monk",
+  "name": "Monk",
+  "kind": "creature",
+  "cost": { "anvil": 1 },
+  "health": 3,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Recover",
+      "cost": { "anvil": 1 },
+      "condition": { "op": "creature_state", "target": "self", "check": "damaged" },
+      "effects": [
+        { "op": "heal", "target": "self", "amount": 4 }
+      ]
+    },
+    {
+      "name": "Palm Strike",
+      "cost": { "anvil": 3 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 1 }
+      ]
+    }
+  ]
+}

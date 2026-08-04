@@ -1,3 +1,6 @@
+using Shapes.Core.Primitives;
+using Shapes.Core.State;
+
 namespace Shapes.Core.Effects;
 
 // Evaluates the predicate vocabulary -- a separate, much smaller language from the effect ops.
@@ -15,10 +18,14 @@ namespace Shapes.Core.Effects;
 // legal list, or the search wastes iterations on edges that change nothing, and the console
 // offers the player a move that visibly does nothing when chosen.
 //
-// One predicate exists so far -- the plan's own card example uses just this one -- so this is a
-// single-case switch rather than a general boolean-expression language. It grows when a real
-// card (step 1.10) needs a second predicate. Unknown predicates throw rather than defaulting to
-// false: a typo that silently made every gated move illegal would be near-invisible.
+// A single generic predicate, `creature_state`, rather than one bespoke name per card need
+// (self_at_full_health, target_damaged, self_unopposed, ...): every predicate step 1.10's card
+// set needs is "is the creature at THIS target in THIS state", so the target selector and the
+// state check are both arguments rather than baked into the op name. This reuses the same
+// small state vocabulary ForEachOp's "filter" already has (damaged/full_health/type:<x>),
+// extended with "unopposed" and "health_at_most:<n>". Unknown checks and targets that resolve
+// to no creature both throw/fail rather than silently defaulting to false: a typo that made
+// every gated move illegal would otherwise be near-invisible.
 public static class ConditionEvaluator
 {
     public static bool Evaluate(EffectContext ctx, EffectNode condition)
@@ -26,10 +33,48 @@ public static class ConditionEvaluator
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(condition);
 
-        return condition.Op switch
+        if (condition.Op != "creature_state")
         {
-            "self_at_full_health" => ctx.SourceCreature is { IsDamaged: false },
-            _ => throw new ArgumentException($"Unknown condition predicate '{condition.Op}'."),
-        };
+            throw new ArgumentException($"Unknown condition predicate '{condition.Op}'.");
+        }
+
+        var selector = condition.Args.Target();
+        var check = condition.Args.String("check");
+
+        // "unopposed" asks about the FACING slot of the source creature, not any target
+        // creature's own fields -- "no one is across from THIS" only makes sense for self, so
+        // it is the one check that does not resolve `selector` to a creature at all.
+        if (check == "unopposed")
+        {
+            if (selector != TargetSelector.Self)
+            {
+                throw new ArgumentException("creature_state check 'unopposed' only supports target 'self'.");
+            }
+
+            return TargetResolver.Resolve(ctx, TargetSelector.Opposing).Count == 0;
+        }
+
+        var slots = TargetResolver.Resolve(ctx, selector);
+        if (slots.Count != 1)
+        {
+            // No creature at that target (an empty opposing slot, a left_friendly from slot 0,
+            // etc.) -- the state being checked cannot hold of a creature that is not there.
+            return false;
+        }
+
+        var creature = ctx.State.Board[slots[0]]
+            ?? throw new InvalidOperationException(
+                $"creature_state target '{selector}' resolved to an empty slot.");
+
+        return MatchesCheck(creature, check);
     }
+
+    private static bool MatchesCheck(CreatureInstance creature, string check) => check switch
+    {
+        "damaged" => creature.IsDamaged,
+        "full_health" => !creature.IsDamaged,
+        _ when check.StartsWith("health_at_most:", StringComparison.Ordinal) =>
+            creature.Health <= int.Parse(check["health_at_most:".Length..]),
+        _ => throw new ArgumentException($"Unknown creature_state check '{check}'."),
+    };
 }

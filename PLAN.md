@@ -7,14 +7,15 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 9 / 14     |
+| 1 — Playable engine            | 10 / 14    |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-429 tests passing.
+555 tests passing.
 
-**Next up: step 1.10** — enter all ~36 cards from the references as JSON.
+**Next up: step 1.11** — console client: render board/hands/resources, numbered legal actions,
+hotseat play.
 
 ## 0. Confirmed ruleset
 
@@ -223,19 +224,22 @@ The effect vocabulary needed to express all ~36 referenced cards:
 
 | Category   | Ops                                                                    |
 |------------|------------------------------------------------------------------------|
-| Damage     | `damage`, `damage_scaled` (×health / ×count / ×hand-size)              |
-| Health     | `heal`, `heal_to_full`, `set_health`, `buff_max_health`, `self_damage` |
-| Cards      | `draw`, `discard`, `draw_up_to`                                        |
-| Resources  | `gain_resource`, `gain_next_turn`                                      |
-| Board      | `destroy`, `summon`                                                    |
-| Status     | `grant_keyword` (taunt / reflect / ricochet / pierce), `stun`          |
-| Modifiers  | `next_attack_bonus`, `next_damage_taken_bonus`                         |
-| Control    | `conditional`, `for_each` (over creatures / hand / damaged / types)    |
+| Damage     | `damage`, `damage_scaled` (×health / ×target's-health / ×count / ×hand-size / ×hand-composition / ×resource-held, each with an optional integer `divisor`) |
+| Health     | `heal`, `heal_scaled`, `heal_to_full`, `set_health`, `buff_max_health`, `self_damage` |
+| Cards      | `draw`, `draw_scaled` (×creatures destroyed this turn), `discard`, `draw_up_to` |
+| Resources  | `gain_resource`, `gain_resource_scaled`, `gain_next_turn`              |
+| Board      | `destroy`, `destroy_refund_cost`, `summon`                             |
+| Status     | `grant_keyword` (taunt, with an optional until-next-turn expiry / reflect / ricochet / pierce), `stun`, `on_next_damage_taken`, `on_next_ricochet` (reactive triggers: arm a nested effect that fires once, on the next hit or redirect) |
+| Modifiers  | `attack_buff` (persistent, cumulative), `next_attack_bonus`, `next_damage_taken_bonus` |
+| Control    | `conditional` (predicate: the generic `creature_state(target, check)`), `for_each` (over creatures / hand / damaged / types) |
 
-Targeting is a small selector language: `self`, `opposing`, `left_friendly`,
+Targeting is a small selector language: `self`, `opposing`, `left_friendly`, `right_friendly`,
 `all_enemies`, `all_friendlies`, `chosen_enemy`, `chosen_friendly`. Selectors that require a
 player choice (`chosen_*`) expand into distinct legal actions — which is exactly what MCTS
-needs to enumerate.
+needs to enumerate. A handful of ops (`damage_scaled`'s `health_source`, `heal_scaled`'s same)
+take a SECOND, independent selector alongside `target` when the amount and the recipient are
+different creatures — see step 1.10's notes on Worshipper for why that needed its own argument
+rather than overloading `target`.
 
 #### Single-target rule (design constraint)
 
@@ -249,9 +253,9 @@ target *and then* an enemy target. This is a deliberate design constraint with t
 - **The UI is simpler** in Phase 4: a single target-selection state, no multi-step targeting
   flow to build or cancel out of.
 
-Non-chosen selectors are unaffected — `all_enemies`, `self`, `opposing`, and `left_friendly`
-are automatic and may freely combine with one `chosen_*` selector. The restriction applies
-only to *player choices*.
+Non-chosen selectors are unaffected — `all_enemies`, `self`, `opposing`, `left_friendly`, and
+`right_friendly` are automatic and may freely combine with one `chosen_*` selector. The
+restriction applies only to *player choices*.
 
 **Enforced at card-load validation:** a card declaring more than one `chosen_*` selector across
 its effect list fails to load. Making this a schema error rather than a convention means it
@@ -450,9 +454,9 @@ makes card data trustworthy, and the one most likely to catch silent Phase 3 cor
 - **Control flow:** `conditional` on both branches; `for_each` over an empty collection is a
   no-op; `for_each` counts match the board.
 - **Targeting selectors:** `self`, `opposing` (with an empty opposing slot), `left_friendly`
-  from slot 0 (no left neighbor — a likely crash site), `all_enemies`, `all_friendlies`; each
-  `chosen_*` selector expands into one legal action **per valid target**, and zero when there
-  are none.
+  from slot 0 and `right_friendly` from the last slot (no neighbor on that side — a likely
+  crash site), `all_enemies`, `all_friendlies`; each `chosen_*` selector expands into one legal
+  action **per valid target**, and zero when there are none.
 - **Multi-effect moves** apply in declared order, and an effect that kills a creature
   mid-sequence doesn't corrupt the remaining effects.
 
@@ -561,6 +565,10 @@ numbers below name the suite that lands with each piece.
   are implemented, plus `conditional` (predicate: `self_at_full_health` only, for now — the
   one case in the plan's own card example) and `for_each` (collections: friendly/enemy/all
   creatures or hand; optional filter: `damaged`, `full_health`, `type:<x>`).
+  <br>*(Superseded by step 1.10: `self_at_full_health` was later generalized into one
+  `creature_state(target, check)` predicate, and the op vocabulary grew by about a dozen ops,
+  once entering the real 36-card set required more than this single-case switch could express.
+  See step 1.10's notes for the full list and the reasoning.)*
   <br>Three status keywords needed real design decisions the plan hadn't pinned down, resolved
   and implemented as: **taunt** restricts `chosen_enemy` targeting to taunted creatures, but
   only for creature-sourced (move) effects — spells ignore it, since there's no creature to be
@@ -717,8 +725,77 @@ numbers below name the suite that lands with each piece.
   <br>`LegalActionSoundnessTests`' inline `ApplyScoring`/`ApplyIncome` workaround is removed now
   that `ActionExecutor` owns it; the property suite plays through phase transitions it previously
   had to drive by hand.
-- [ ] **10. Enter all ~36 cards** from the references as JSON.
+- [x] **10. Enter all ~36 cards** from the references as JSON.
   <br>*tests: generated per-card smoke test — each card playable, each move usable.*
+  <br>*Done: 555 tests. All 36 cards from `references/oldcardsdata.txt` (the clean, three-round
+  source; the PDF/JPGs are its handwritten precursor and agree wherever both exist). Getting
+  them in faithfully required real extensions to the effect vocabulary and engine state, not
+  just JSON authoring — about a third of the set needed a mechanic that did not exist yet:
+  <br>**New `CreatureInstance` state**, added deliberately as plain data (no new dependency on
+  `Effects` — `PendingOnNextDamageTaken`/`PendingOnNextRicochet` are typed `object?` and cast
+  back to `EffectNode` only inside `Effects.Ops`, since `Effects` already depends on `State` and
+  a reverse reference would be a real cycle, not just an inconvenient one): `PlayCost`
+  (captured at play time by `ActionExecutor`, for Suffocate's refund), `AttackBuff` (persistent,
+  cumulative, for Basic Circle's "increase all damage this does"), a taunt-expiry flag (Columns'
+  "taunt until next turn" — `GrantKeyword` takes an `untilNextTurn` bool, cleared by
+  `ResetMovesForNewTurn` alongside stun), and the two pending reactive triggers.
+  <br>**`GameState.TurnEvents`**, a turn-scoped log (not just a counter) of creatures
+  played/destroyed, cleared on `EndTurn`. Feeds Gravewarden's `draw_scaled(destroyed_this_turn)`.
+  Recorded from both death paths — `ActionExecutor`'s once-per-action `RemoveDead` sweep and
+  `DestroyOp`'s immediate removal — so a spell-destroyed creature counts exactly like a
+  combat death.
+  <br>**`ConditionEvaluator` collapsed to one generic predicate**, `creature_state(target, check)`,
+  replacing the single bespoke `self_at_full_health` the plan's own worked example used. Every
+  card needing a condition (full_health, damaged, unopposed, health_at_most:N) is one predicate
+  parameterized by a target selector and a check string, reusing `for_each`'s existing
+  damaged/full_health filter vocabulary rather than growing a second list of named predicates.
+  `circle_cadet.json` and `circle_priest.json` both migrated to it; no behavior changed for the
+  cards already shipped.
+  <br>**`EffectContext.HandComposition`**, a `ResourcePool` of how many hand cards cost each
+  resource type, precomputed by `ActionExecutor` (which already references `CardDatabase`) and
+  passed in as plain data — the same pattern `MoveType` already used to keep `Effects` itself
+  free of any `Cards` reference. This is what makes Rally's real text ("gain 2 spike for each
+  SPIKE card in hand") exact rather than approximated: `gain_resource_scaled`'s
+  `hand_composition` scale reads `HandComposition[type]` using the same `type` the op already
+  takes for which resource to gain, so it counts hand cards by type, not hand size in general.
+  <br>**New ops**: `attack_buff`, `on_next_damage_taken` / `on_next_ricochet` (arm a nested
+  effect that fires once, consumed by `CombatResolver` at the point the triggering event
+  actually happens — reassigning `ControllingPlayer` to the hit creature's own owner via a new
+  `EffectContext.WithSelfAsController`, so the trigger credits the right player, not the
+  attacker), `gain_resource_scaled` / `heal_scaled` / `draw_scaled` (the last reads
+  `TurnEvents`, the other two share `damage_scaled`'s scale vocabulary), and
+  `destroy_refund_cost` (reads the target's `PlayCost`, refunds its OWN controller — Suffocate's
+  "destroy an enemy, the opponent gains resources equal to its cost" is a drawback on the
+  caster, not a bonus).
+  <br>**`damage_scaled` gained**: a `divisor` (integer division, T Swarm's "1 damage per 2
+  health"), a `resource` scale reading the controller's current amount of a named
+  `resource_type` (Champion T: "deal 1 for each spike [resource]" — distinct from
+  `hand_composition`, which counts cards, not resources held), and `selector_health` with a
+  `health_source` argument. That last one needed its own design pass: "damage an enemy equal to
+  a THIRD creature's health" (Worshipper, hitting an enemy for the left friendly's health) needs
+  three independent slots — attacker, health source, victim — so folding the health source into
+  either `target` (who gets hit) or reusing plain `health` (the move's own source) would have
+  been wrong for exactly this card. `health_source` is a second, independent selector argument
+  for precisely that reason.
+  <br>**`TargetSelector.RightFriendly`** added as `LeftFriendly`'s mirror (T Medic's "give the
+  right friendly +3 health").
+  <br>**One real card-text deviation**, recorded because the alternative was breaking the
+  Effects/Cards layering rather than approximating a card: none, in the end — the "obvious"
+  simplification (Rally reduced to "per card in hand") was rejected in favor of the
+  `HandComposition` design above, which makes it exact. The layering rule that actually matters
+  ("`Effects` itself never references `Cards`") does not forbid card-derived data reaching an
+  effect — it only forbids an *op* fetching that data itself. Data computed by a caller that
+  already has both dependencies and handed down as a plain value (`ResourcePool`, same as
+  `MoveType`) costs nothing architecturally.
+  <br>The per-card smoke test (`CardSmokeTests`) generates two `[Theory]` cases per card from
+  `CardDatabase.All` — playable from a suitable state, and (for creatures) every move usable —
+  and is what caught the one class of bug `CardValidator` cannot: a move gated on `full_health`
+  and a move gated on `damaged` existing on different cards both need their own board setup, so
+  the harness tries the tested creature at both full and reduced health and accepts either
+  succeeding, rather than asserting one fixed setup that would fail half the real set.
+  `ContentCardSetTests` gained an explicit `Assert.Equal(36, db.Count)` and a "deck is large
+  enough to sustain a few turns" check, both deferred from step 1.7/1.8 specifically until the
+  full set landed.
 - [ ] **11. Console client:** render board/hands/resources, numbered legal actions, hotseat play.
 - [ ] **12. Debug affordances** the PDF's "Demo reqs" asked for — adjustable score, health,
   manual creature removal, forced draws, resource editing, POV swap. Build these as **console
@@ -733,7 +810,7 @@ numbers below name the suite that lands with each piece.
 
 **Exit criteria:**
 - [ ] Two humans can play a full game to a win at the console.
-- [ ] All ~36 cards implemented.
+- [x] All ~36 cards implemented.
 - [ ] A scripted game replays identically from a seed.
 - [ ] Apply/undo property tests pass.
 - [ ] Every effect op has a passing test.

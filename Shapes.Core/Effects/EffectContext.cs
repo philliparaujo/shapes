@@ -26,9 +26,18 @@ public sealed class EffectContext
     // typeless and always 1x, per the confirmed ruleset.
     public ResourceType? MoveType { get; }
 
+    // How many cards in the controller's hand cost each resource type -- e.g. a hand of two
+    // spike-cost cards and one wheel-cost card is (2, 0, 1). A mixed-cost card counts toward
+    // every type it costs. Precomputed by the caller (ActionExecutor/ActionGenerator, which
+    // already reference CardDatabase) rather than looked up here, the same reason MoveType is
+    // resolved by the caller: Shapes.Core.Effects itself must stay free of any Cards
+    // dependency, so op implementations only ever see plain data, never a card lookup. Used by
+    // `gain_resource_scaled`'s hand_composition scale (Rally).
+    public ResourcePool HandComposition { get; }
+
     public EffectContext(
         GameState state, PlayerId controllingPlayer, SlotIndex? sourceSlot, SlotIndex? chosenTarget,
-        ResourceType? moveType = null)
+        ResourceType? moveType = null, ResourcePool handComposition = default)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -37,6 +46,7 @@ public sealed class EffectContext
         SourceSlot = sourceSlot;
         ChosenTarget = chosenTarget;
         MoveType = moveType;
+        HandComposition = handComposition;
     }
 
     public CreatureInstance? SourceCreature => SourceSlot is { } slot ? State.Board[slot] : null;
@@ -46,12 +56,23 @@ public sealed class EffectContext
     public bool HasCreatureSource => SourceSlot is not null;
 
     public EffectContext WithChosenTarget(SlotIndex? target) =>
-        new(State, ControllingPlayer, SourceSlot, target, MoveType);
+        new(State, ControllingPlayer, SourceSlot, target, MoveType, HandComposition);
 
     // Rebinds "self" to a different slot -- used by for_each so nested effects targeting
     // "self" apply to the creature currently being iterated, not the original move's source.
     // MoveType does not carry over: type effectiveness inside a for_each loop is deliberately
-    // not modeled yet, since nothing in the vocabulary needs a looped attack.
+    // not modeled yet, since nothing in the vocabulary needs a looped attack. ControllingPlayer
+    // is UNCHANGED -- for_each always iterates a collection relative to the original acting
+    // player (friendly/enemy/all from their perspective), so an effect like self_damage or
+    // gain_resource inside the loop is still that player's own action.
     public EffectContext WithSelf(SlotIndex slot) =>
-        new(State, ControllingPlayer, slot, ChosenTarget);
+        new(State, ControllingPlayer, slot, ChosenTarget, handComposition: HandComposition);
+
+    // As WithSelf, but also reassigns ControllingPlayer to whoever owns `slot`. Used by
+    // CombatResolver to fire a reactive trigger (on_next_damage_taken / on_next_ricochet): the
+    // trigger's effect belongs to the creature that was hit, not the original attacker, so
+    // "gain_resource" or "draw" inside it must credit the DEFENDER's controller, not the
+    // acting player who dealt the damage.
+    public EffectContext WithSelfAsController(SlotIndex slot) =>
+        new(State, slot.Owner, slot, ChosenTarget, handComposition: HandComposition);
 }

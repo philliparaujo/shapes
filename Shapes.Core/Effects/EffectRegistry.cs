@@ -20,23 +20,30 @@ public static class EffectRegistry
 
         new HealOp(),
         new HealToFullOp(),
+        new HealScaledOp(),
         new SetHealthOp(),
         new BuffMaxHealthOp(),
         new SelfDamageOp(),
 
         new DrawOp(),
+        new DrawScaledOp(),
         new DiscardOp(),
         new DrawUpToOp(),
 
         new GainResourceOp(),
+        new GainResourceScaledOp(),
         new GainNextTurnOp(),
 
         new DestroyOp(),
+        new DestroyRefundCostOp(),
         new SummonOp(),
 
         new GrantKeywordOp(),
         new StunOp(),
+        new OnNextDamageTakenOp(),
+        new OnNextRicochetOp(),
 
+        new AttackBuffOp(),
         new NextAttackBonusOp(),
         new NextDamageTakenBonusOp(),
 

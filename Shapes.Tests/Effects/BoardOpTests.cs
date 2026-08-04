@@ -67,4 +67,55 @@ public class BoardOpTests
 
         Assert.Equal(3, state.Board.CountCreatures(PlayerId.One));
     }
+
+    [Fact]
+    public void Destroy_refund_cost_removes_the_target_and_pays_its_own_controller()
+    {
+        // Suffocate: destroy an enemy, but ITS controller gets its play cost back.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "caster", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "target", TypeMask.Anvil))
+            .Build();
+        var targetCreature = state.Board[new SlotIndex(PlayerId.Two, 0)]!;
+        // PlayCost is normally set by ActionExecutor.ApplyPlayCard; set it directly for the test.
+        var withCost = new CreatureInstance("target", targetCreature.MaxHealth, targetCreature.Types,
+            playCost: new ResourcePool(0, 2, 0));
+        state.Board.Remove(new SlotIndex(PlayerId.Two, 0));
+        state.Board.Place(new SlotIndex(PlayerId.Two, 0), withCost);
+
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(Eff.Node("destroy_refund_cost", ("target", "opposing")), ctx);
+
+        Assert.True(state.Board.IsEmpty(new SlotIndex(PlayerId.Two, 0)));
+        Assert.Equal(2, state[PlayerId.Two].Resources.Anvil);
+        Assert.Equal(0, state[PlayerId.One].Resources.Anvil); // the CASTER gets nothing
+    }
+
+    [Fact]
+    public void Destroy_refund_cost_with_no_target_present_is_a_no_op()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "caster", TypeMask.Wheel))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(Eff.Node("destroy_refund_cost", ("target", "opposing")), ctx);
+
+        Assert.Equal(ResourcePool.Empty, state[PlayerId.One].Resources);
+    }
+
+    [Fact]
+    public void Destroy_and_destroy_refund_cost_both_record_a_turn_event()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "caster", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "target", TypeMask.Anvil))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(Eff.Node("destroy", ("target", "opposing")), ctx);
+
+        Assert.Contains(state.TurnEvents, e => e.Kind == TurnEventKind.CreatureDestroyed
+            && e.Slot == new SlotIndex(PlayerId.Two, 0));
+    }
 }

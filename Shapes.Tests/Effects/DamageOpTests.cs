@@ -192,4 +192,78 @@ public class DamageOpTests
 
         Assert.Equal(5, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
     }
+
+    [Fact]
+    public void Damage_scaled_by_a_third_creatures_health_via_health_source()
+    {
+        // Worshipper: hit an ENEMY for an amount equal to the LEFT FRIENDLY's health -- three
+        // independent slots (attacker, health source, victim). "health_source" is what lets
+        // scale:selector_health read a creature that is neither the source nor the target.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "left", TypeMask.Anvil, maxHealth: 5, health: 3)
+                      .Slot(1, "caster", TypeMask.Anvil, maxHealth: 9))
+            .P2(p => p.Slot(1, "defender", TypeMask.Spike, maxHealth: 10))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 1), null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "selector_health"),
+                ("health_source", "left_friendly"), ("multiplier", 1)),
+            ctx);
+
+        // The victim (P2 slot 1) takes 3 -- the LEFT FRIENDLY's health, untouched itself.
+        Assert.Equal(7, state.Board[new SlotIndex(PlayerId.Two, 1)]!.Health);
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.One, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Damage_scaled_selector_health_with_no_resolved_health_source_is_zero()
+    {
+        // e.g. left_friendly from slot 0 has no neighbor -- the health source resolves to
+        // nothing, so the amount is 0 rather than throwing.
+        var state = BasicState();
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "selector_health"),
+                ("health_source", "left_friendly"), ("multiplier", 1)),
+            ctx);
+
+        Assert.Equal(5, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Damage_scaled_by_the_controllers_current_resource_count()
+    {
+        // Champion T: "deal 1 for each spike [resource]".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Spike).Resources(spike: 4))
+            .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 10))
+            .Build();
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "resource"),
+                ("resource_type", "spike"), ("multiplier", 1)),
+            ctx);
+
+        Assert.Equal(6, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // 10 - 4
+    }
+
+    [Fact]
+    public void Damage_scaled_applies_a_divisor_by_integer_division()
+    {
+        // T Swarm: "1 damage for each 2 health this has" -- floor, not a fraction.
+        var state = BasicState(p1Health: 8, p2Health: 20);
+        var attacker = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        attacker.TakeDamage(3); // health now 5
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "health"),
+                ("multiplier", 1), ("divisor", 2)),
+            ctx);
+
+        Assert.Equal(18, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // floor(5/2) = 2
+    }
 }

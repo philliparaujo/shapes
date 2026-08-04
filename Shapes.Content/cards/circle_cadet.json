@@ -9,7 +9,7 @@
     {
       "name": "Scout",
       "cost": { "wheel": 1 },
-      "condition": { "op": "self_at_full_health" },
+      "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
       "effects": [
         { "op": "draw", "amount": 1 }
       ]

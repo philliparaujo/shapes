@@ -9,6 +9,7 @@ public enum TargetSelector
     Self,
     Opposing,
     LeftFriendly,
+    RightFriendly,
     AllEnemies,
     AllFriendlies,
     ChosenEnemy,

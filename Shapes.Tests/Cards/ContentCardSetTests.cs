@@ -64,9 +64,21 @@ public class ContentCardSetTests
         Assert.Equal(db.Count * rules.CopiesPerCard, deck.Count);
         Assert.Equal(rules.CopiesPerCard, deck.Count(id => id == db.All[0].Id));
 
-        // Deliberately NOT asserted here: that the deck is large enough to deal opening hands.
-        // The set is still being entered (step 1.10), so that assertion would currently just
-        // encode "the cards aren't in yet" as a test failure. It belongs with the full set,
-        // where a deck too small to play from is a genuine content bug.
+        // The full set landed with step 1.10 -- a deck too small to deal the starting hand plus
+        // several draws is a genuine content bug, not a "still being entered" placeholder.
+        Assert.True(
+            deck.Count >= rules.StartingHandSize + rules.CardsDrawnPerTurn * 5,
+            $"Symmetric deck of {deck.Count} cards is too small to sustain even a few turns' draws.");
+    }
+
+    [Fact]
+    public void All_36_reference_cards_are_present()
+    {
+        // Pins the count so a card accidentally left out of the working tree (as happened once
+        // before, per step 1.8's notes) fails loudly here rather than only showing up as a
+        // slightly-smaller-than-expected deck.
+        var db = Load();
+
+        Assert.Equal(36, db.Count);
     }
 }

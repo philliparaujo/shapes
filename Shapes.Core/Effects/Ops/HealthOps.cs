@@ -15,6 +15,34 @@ internal sealed class HealOp : EffectOp
     }
 }
 
+// { "op": "heal_scaled", "target": "chosen_friendly", "scale": "hand_size", "multiplier": 1,
+//   "divisor": 1 }
+// { "op": "heal_scaled", "target": "self", "scale": "selector_health", "health_source": "right_friendly" }
+//
+// Shares damage_scaled's scale vocabulary, including "selector_health" (heal by an amount read
+// from a THIRD creature's health, named by "health_source" -- independent of "target", who gets
+// healed). Anchor: "+1 health to a friendly per card in hand" is scale hand_size, target
+// chosen_friendly.
+internal sealed class HealScaledOp : EffectOp
+{
+    public override string Name => "heal_scaled";
+
+    public override void Apply(EffectContext ctx, EffectArgs args)
+    {
+        var scale = DamageScaledOp.ParseScale(args.String("scale"));
+        var multiplier = args.IntOrDefault("multiplier", 1);
+        var divisor = args.IntOrDefault("divisor", 1);
+        var healthSource = args.Has("health_source") ? args.Target("health_source") : (TargetSelector?)null;
+
+        var amount = DamageScaledOp.ComputeBase(ctx, scale, healthSource: healthSource) * multiplier / divisor;
+
+        foreach (var slot in TargetResolver.Resolve(ctx, args.Target()))
+        {
+            ctx.State.Board[slot]?.Heal(amount);
+        }
+    }
+}
+
 // { "op": "heal_to_full", "target": "self" }
 internal sealed class HealToFullOp : EffectOp
 {

@@ -26,7 +26,7 @@ public class CardLoaderTests
           "types": ["wheel"],
           "moves": [
             { "name": "Conditional Move",  "cost": { "wheel": 1 },
-              "condition": { "op": "self_at_full_health" },
+              "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
               "effects": [ { "op": "draw", "amount": 1 } ] },
             { "name": "Two Effect Move", "cost": { "wheel": 1 },
               "effects": [ { "op": "damage", "target": "opposing", "amount": 1 },
@@ -70,7 +70,7 @@ public class CardLoaderTests
         var conditional = Load(TestCreature).Moves[0];
 
         Assert.NotNull(conditional.Condition);
-        Assert.Equal("self_at_full_health", conditional.Condition!.Op);
+        Assert.Equal("creature_state", conditional.Condition!.Op);
 
         // The unconditional move keeps a null condition rather than a vacuously true one, so
         // legal-action generation can skip the evaluation entirely.
@@ -207,7 +207,7 @@ public class CardLoaderTests
               "id": "thinker", "name": "Thinker", "kind": "spell",
               "effects": [
                 { "op": "conditional",
-                  "condition": { "op": "self_at_full_health" },
+                  "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
                   "then": [ { "op": "draw", "amount": 2 } ],
                   "else": [ { "op": "damage", "target": "all_enemies", "amount": 1 } ] }
               ]
@@ -216,7 +216,7 @@ public class CardLoaderTests
 
         var conditional = card.Effects[0];
         Assert.Equal("conditional", conditional.Op);
-        Assert.Equal("self_at_full_health", conditional.Args.Node("condition").Op);
+        Assert.Equal("creature_state", conditional.Args.Node("condition").Op);
         Assert.Equal("draw", conditional.Args.Nodes("then").Single().Op);
         Assert.Equal("damage", conditional.Args.Nodes("else").Single().Op);
     }

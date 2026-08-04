@@ -13,6 +13,18 @@ public enum TurnPhase
     Ended = 3,
 }
 
+public enum TurnEventKind
+{
+    CreaturePlayed = 0,
+    CreatureDestroyed = 1,
+}
+
+// One notable thing that happened this turn: a creature entering or leaving the board. Exists
+// for cards that count within-turn events (Gravewarden: "draw 1 for each creature destroyed
+// this turn") -- a full log rather than a bare counter, so a future card can ask a richer
+// question (which slot, which card) without another engine change.
+public sealed record TurnEvent(TurnEventKind Kind, PlayerId Player, SlotIndex Slot, string CardId);
+
 // The complete state of a game: board, both players, whose turn it is, and the RNG.
 //
 // Mutable, with Clone() for the search. The plan's apply/undo optimisation replaces the
@@ -21,6 +33,7 @@ public enum TurnPhase
 public sealed class GameState
 {
     private readonly PlayerState[] _players;
+    private readonly List<TurnEvent> _turnEvents = [];
 
     public RuleSet Rules { get; }
 
@@ -31,6 +44,15 @@ public sealed class GameState
     public PlayerId ActivePlayer { get; private set; }
 
     public TurnPhase Phase { get; private set; }
+
+    // Events recorded since the start of the CURRENT turn (cleared by EndTurn, so they read as
+    // "this turn" for the whole time the acting player is in their Actions phase, not just the
+    // instant a card asks). Not carried into Clone() as a shared reference -- cloned independent
+    // of the source's list contents -- see Clone().
+    public IReadOnlyList<TurnEvent> TurnEvents => _turnEvents;
+
+    public void RecordTurnEvent(TurnEventKind kind, PlayerId player, SlotIndex slot, string cardId) =>
+        _turnEvents.Add(new TurnEvent(kind, player, slot, cardId));
 
     // Counts full rounds, incrementing when play returns to player one. Starts at 1.
     public int TurnNumber { get; private set; }
@@ -56,7 +78,7 @@ public sealed class GameState
 
     private GameState(
         RuleSet rules, IRandomSource random, Board board, PlayerState[] players,
-        PlayerId activePlayer, TurnPhase phase, int turnNumber)
+        PlayerId activePlayer, TurnPhase phase, int turnNumber, IEnumerable<TurnEvent> turnEvents)
     {
         Rules = rules;
         Random = random;
@@ -65,6 +87,7 @@ public sealed class GameState
         ActivePlayer = activePlayer;
         Phase = phase;
         TurnNumber = turnNumber;
+        _turnEvents = [.. turnEvents];
     }
 
     public PlayerState this[PlayerId player] => _players[player.ToIndex()];
@@ -171,6 +194,7 @@ public sealed class GameState
         }
 
         Phase = TurnPhase.Scoring;
+        _turnEvents.Clear();
     }
 
     public void SetPhase(TurnPhase phase) => Phase = phase;
@@ -182,7 +206,7 @@ public sealed class GameState
     // game's randomness, or replaying the same seed would stop producing the same game.
     public GameState Clone() =>
         new(Rules, Random.Fork(), Board.Clone(), [_players[0].Clone(), _players[1].Clone()],
-            ActivePlayer, Phase, TurnNumber);
+            ActivePlayer, Phase, TurnNumber, _turnEvents);
 
     public override string ToString() =>
         $"turn {TurnNumber} {Phase} active=P{ActivePlayer.ToIndex() + 1} "

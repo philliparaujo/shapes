@@ -12,9 +12,44 @@ internal sealed class DestroyOp : EffectOp
     {
         foreach (var slot in TargetResolver.Resolve(ctx, args.Target()))
         {
-            if (ctx.State.Board.IsOccupied(slot))
+            RemoveAndRecord(ctx, slot);
+        }
+    }
+
+    // Shared with DestroyRefundCostOp: removes a creature immediately (as opposed to the
+    // once-per-action RemoveDead sweep, which only catches 0-health deaths) and logs it to the
+    // turn's event list, so Gravewarden's "destroyed this turn" count sees direct destroys too.
+    internal static CreatureInstance? RemoveAndRecord(EffectContext ctx, SlotIndex slot)
+    {
+        var creature = ctx.State.Board[slot];
+        if (creature is null)
+        {
+            return null;
+        }
+
+        ctx.State.Board.Remove(slot);
+        ctx.State.RecordTurnEvent(TurnEventKind.CreatureDestroyed, slot.Owner, slot, creature.CardId);
+        return creature;
+    }
+}
+
+// { "op": "destroy_refund_cost", "target": "chosen_enemy" } -- destroys the target and grants
+// its OWN controller (the caster's opponent) resources equal to what they originally paid to
+// play it. Suffocate's drawback: you remove their creature, but they get compensated for it.
+// Reads CreatureInstance.PlayCost rather than a card lookup, since Effects has no dependency
+// on Cards.
+internal sealed class DestroyRefundCostOp : EffectOp
+{
+    public override string Name => "destroy_refund_cost";
+
+    public override void Apply(EffectContext ctx, EffectArgs args)
+    {
+        foreach (var slot in TargetResolver.Resolve(ctx, args.Target()))
+        {
+            var creature = DestroyOp.RemoveAndRecord(ctx, slot);
+            if (creature is not null)
             {
-                ctx.State.Board.Remove(slot);
+                ctx.State[slot.Owner].GainResources(creature.PlayCost);
             }
         }
     }

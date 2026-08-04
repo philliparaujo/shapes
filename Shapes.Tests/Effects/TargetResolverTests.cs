@@ -46,6 +46,38 @@ public class TargetResolverTests
     }
 
     [Fact]
+    public void Right_friendly_from_the_last_slot_has_no_neighbor()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(SlotIndex.SlotsPerPlayer - 1, "a", TypeMask.Wheel))
+            .Build();
+        var ctx = new EffectContext(
+            state, PlayerId.One, new SlotIndex(PlayerId.One, SlotIndex.SlotsPerPlayer - 1), null);
+
+        Assert.Empty(TargetResolver.Resolve(ctx, TargetSelector.RightFriendly));
+    }
+
+    [Fact]
+    public void Right_friendly_resolves_to_the_occupied_neighbor_on_the_right()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Slot(1, "b", TypeMask.Wheel))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        Assert.Equal([new SlotIndex(PlayerId.One, 1)], TargetResolver.Resolve(ctx, TargetSelector.RightFriendly));
+    }
+
+    [Fact]
+    public void Right_friendly_with_an_empty_neighbor_slot_resolves_to_nothing()
+    {
+        var state = new StateBuilder().P1(p => p.Slot(0, "a", TypeMask.Wheel)).Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        Assert.Empty(TargetResolver.Resolve(ctx, TargetSelector.RightFriendly));
+    }
+
+    [Fact]
     public void All_enemies_resolves_to_every_occupied_enemy_slot()
     {
         var state = new StateBuilder()

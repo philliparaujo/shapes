@@ -1,0 +1,24 @@
+{
+  "id": "basic_circle",
+  "name": "Basic Circle",
+  "kind": "creature",
+  "cost": { "wheel": 1 },
+  "health": 2,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Deal 1",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 }
+      ]
+    },
+    {
+      "name": "Rev Up",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "attack_buff", "target": "self", "amount": 2 }
+      ]
+    }
+  ]
+}

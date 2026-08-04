@@ -167,4 +167,178 @@ public class StatusOpTests
         creature.ResetMovesForNewTurn();
         Assert.False(creature.IsStunned);
     }
+
+    [Fact]
+    public void Taunt_granted_until_next_turn_expires_on_the_reset()
+    {
+        // Columns: "+2 health, taunt until next turn".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "tank", TypeMask.Anvil))
+            .Build();
+        var creature = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("grant_keyword", ("target", "self"), ("keyword", "taunt"), ("until_next_turn", true)),
+            ctx);
+        Assert.True(creature.HasKeyword(KeywordFlags.Taunt));
+
+        creature.ResetMovesForNewTurn();
+        Assert.False(creature.HasKeyword(KeywordFlags.Taunt));
+    }
+
+    [Fact]
+    public void Taunt_granted_without_expiry_survives_the_turn_reset()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "tank", TypeMask.Anvil))
+            .Build();
+        var creature = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(Eff.Node("grant_keyword", ("target", "self"), ("keyword", "taunt")), ctx);
+        creature.ResetMovesForNewTurn();
+
+        Assert.True(creature.HasKeyword(KeywordFlags.Taunt));
+    }
+
+    [Fact]
+    public void On_next_damage_taken_fires_once_when_the_creature_is_hit()
+    {
+        // Zealot: "next damage this takes, gain 2 anvil".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "zealot", TypeMask.Anvil, maxHealth: 10))
+            .Build();
+        var defender = state.Board[new SlotIndex(PlayerId.Two, 0)]!;
+        var armCtx = new EffectContext(state, PlayerId.Two, new SlotIndex(PlayerId.Two, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("on_next_damage_taken", ("target", "self"),
+                ("effect", Eff.Node("gain_resource", ("type", "anvil"), ("amount", 2)))),
+            armCtx);
+
+        var attackCtx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 3)), attackCtx);
+
+        // The DEFENDER's controller (P2) gets the resources, not the attacker (P1).
+        Assert.Equal(2, state[PlayerId.Two].Resources.Anvil);
+        Assert.Equal(0, state[PlayerId.One].Resources.Anvil);
+        Assert.Equal(7, defender.Health);
+    }
+
+    [Fact]
+    public void On_next_damage_taken_does_not_refire_on_a_second_hit()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "zealot", TypeMask.Anvil, maxHealth: 10))
+            .Build();
+        var armCtx = new EffectContext(state, PlayerId.Two, new SlotIndex(PlayerId.Two, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("on_next_damage_taken", ("target", "self"),
+                ("effect", Eff.Node("gain_resource", ("type", "anvil"), ("amount", 2)))),
+            armCtx);
+
+        var attackCtx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 1)), attackCtx);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 1)), attackCtx);
+
+        Assert.Equal(2, state[PlayerId.Two].Resources.Anvil); // only fired once
+    }
+
+    [Fact]
+    public void On_next_damage_taken_still_fires_on_a_lethal_hit()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "zealot", TypeMask.Anvil, maxHealth: 2))
+            .Build();
+        var armCtx = new EffectContext(state, PlayerId.Two, new SlotIndex(PlayerId.Two, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("on_next_damage_taken", ("target", "self"),
+                ("effect", Eff.Node("gain_resource", ("type", "anvil"), ("amount", 2)))),
+            armCtx);
+
+        var attackCtx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 10)), attackCtx);
+
+        // The interpreter itself does not sweep the dead (ActionExecutor does, once per action)
+        // -- the creature is still on the board at 0 health, but the trigger already fired.
+        Assert.Equal(2, state[PlayerId.Two].Resources.Anvil);
+        Assert.True(state.Board[new SlotIndex(PlayerId.Two, 0)]!.IsDead);
+    }
+
+    [Fact]
+    public void On_next_damage_taken_does_not_fire_when_ricochet_redirects_the_hit_away()
+    {
+        // The armed creature never actually TOOK the damage -- its neighbor did.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "neighbor", TypeMask.Anvil, maxHealth: 5)
+                      .Slot(1, "ricocheter", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        var ricocheter = state.Board[new SlotIndex(PlayerId.Two, 1)]!;
+        ricocheter.GrantRicochet(RicochetDirection.Left);
+        var armCtx = new EffectContext(state, PlayerId.Two, new SlotIndex(PlayerId.Two, 1), null);
+        EffectInterpreter.Apply(
+            Eff.Node("on_next_damage_taken", ("target", "self"),
+                ("effect", Eff.Node("gain_resource", ("type", "anvil"), ("amount", 2)))),
+            armCtx);
+
+        var attackCtx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 3)),
+            attackCtx.WithChosenTarget(new SlotIndex(PlayerId.Two, 1)));
+
+        Assert.Equal(0, state[PlayerId.Two].Resources.Anvil);
+    }
+
+    [Fact]
+    public void On_next_ricochet_fires_when_this_creatures_own_ricochet_redirects_a_hit()
+    {
+        // Circle Bender: "when next attack ricochets, gain 3 wheel".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "neighbor", TypeMask.Anvil, maxHealth: 5)
+                      .Slot(1, "bender", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        var bender = state.Board[new SlotIndex(PlayerId.Two, 1)]!;
+        bender.GrantRicochet(RicochetDirection.Left);
+        var armCtx = new EffectContext(state, PlayerId.Two, new SlotIndex(PlayerId.Two, 1), null);
+        EffectInterpreter.Apply(
+            Eff.Node("on_next_ricochet", ("target", "self"),
+                ("effect", Eff.Node("gain_resource", ("type", "wheel"), ("amount", 3)))),
+            armCtx);
+
+        var attackCtx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 3)),
+            attackCtx.WithChosenTarget(new SlotIndex(PlayerId.Two, 1)));
+
+        Assert.Equal(3, state[PlayerId.Two].Resources.Wheel);
+        Assert.Equal(2, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // neighbor took the hit
+        Assert.Equal(5, bender.Health); // bender itself took zero
+    }
+
+    [Fact]
+    public void On_next_ricochet_does_not_fire_when_there_is_no_neighbor_to_redirect_to()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "bender", TypeMask.Anvil, maxHealth: 5)) // slot 0: no left neighbor
+            .Build();
+        var bender = state.Board[new SlotIndex(PlayerId.Two, 0)]!;
+        bender.GrantRicochet(RicochetDirection.Left);
+        var armCtx = new EffectContext(state, PlayerId.Two, new SlotIndex(PlayerId.Two, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("on_next_ricochet", ("target", "self"),
+                ("effect", Eff.Node("gain_resource", ("type", "wheel"), ("amount", 3)))),
+            armCtx);
+
+        var attackCtx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 3)), attackCtx);
+
+        Assert.Equal(0, state[PlayerId.Two].Resources.Wheel);
+        Assert.Equal(2, bender.Health); // took the hit normally instead
+    }
 }

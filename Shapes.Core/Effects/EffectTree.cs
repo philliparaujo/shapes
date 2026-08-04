@@ -14,15 +14,18 @@ namespace Shapes.Core.Effects;
 // without editing this.
 public static class EffectTree
 {
-    // Branches holding effect lists. "condition" is deliberately absent -- a condition holds a
-    // predicate, a separate vocabulary from effect ops, so validating it against the effect
-    // registry would reject every valid conditional.
-    private static readonly string[] EffectKeys = ["effects", "then", "else"];
+    // Branches holding effect lists or a single nested effect. "condition" is deliberately
+    // absent from EffectKeys -- a condition holds a predicate, a separate vocabulary from
+    // effect ops, so validating it against the effect registry would reject every valid
+    // conditional. "effect" is on_next_damage_taken/on_next_ricochet's single nested effect
+    // (the reactive trigger body), which needs the same "unknown op fails loudly" treatment as
+    // any other nested effect.
+    private static readonly string[] EffectKeys = ["effects", "then", "else", "effect"];
 
-    // The chosen-selector walk descends into conditions too. No predicate takes a target today,
-    // so this changes nothing yet -- but a future predicate that did would otherwise smuggle a
-    // second player choice past the single-target rule.
-    private static readonly string[] AllKeys = ["effects", "then", "else", "condition"];
+    // The chosen-selector walk descends into conditions too: creature_state's predicate takes a
+    // target, so a condition CAN smuggle a second player choice past the single-target rule if
+    // this did not look inside it.
+    private static readonly string[] AllKeys = ["effects", "then", "else", "effect", "condition"];
 
     // Every effect in the tree rooted at `node`, including `node` itself, excluding conditions.
     public static IEnumerable<EffectNode> Walk(EffectNode node)
