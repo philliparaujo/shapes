@@ -8,16 +8,19 @@ AI-driven balance → Godot client.
 | Phase                          | Progress   |
 |--------------------------------|------------|
 | 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 0 / 8      |
+| 2 — IS-MCTS AI                 | 1 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-569 tests passing.
+577 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
 
-**Next up: Phase 2** — IS-MCTS AI, starting with the `IAgent` interface and `ObservedState`.
+**Phase 2 is underway.** Step 2.1 landed the `IAgent` seam (`Shapes.Ai/Agents/`).
+
+**Next up: step 2.2** — `ObservedState`, which narrows `AgentContext.State` from the full
+`GameState` to a projection that structurally cannot leak the opponent's hand or deck order.
 
 ### Common commands
 
@@ -493,7 +496,20 @@ rather than a blanket line-coverage percentage.
 
 ### Phase 2 — IS-MCTS AI
 
-- [ ] **1. `IAgent` interface:** `GameAction Choose(ObservedState s, CancellationToken ct)`.
+- [x] **1. `IAgent` interface:** `GameAction Choose(AgentContext ctx, CancellationToken ct)`.
+  Signature changed from the plan's original `Choose(ObservedState s, ...)`: an agent also needs
+  the legal-action list and the card database, and having each agent call `ActionGenerator`
+  itself would be a second definition of legality drifting from the engine's. `AgentContext`
+  bundles observation + legal actions + cards, so step 2.2 narrows *one property* to
+  `ObservedState` rather than changing `IAgent` and every call site. `AgentContext.State` is the
+  full `GameState` until then — deliberate and temporary, since building the interface against a
+  type that doesn't exist yet leaves neither it nor its first implementation compilable.
+  `RandomAgent` (formally step 2.4) landed here as the reference implementation, so the seam is
+  exercised rather than a dead file. The contract is pinned by
+  `Shapes.Tests/Agents/AgentContractTests.cs` as three clauses tested against `IAgent`, not
+  against one implementation — chosen action is legal and applicable, choosing never mutates the
+  caller's state, and same seed → same decisions (with a different-seeds test guarding the
+  degenerate "always return `LegalActions[0]`" way that could pass).
 - [ ] **2. `ObservedState`** — a strict projection of `GameState` to one player's knowledge.
   If the AI can read the opponent's hand, everything downstream is invalid; enforce by test.
 - [ ] **3. Determinizer:** sample a hidden state consistent with all observations (deck
