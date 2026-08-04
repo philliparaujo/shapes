@@ -79,9 +79,19 @@ static GameAction PromptAction(IReadOnlyList<GameAction> actions, CardDatabase c
 
 static string Describe(GameAction action, CardDatabase cards)
 {
-    if (action is PlayCardAction play && cards.TryGet(play.CardId, out var card))
+    // Swap the card id for its display name. Both PlayCard and Discard name a card, and a
+    // discard menu reading "Discard t_juggler" rather than "Discard T Juggler" is exactly the
+    // moment the player has to pick one, so it is worth getting right.
+    var cardId = action switch
     {
-        return action.Describe().Replace(play.CardId, card!.Name, StringComparison.Ordinal);
+        PlayCardAction play => play.CardId,
+        DiscardAction discard => discard.CardId,
+        _ => null,
+    };
+
+    if (cardId is not null && cards.TryGet(cardId, out var card))
+    {
+        return action.Describe().Replace(cardId, card!.Name, StringComparison.Ordinal);
     }
 
     return action.Describe();

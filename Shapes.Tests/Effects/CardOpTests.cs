@@ -54,14 +54,32 @@ public class CardOpTests
     }
 
     [Fact]
-    public void Discard_moves_cards_from_hand_to_discard()
+    public void Discard_records_a_debt_rather_than_discarding_immediately()
     {
+        // The op itself moves NO cards: which card to discard is the player's choice, and an
+        // effect cannot stop mid-resolution to ask. It records a debt, and the action generator
+        // turns that into DiscardActions -- see ActionGeneratorTests and DiscardTests.
         var (state, ctx) = Setup(hand: ["a", "b", "c"]);
 
         EffectInterpreter.Apply(Eff.Node("discard", ("amount", 2)), ctx);
 
-        Assert.Single(state[PlayerId.One].Hand);
-        Assert.Equal(2, state[PlayerId.One].Discard.Count);
+        Assert.Equal(2, state.PendingDiscards);
+        Assert.True(state.AwaitingDiscard);
+        Assert.Equal(3, state[PlayerId.One].Hand.Count);
+        Assert.Empty(state[PlayerId.One].Discard);
+    }
+
+    [Fact]
+    public void Discard_debts_accumulate_within_one_effect_list()
+    {
+        // Two "discard 1" effects owe two cards, not one. A bare count rather than a queue of
+        // pending effects is only correct if they add up.
+        var (state, ctx) = Setup(hand: ["a", "b", "c"]);
+
+        EffectInterpreter.Apply(Eff.Node("discard", ("amount", 1)), ctx);
+        EffectInterpreter.Apply(Eff.Node("discard", ("amount", 1)), ctx);
+
+        Assert.Equal(2, state.PendingDiscards);
     }
 
     [Fact]

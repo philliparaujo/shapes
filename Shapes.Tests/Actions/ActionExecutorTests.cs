@@ -320,17 +320,24 @@ public class ActionExecutorTests
     // -- Ending the turn -------------------------------------------------------------------
 
     [Fact]
-    public void Ending_the_turn_draws_and_passes_to_the_opponent()
+    public void Ending_the_turn_passes_without_drawing_for_the_ending_player()
     {
+        // Draw moved to turn START, so ending a turn draws the player NOTHING -- the incoming
+        // player draws instead, as part of the scoring/income/draw sequence AdvanceToActions
+        // runs for them. A card drawn at the start of a turn is playable during it.
         var state = new StateBuilder()
             .P1(p => p.Deck("a", "b"))
+            .P2(p => p.Deck("x", "y"))
             .Build();
 
         Apply(state, new EndTurnAction(PlayerId.One));
 
         Assert.Equal(PlayerId.Two, state.ActivePlayer);
-        Assert.Single(state[PlayerId.One].Hand);
-        Assert.Equal("a", state[PlayerId.One].Hand[0]);
+        Assert.Empty(state[PlayerId.One].Hand);
+
+        // Player two, receiving the turn, is the one who drew.
+        Assert.Single(state[PlayerId.Two].Hand);
+        Assert.Equal("x", state[PlayerId.Two].Hand[0]);
     }
 
     [Fact]
@@ -346,8 +353,10 @@ public class ActionExecutorTests
     }
 
     [Fact]
-    public void Ending_the_turn_discards_down_to_the_hand_limit()
+    public void Ending_the_turn_does_not_discard_from_a_full_hand()
     {
+        // The hand limit is no longer enforced on the way OUT of a turn. It bites on the way in,
+        // by burning the card drawn into a full hand -- see GameStateTests' overdraw coverage.
         var rules = RuleSetTestHelper.WithHandLimit(4);
         var state = new StateBuilder()
             .WithRuleSet(rules)
@@ -356,10 +365,8 @@ public class ActionExecutorTests
 
         Apply(state, new EndTurnAction(PlayerId.One));
 
-        // Drew to 5, then discarded back to the limit of 4. Draw-then-discard is the order that
-        // makes the limit bite rather than being skipped.
         Assert.Equal(4, state[PlayerId.One].Hand.Count);
-        Assert.Single(state[PlayerId.One].Discard);
+        Assert.Empty(state[PlayerId.One].Discard);
     }
 
     [Fact]

@@ -10,6 +10,7 @@ public enum ActionKind
     UseMove = 1,
     Merge = 2,
     EndTurn = 3,
+    Discard = 4,
 }
 
 // One atomic choice a player can make.
@@ -181,7 +182,49 @@ public sealed class MergeAction : GameAction
     public override int GetHashCode() => HashCode.Combine(Kind, Player, SourceSlot, TargetSlot);
 }
 
-// End the turn: draw, discard to the hand limit, pass.
+// Discard one named card from hand, paying down one point of a pending "discard N" debt.
+//
+// Exists because discard is a player CHOICE and every choice in this engine is a distinct legal
+// action -- an effect cannot stop mid-resolution to ask a question. The `discard` op records a
+// debt on GameState.PendingDiscards instead, and the generator then offers one of these per
+// distinct card in hand until the debt clears.
+//
+// ONE CARD AT A TIME, deliberately. "Discard 3 from a hand of 4" is three successive single-card
+// choices (4 options, then 3, then 2), not one action enumerating all 4-choose-3 combinations.
+// That keeps the branching factor linear in hand size rather than binomial -- the same reasoning
+// that makes an MCTS node one atomic action rather than a whole turn -- and it gives the console
+// a flat numbered list instead of a combination picker.
+//
+// Identified by card id, not hand index: two copies of the same card are the same choice, so
+// value equality collapses them into one edge rather than giving the search two identical
+// children. It also survives the hand shifting under it, which an index would not.
+//
+// Note this is NOT the path for overdraw. A card drawn into a full hand is burned automatically
+// (GameState.ApplyDraw) and never becomes an action.
+public sealed class DiscardAction : GameAction
+{
+    public string CardId { get; }
+
+    public DiscardAction(PlayerId player, string cardId)
+        : base(player)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardId);
+        CardId = cardId;
+    }
+
+    public override ActionKind Kind => ActionKind.Discard;
+
+    public override string Describe() => $"Discard {CardId}";
+
+    public override bool Equals(GameAction? other) =>
+        other is DiscardAction a
+        && a.Player == Player
+        && string.Equals(a.CardId, CardId, StringComparison.Ordinal);
+
+    public override int GetHashCode() => HashCode.Combine(Kind, Player, CardId);
+}
+
+// End the turn: pass to the opponent, whose turn then scores, takes income, and draws.
 //
 // Always legal during the Actions phase, which guarantees the legal-action list is never empty
 // and so a player can never be stuck with no move. The fuzz harness (step 1.13) depends on

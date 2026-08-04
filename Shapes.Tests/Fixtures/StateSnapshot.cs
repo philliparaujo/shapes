@@ -23,6 +23,11 @@ internal static class StateSnapshot
         sb.Append(" active=").Append(state.ActivePlayer);
         sb.Append(" winner=").Append(state.Winner);
 
+        // Part of the replayable state, not a derived value: a pending discard debt changes
+        // which actions are legal, so two states differing only here are genuinely different
+        // positions and the determinism/apply-undo properties must be able to tell them apart.
+        sb.Append(" pendingDiscards=").Append(state.PendingDiscards);
+
         foreach (var playerId in PlayerIds.All)
         {
             AppendPlayer(sb, state[playerId]);

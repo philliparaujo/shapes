@@ -108,10 +108,60 @@ public class FuzzHarnessTests
         }
     }
 
+    [Fact]
+    public void Random_play_actually_exercises_the_chosen_discard_path()
+    {
+        // Guards the two discard tests above against passing vacuously. Three shipped cards use
+        // `discard` (circle_surfer, t_dealer, t_juggler), so a pending-discard state should arise
+        // constantly across thousands of games -- if it never does, the gate is unreachable and
+        // the invariants asserting things about it prove nothing.
+        var sawPendingDiscard = false;
+
+        for (ulong seed = 1; seed <= 200 && !sawPendingDiscard; seed++)
+        {
+            PlayRandomGame(seed, (state, actions) =>
+            {
+                if (state.AwaitingDiscard)
+                {
+                    sawPendingDiscard = true;
+
+                    // While a debt stands the ONLY offer is discards -- the gate that makes the
+                    // cost real. Asserted here, mid-fuzz, against the real card set.
+                    Assert.All(actions, a => Assert.Equal(ActionKind.Discard, a.Kind));
+                }
+            });
+        }
+
+        Assert.True(
+            sawPendingDiscard,
+            "No game in 200 seeds ever reached a pending-discard state, so the discard gate is "
+            + "untested by the fuzz harness. Either the discard cards stopped being reachable or "
+            + "the pending state is not being set.");
+    }
+
     // -- Invariants ----------------------------------------------------------------------------
 
     private static void AssertStateIsLegal(ulong seed, GameState state)
     {
+        // The hand limit is enforced on the way IN (overdraw burns), so it can never be exceeded
+        // -- there is no longer an end-of-turn cleanup that could let a hand sit oversized in
+        // between. A hand over the limit means ApplyDraw's burn was skipped.
+        foreach (var player in PlayerIds.All)
+        {
+            Assert.True(
+                state[player].Hand.Count <= state.Rules.HandLimit,
+                $"seed {seed}: {player} holds {state[player].Hand.Count} cards, over the "
+                + $"limit of {state.Rules.HandLimit}.");
+        }
+
+        // A debt is always payable when it stands: the executor clamps it to hand size at the
+        // moment it is incurred. An unpayable debt would make Generate return an empty list and
+        // deadlock the game, which Random_play_always_terminates would catch only as a timeout.
+        Assert.True(
+            state.PendingDiscards <= state.Active.Hand.Count,
+            $"seed {seed}: {state.PendingDiscards} discards owed but only "
+            + $"{state.Active.Hand.Count} cards in hand -- unpayable debt.");
+
         foreach (var player in PlayerIds.All)
         {
             var resources = state[player].Resources;

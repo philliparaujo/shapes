@@ -12,7 +12,7 @@ AI-driven balance → Godot client.
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-577 tests passing.
+600 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
@@ -110,13 +110,69 @@ Each turn a player gains:
 
 1. **Score** — +1 point per friendly creature whose opposing slot is empty.
 2. **Income** — as above.
-3. **Actions** — in any order, repeatable, until the player ends the turn:
+3. **Draw** — draw `cardsDrawnPerTurn`, burning any card that arrives into a full hand.
+4. **Actions** — in any order, repeatable, until the player ends the turn:
    - Play a card from hand (pay its top-left cost).
    - Use a creature's move (pay the move's cost).
    - Merge two creatures.
-4. **End turn** — draw, hand-limit discard, pass.
+   - Discard a chosen card, when a card effect owes one (see below).
+5. **End turn** — pass. Nothing else: no draw, no cleanup discard.
 
 Win at score ≥ X (currently ~10). Exact value is config.
+
+**Drawing is at turn START, not turn end** (Hearthstone's sequencing). A card drawn at the start
+of a turn is playable during it, which makes the draw a live decision rather than a deposit for
+next turn. The starting player draws on turn one too, on top of the opening `startingHandSize`
+hand — turn one is not a special case. `GameState.AdvanceToActions()` runs score → income → draw
+as one entry point, so no caller sequences the phases itself.
+
+### Drawing, discarding, and the hand limit
+
+Two rules that look similar and are deliberately **not** the same:
+
+| Situation                                  | Who decides | What happens                          |
+|--------------------------------------------|-------------|---------------------------------------|
+| Card drawn into a full hand (**overdraw**) | Nobody      | The drawn card is **burned** — straight to discard |
+| A card effect says "**discard N**"         | The player  | They choose which N, one card at a time |
+
+The asymmetry is the Hearthstone/Slay-the-Spire rule, and it is the point: a full hand is a real
+cost you cannot dodge by pitching a worse card, while a card that *asks* you to discard is asking
+a real question. Collapsing the two in either direction is the plausible regression, so both
+halves are pinned by test.
+
+**Overdraw burns the card just drawn**, not an older one — that is what makes it a burn rather
+than a hand-limit discard the player might reasonably have wanted to direct. It is logged as a
+`CardBurned` turn event so Phase 3 can measure how often the hand limit actually costs a card
+rather than inferring it from hand sizes.
+
+**The hand limit is a property of drawing, not of the turn step.** Every draw goes through
+`GameState.DrawWithBurn` — the turn draw and every card effect that draws (`draw`, `draw_scaled`,
+`draw_up_to`) — so a card reading "draw 3" into a full hand burns all three. Routing only the
+turn draw through the check was the first implementation, and the fuzz harness caught it within
+two seeds: card-effect draws pushed hands to 10 against a limit of 8.
+
+**Chosen discard is a pending state, not a prompt.** An effect cannot stop mid-resolution to ask
+a question — every choice in this engine is a distinct legal action. So the `discard` op records
+a debt on `GameState.PendingDiscards`, the effect list finishes resolving normally (a "discard 1,
+then gain 3 spike" move pays out its resources immediately), and the action generator then offers
+one `DiscardAction` per distinct card in hand until the debt clears. While a debt stands it
+suppresses **every** other action including `EndTurn` — a player who could simply end the turn
+would never pay.
+
+**One card at a time.** Hand `[A,B,C,D]` owing 3 offers 4 options, then 3, then 2, then ordinary
+play resumes. Never one action enumerating all `4-choose-3` combinations: branching stays linear
+in hand size rather than binomial, the same reasoning that makes an MCTS node one atomic action
+rather than a whole turn, and the console gets a flat numbered list instead of a combination
+picker.
+
+**An unpayable debt is clamped, not carried.** "Discard 2" with one card in hand costs one card
+and forgets the rest. A debt outliving its turn would let a card silently tax a later one, and —
+more urgently — since the generator offers *nothing but* discards while a debt stands, an
+unpayable one would return an empty legal-action list and deadlock the game. The executor clamps
+to hand size the moment the debt is incurred, which is what keeps `ActionGenerator`'s
+non-emptiness invariant true without the generator having to mutate state. Clamping happens after
+the *whole* effect list resolves, not inside the op, since a later effect in the same list may
+draw cards the player can then afford to pay with.
 
 ### Creatures & moves
 
@@ -244,7 +300,7 @@ The effect vocabulary needed to express all ~36 referenced cards:
 |------------|------------------------------------------------------------------------|
 | Damage     | `damage`, `damage_scaled` (×health / ×count / ×hand-size / ×hand-composition / ×resource-held / ×a second creature's health via `health_source`, each with an optional `divisor`) |
 | Health     | `heal`, `heal_scaled`, `heal_to_full`, `set_health`, `buff_max_health`, `self_damage` |
-| Cards      | `draw`, `draw_scaled` (×creatures destroyed this turn), `discard`, `draw_up_to` |
+| Cards      | `draw`, `draw_scaled` (×creatures destroyed this turn), `discard` (player-chosen — records a pending debt), `draw_up_to` |
 | Resources  | `gain_resource`, `gain_resource_scaled`, `gain_next_turn`              |
 | Board      | `destroy`, `destroy_refund_cost`, `summon`                             |
 | Status     | `grant_keyword` (taunt/reflect/ricochet, optional until-next-turn expiry), `stun`, `on_next_damage_taken`, `on_next_ricochet` (one-shot reactive triggers) |
@@ -377,8 +433,15 @@ real ones.
   deduction, unaffordable actions excluded from legal-action list, no negative resources.
 - **Scoring** — opposition is per-slot-index (not mirrored), scoring happens at start-of-turn
   before income/actions, win triggers immediately at `scoreToWin`.
-- **Turn structure** — phase order score→income→actions→end, once-per-turn move usage, no
+- **Turn structure** — phase order score→income→draw→actions→end, once-per-turn move usage, no
   summoning sickness, deck exhaustion handled without a crash.
+- **Drawing & discarding** (`Shapes.Tests/Mechanics/DiscardTests.cs`) — draw lands at turn start
+  and is playable that turn; overdraw burns the *drawn* card and asks nothing; a card effect's
+  `discard N` gates every other action until paid, narrows one card at a time, and is clamped
+  when unpayable. Two fuzz invariants back these at scale: no hand ever exceeds the limit, and a
+  standing debt is always payable (an unpayable one would deadlock the generator). A third fuzz
+  test asserts the pending-discard path is actually *reached*, so the invariants can't pass
+  vacuously.
 - **Board & merging** — slot/range legality, adjacency + un-merged-only + depth cap, merge is
   free and doesn't consume the turn, death frees the slot and changes opposition.
 - **Type effectiveness** — every cycle edge and reverse edge, merged-target match+weak vs.
@@ -441,18 +504,23 @@ rather than a blanket line-coverage percentage.
   step 1.10 smoke test load-bearing. Validation walks the whole effect tree including
   `conditional`/`for_each` branches. Decided here: a move's cost must be single-type (attack type
   derives from it); creatures may not declare top-level `effects` (no passive triggers exist).
-- [x] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `EndTurn` + legal-action generation —
+- [x] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `Discard`, `EndTurn` + legal-action
+  generation —
   the single most important API in the codebase (console, AI, and UI all consume it). Actions
   are immutable with value equality (MCTS dedupes them; reference equality would split a node's
   stats across identical children). Generator/executor is a one-way contract: the generator
   decides legality, the executor assumes it and re-checks nothing. Decided here: an unmet move
   condition makes the move illegal outright (not a legal no-op), and a targeted move with no
   valid target isn't generated at all. Merge is generated in both directions per eligible pair,
-  since the result occupies the *target* slot and that changes scoring.
-- [x] **9. Turn loop:** score → income → actions → end, folded into one entry point
-  (`GameState.AdvanceToActions()`) so callers can't forget to run scoring/income before acting —
-  previously every `EndTurn()` caller had to remember that itself. The win check sits between
-  scoring and income, so a scoring play that wins the game skips that turn's income.
+  since the result occupies the *target* slot and that changes scoring. `DiscardAction` was added
+  later (during Phase 2) when chosen discard replaced the front-of-hand placeholder — it is the
+  one action kind that *suppresses* the others rather than adding to them.
+- [x] **9. Turn loop:** score → income → draw → actions → end, folded into one entry point
+  (`GameState.AdvanceToActions()`) so callers can't forget to run scoring/income/draw before
+  acting — previously every `EndTurn()` caller had to remember that itself. The win check sits
+  between scoring and income, so a scoring play that wins the game skips that turn's income *and*
+  its draw. (Draw moved from turn end to turn start during Phase 2 — see "Drawing, discarding,
+  and the hand limit" above.)
 - [x] **10. Enter all ~36 cards** from `references/oldcardsdata.txt`. About a third of the set
   needed new mechanics: `PlayCost`/`AttackBuff`/taunt-expiry/reactive-trigger fields on
   `CreatureInstance`; a turn-scoped `GameState.TurnEvents` log (feeds "draw per creature

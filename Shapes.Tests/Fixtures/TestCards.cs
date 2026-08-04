@@ -36,6 +36,11 @@ public static class TestCards
     public const string Bolt = "test_bolt";
     public const string TargetedBolt = "test_targeted_bolt";
 
+    // A spell whose effect owes two chosen discards: the pending-discard case. Two rather than
+    // one so the "narrow the choice a card at a time" sequence has more than a single step, and
+    // so the clamp has something to clamp when the hand is short.
+    public const string DiscardTwo = "test_discard_two";
+
     // A spell using gain_resource_scaled(hand_composition) -- the Rally shape: ActionExecutor
     // must precompute EffectContext.HandComposition, not just wire the op itself.
     public const string RallyLike = "test_rally_like";
@@ -68,6 +73,8 @@ public static class TestCards
         Spell(Bolt, 1, Eff.Node("draw", ("amount", 1))),
 
         Spell(TargetedBolt, 1, Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 2))),
+
+        Spell(DiscardTwo, 1, Eff.Node("discard", ("amount", 2))),
 
         Spell(RallyLike, 1,
             Eff.Node("gain_resource_scaled", ("type", "spike"), ("scale", "hand_composition"), ("multiplier", 2))),

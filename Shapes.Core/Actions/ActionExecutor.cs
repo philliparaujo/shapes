@@ -35,6 +35,9 @@ public static class ActionExecutor
             case MergeAction merge:
                 ApplyMerge(state, merge);
                 break;
+            case DiscardAction discard:
+                ApplyDiscard(state, discard);
+                break;
             case EndTurnAction end:
                 ApplyEndTurn(state, end);
                 break;
@@ -133,18 +136,34 @@ public static class ActionExecutor
         // actions afterwards, not by anything here.
     }
 
-    private static void ApplyEndTurn(GameState state, EndTurnAction action)
+    // Pays one point of a pending "discard N" debt with a chosen card.
+    //
+    // Both halves must happen together: removing the card without consuming the debt would loop
+    // forever, and consuming without removing would let a player discharge a discard for free.
+    private static void ApplyDiscard(GameState state, DiscardAction action)
     {
         var player = state[action.Player];
 
-        // Draw, then discard to the hand limit, then pass. Draw first is what makes the hand
-        // limit bite: drawing into an over-full hand must force a discard, not be skipped.
-        player.Draw(state.Rules.CardsDrawnPerTurn);
+        if (!player.DiscardCard(action.CardId))
+        {
+            throw new InvalidOperationException(
+                $"Cannot discard '{action.CardId}': it is not in player {action.Player}'s hand.");
+        }
 
-        // Deck exhaustion is deliberately not fatal -- PlayerState.Draw returns null and the
-        // player simply draws nothing. No damage, no loss; the rule is "you get nothing".
-        DiscardToHandLimit(state, player);
+        state.ConsumePendingDiscard();
 
+        // The debt may now exceed what is left in hand -- "discard 2" with two cards, one of
+        // which was just discarded by something else. Clamping here as well as at the point the
+        // debt is incurred covers a hand that shrank in between.
+        ClampPendingDiscards(state, player);
+    }
+
+    private static void ApplyEndTurn(GameState state, EndTurnAction action)
+    {
+        // No draw here: drawing moved to turn START (GameState.ApplyDraw, run by
+        // AdvanceToActions below for the player receiving the turn), so a drawn card is playable
+        // the turn it arrives. The hand limit is enforced there too, by burning the overdrawn
+        // card -- which is why this method no longer discards anything.
         state.EndTurn();
 
         // Runs the new active player's scoring and income immediately, so a caller never has
@@ -154,19 +173,20 @@ public static class ActionExecutor
         state.AdvanceToActions();
     }
 
-    // Discards from the front of the hand until at the limit.
+    // Caps an outstanding discard debt at the number of cards actually held.
     //
-    // Which card to discard is a player CHOICE the action model does not yet express -- there
-    // is no DiscardAction, because nothing has needed one. Taking from the front is a
-    // deterministic placeholder rather than a rule: it is reproducible from a seed, which keeps
-    // sim runs comparable, and it is deliberately not random, which would consume RNG draws and
-    // shift every subsequent shuffle. When hand-limit discards start mattering to play strength
-    // this becomes its own action; until then this is the honest minimum.
-    private static void DiscardToHandLimit(GameState state, PlayerState player)
+    // "Discard 3" with two cards in hand discards both and forgets the third; the debt does not
+    // follow the player into a future turn. Two reasons: a debt outliving its turn would let a
+    // card silently tax a later one, and -- more urgently -- the generator offers NOTHING but
+    // discards while a debt stands, so an unpayable one would produce an empty legal-action list
+    // and deadlock the game. Clamping at the moment the debt is incurred is what keeps
+    // ActionGenerator's non-emptiness invariant true without it having to mutate state.
+    private static void ClampPendingDiscards(GameState state, PlayerState player)
     {
-        while (player.Hand.Count > state.Rules.HandLimit)
+        if (state.PendingDiscards > player.Hand.Count)
         {
-            player.DiscardCardAt(0);
+            state.ClearPendingDiscards();
+            state.AddPendingDiscards(player.Hand.Count);
         }
     }
 
@@ -193,6 +213,12 @@ public static class ActionExecutor
         {
             state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, slot.Owner, slot, creature.CardId);
         }
+
+        // A `discard` op in that list may have recorded a debt larger than the hand can pay.
+        // Clamped here, once the whole list has resolved, rather than inside the op: a later
+        // effect in the same list may draw cards, and clamping mid-list would forget a debt the
+        // player turns out to be able to afford.
+        ClampPendingDiscards(state, state[player]);
     }
 
     // How many cards in `player`'s hand cost each resource type -- see EffectContext.HandComposition.

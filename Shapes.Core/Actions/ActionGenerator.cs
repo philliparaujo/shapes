@@ -43,6 +43,20 @@ public static class ActionGenerator
 
         var player = state.ActivePlayer;
 
+        // A pending "discard N" gates everything else: until the debt is paid the ONLY legal
+        // actions are discards. Not even EndTurn is offered, which is what stops a player
+        // walking away from a cost their own card imposed.
+        //
+        // The non-emptiness invariant is preserved upstream, not here: an unpayable debt (more
+        // cards owed than held) is cleared by the executor the moment it is incurred, so
+        // AwaitingDiscard is never true with an empty hand and this branch cannot return an
+        // empty list. Generate stays pure -- it reports legality, it never fixes state.
+        if (state.AwaitingDiscard)
+        {
+            AddDiscardActions(state, player, actions);
+            return actions;
+        }
+
         AddPlayCardActions(state, cards, player, actions);
         AddUseMoveActions(state, cards, player, actions);
         AddMergeActions(state, player, actions);
@@ -221,6 +235,24 @@ public static class ActionGenerator
         foreach (var target in TargetResolver.ChosenCandidates(ctx, chosen.Value))
         {
             actions.Add(new UseMoveAction(player, slot, moveIndex, target));
+        }
+    }
+
+    // One action per DISTINCT card in hand, paying down one point of the debt.
+    //
+    // Duplicates collapse for the same reason they do when playing a card: two copies of the
+    // same card are the same choice, and offering both would split the search's statistics
+    // across identical edges. Discarding "one of the two copies" is fully described by the id.
+    private static void AddDiscardActions(GameState state, PlayerId player, List<GameAction> actions)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var cardId in state[player].Hand)
+        {
+            if (seen.Add(cardId))
+            {
+                actions.Add(new DiscardAction(player, cardId));
+            }
         }
     }
 

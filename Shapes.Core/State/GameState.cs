@@ -5,18 +5,27 @@ namespace Shapes.Core.State;
 
 // The phase of a turn. Score and income resolve automatically at the start of a turn; the
 // player only makes choices during Actions.
+// Draw sits between Income and Actions: a card drawn at turn start is playable that same turn.
+// (It used to happen at turn END, which meant a drawn card sat unusable until the next turn and
+// the hand limit was enforced on the way out rather than on the way in.)
 public enum TurnPhase
 {
     Scoring = 0,
     Income = 1,
-    Actions = 2,
-    Ended = 3,
+    Draw = 2,
+    Actions = 3,
+    Ended = 4,
 }
 
 public enum TurnEventKind
 {
     CreaturePlayed = 0,
     CreatureDestroyed = 1,
+
+    // A card drawn into an already-full hand and burned. Logged so the Phase 3 balance run can
+    // measure how often the hand limit actually costs a player a card -- "resource flooding" in
+    // the plan's metrics list -- rather than inferring it from hand sizes.
+    CardBurned = 2,
 }
 
 // One notable thing that happened this turn: a creature entering or leaving the board. Exists
@@ -57,6 +66,46 @@ public sealed class GameState
     // Counts full rounds, incrementing when play returns to player one. Starts at 1.
     public int TurnNumber { get; private set; }
 
+    // How many cards the active player still owes to a card-driven "discard N" effect.
+    //
+    // While this is above zero the action generator offers ONLY DiscardActions, so the turn
+    // cannot proceed until the debt is paid. That is what turns discard into a player choice
+    // without letting an effect ask a question mid-resolution: the op records the debt, resolution
+    // finishes, and the choice is then expressed as ordinary legal actions the console renders and
+    // the search expands like any other.
+    //
+    // Deliberately a bare count rather than a queue of pending effects: multiple discard effects
+    // in one turn simply add up, and paying them one card at a time (PLAN.md's turn structure) is
+    // indistinguishable from paying them per-effect. Overdraw does NOT come through here -- an
+    // overdrawn card is burned automatically and is never a choice.
+    public int PendingDiscards { get; private set; }
+
+    public bool AwaitingDiscard => PendingDiscards > 0;
+
+    // Called by the discard op. Adds to any debt already outstanding rather than replacing it.
+    public void AddPendingDiscards(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        PendingDiscards += count;
+    }
+
+    // Called by the executor once a DiscardAction has actually removed a card.
+    public void ConsumePendingDiscard()
+    {
+        if (PendingDiscards == 0)
+        {
+            throw new InvalidOperationException("No discard is pending.");
+        }
+
+        PendingDiscards--;
+    }
+
+    // Clears an unpayable debt: a "discard 2" with one card in hand discards that one and forgets
+    // the rest. The alternative -- carrying the debt until cards arrive -- would let an effect
+    // silently tax a future turn, and would deadlock the generator when the hand is empty, since
+    // it offers nothing but DiscardActions while a debt is outstanding.
+    public void ClearPendingDiscards() => PendingDiscards = 0;
+
     // Starts in Scoring, not Actions: turn one runs the same score -> income -> actions
     // sequence as every later turn (scoring an empty board is simply a no-op). A caller that
     // wants to start playing immediately calls AdvanceToActions() once after construction, the
@@ -78,7 +127,8 @@ public sealed class GameState
 
     private GameState(
         RuleSet rules, IRandomSource random, Board board, PlayerState[] players,
-        PlayerId activePlayer, TurnPhase phase, int turnNumber, IEnumerable<TurnEvent> turnEvents)
+        PlayerId activePlayer, TurnPhase phase, int turnNumber, IEnumerable<TurnEvent> turnEvents,
+        int pendingDiscards)
     {
         Rules = rules;
         Random = random;
@@ -88,6 +138,7 @@ public sealed class GameState
         Phase = phase;
         TurnNumber = turnNumber;
         _turnEvents = [.. turnEvents];
+        PendingDiscards = pendingDiscards;
     }
 
     public PlayerState this[PlayerId player] => _players[player.ToIndex()];
@@ -149,15 +200,83 @@ public sealed class GameState
     {
         Active.GainResources(PendingIncome(ActivePlayer));
         Active.GainResources(Active.ConsumePendingNextTurnResources());
+        Phase = TurnPhase.Draw;
+    }
+
+    // Draws the turn's cards for the active player, burning any drawn over the hand limit.
+    //
+    // Draw is at turn START (after income, before actions) rather than at turn end: a card drawn
+    // at the start is playable this turn, which is what makes the draw a live decision rather
+    // than a deposit for next turn. Hearthstone's sequencing, and the reason the hand limit can
+    // be enforced here rather than needing a separate end-of-turn step.
+    //
+    // Overdraw BURNS: a card drawn into a full hand goes straight to the discard pile and is
+    // never a choice. That is deliberate and differs from the card-driven `discard` op, which IS
+    // a choice (see PendingDiscards). The asymmetry is the Hearthstone/Slay-the-Spire rule --
+    // you cannot save an overdrawn card by pitching a worse one, so a full hand is a real cost.
+    // It also keeps the common path free of a pending state: overdraw happens constantly, and
+    // routing it through the action generator would put a discard prompt in front of the player
+    // most turns.
+    public void ApplyDraw()
+    {
+        DrawWithBurn(ActivePlayer, Rules.CardsDrawnPerTurn);
         Phase = TurnPhase.Actions;
     }
 
-    // Runs scoring then income for the active player, in that order, and leaves the state ready
-    // for the Actions phase -- unless scoring just won the game, in which case Phase stops at
-    // Ended and income never runs. A no-op once the game is already in or past Actions, so
-    // callers can invoke it unconditionally after EndTurn (or on a freshly constructed game)
-    // without checking Phase themselves first. That "check Phase before calling ApplyScoring"
-    // duplication is exactly what step 1.9 folds away -- see ActionExecutor.ApplyEndTurn.
+    // Draws `count` cards for a player, burning any that arrive into a full hand.
+    //
+    // THE one place cards enter a hand from a deck. Every draw goes through here -- the turn
+    // draw and every card effect that draws -- because the hand limit is a property of drawing,
+    // not of the turn step: a card reading "draw 3" into a full hand burns all three, exactly
+    // as the turn draw would. PlayerState.Draw cannot enforce this itself, since the limit lives
+    // on RuleSet and PlayerState has no access to it; putting the rule here rather than at each
+    // call site is what stops a future draw effect quietly bypassing it.
+    //
+    // Returns the cards that were KEPT, so a caller can tell a real draw from a burned one.
+    public IReadOnlyList<string> DrawWithBurn(PlayerId player, int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        var kept = new List<string>(count);
+
+        for (var i = 0; i < count; i++)
+        {
+            var drawn = this[player].Draw();
+
+            // Deck exhaustion is not fatal: the player simply draws nothing. Stopping rather
+            // than continuing avoids counting a failed draw against the burn logic below.
+            if (drawn is null)
+            {
+                break;
+            }
+
+            // Over the limit, so the card just drawn is the one burned -- not an older card.
+            // Discarding the drawn card specifically is what makes this a burn rather than a
+            // hand-limit discard the player might have preferred to direct.
+            if (this[player].Hand.Count > Rules.HandLimit)
+            {
+                this[player].DiscardCard(drawn);
+                RecordTurnEvent(TurnEventKind.CardBurned, player, default, drawn);
+                continue;
+            }
+
+            kept.Add(drawn);
+        }
+
+        return kept;
+    }
+
+    // Runs scoring, income, then draw for the active player, in that order, and leaves the state
+    // ready for the Actions phase -- unless scoring just won the game, in which case Phase stops
+    // at Ended and neither income nor draw runs. A no-op once the game is already in or past
+    // Actions, so callers can invoke it unconditionally after EndTurn (or on a freshly
+    // constructed game) without checking Phase themselves first. That "check Phase before calling
+    // ApplyScoring" duplication is exactly what step 1.9 folds away -- see
+    // ActionExecutor.ApplyEndTurn.
+    //
+    // Note the starting player draws on turn one, on top of the opening hand a caller dealt with
+    // StartingHandSize -- the same as every later turn, and the same as Hearthstone's first
+    // player. Turn one is not a special case here, which is the property step 1.9 was after.
     public void AdvanceToActions()
     {
         if (Phase == TurnPhase.Scoring)
@@ -174,6 +293,11 @@ public sealed class GameState
         if (Phase == TurnPhase.Income)
         {
             ApplyIncome();
+        }
+
+        if (Phase == TurnPhase.Draw)
+        {
+            ApplyDraw();
         }
     }
 
@@ -195,6 +319,12 @@ public sealed class GameState
 
         Phase = TurnPhase.Scoring;
         _turnEvents.Clear();
+
+        // A discard debt does not survive the turn that created it. It should already be zero --
+        // the generator will not offer EndTurn while one is outstanding -- but clearing here
+        // means a state hand-built by a test or a replay cannot leak a debt onto the opponent,
+        // who would then be gated into discarding for someone else's card.
+        PendingDiscards = 0;
     }
 
     public void SetPhase(TurnPhase phase) => Phase = phase;
@@ -206,7 +336,7 @@ public sealed class GameState
     // game's randomness, or replaying the same seed would stop producing the same game.
     public GameState Clone() =>
         new(Rules, Random.Fork(), Board.Clone(), [_players[0].Clone(), _players[1].Clone()],
-            ActivePlayer, Phase, TurnNumber, _turnEvents);
+            ActivePlayer, Phase, TurnNumber, _turnEvents, PendingDiscards);
 
     public override string ToString() =>
         $"turn {TurnNumber} {Phase} active=P{ActivePlayer.ToIndex() + 1} "
