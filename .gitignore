@@ -1,6 +1,8 @@
 # Build output
 [Bb]in/
 [Oo]bj/
+# Source-generator output, emitted only when diagnosing with EmitCompilerGeneratedFiles
+generated/
 [Dd]ebug/
 [Rr]elease/
 artifacts/

@@ -21,7 +21,6 @@
 
   "typeChart": {
     "weaknessMultiplier": 2.0,
-    "cycle": { "spike": "wheel", "wheel": "anvil", "anvil": "spike" },
-    "mergedTargetRule": "match_and_weak"
+    "cycle": { "spike": "wheel", "wheel": "anvil", "anvil": "spike" }
   }
 }

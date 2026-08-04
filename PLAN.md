@@ -7,14 +7,15 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 3 / 14     |
+| 1 — Playable engine            | 4 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-67 tests passing.
+122 tests passing.
 
-**Next up: step 1.4** — `RuleSet` fields + JSON loading.
+**Next up: step 1.5** — state model (`GameState`, `Board`, `CreatureInstance`) + seeded
+`IRandomSource`.
 
 ## 0. Confirmed ruleset
 
@@ -59,8 +60,11 @@ Effectiveness is applied when damage resolves, after flat modifiers (`next_attac
 before clamping — the exact ordering is a `RuleSet`-adjacent decision and must be pinned by a
 test, since it changes numbers whenever both a bonus and a 2× apply.
 
-Considered unlikely to change, but implemented as a swappable `ITypeChart` behind the `RuleSet`
-so the multiplier, the cycle, and the merged-target rule can all be varied in balance sweeps.
+Implemented as a `TypeChart` on the `RuleSet`, so the **multiplier** and the **cycle** can be
+varied in balance sweeps. The merged-target rule itself is hard-coded: an alternative ("2× on
+any weak type, match or not") was considered and deliberately not built, since nothing has
+suggested the game wants it. Re-adding it is an hour's work if Phase 3 finds that mixed merges
+are underpriced.
 
 ### Income
 
@@ -288,8 +292,7 @@ they are a **`RuleSet` object loaded from JSON**, never constants in code:
   "deckMode": "symmetric", "copiesPerCard": 2,
   "typeChart": {
     "weaknessMultiplier": 2.0,
-    "cycle": { "spike": "wheel", "wheel": "anvil", "anvil": "spike" },
-    "mergedTargetRule": "match_and_weak"
+    "cycle": { "spike": "wheel", "wheel": "anvil", "anvil": "spike" }
   }
 }
 ```
@@ -510,11 +513,21 @@ numbers below name the suite that lands with each piece.
   merge-adjacency rules live on `SlotIndex` rather than as index arithmetic spread across the
   engine. Both rules were mutation-tested — a mirrored `2-i` opposition and a silent clamp
   were each confirmed to fail the suite before reverting.*
-- [ ] **4. `RuleSet` + JSON loading.** Every volatile rule is a field from day one.
+- [x] **4. `RuleSet` + JSON loading.** Every volatile rule is a field from day one.
   <br>*tests: defaults load; overrides actually take effect.*
-  <br>*(partial: placeholder class and `Shapes.Content/rulesets/default.json` exist; no fields
-  or loader yet.)*
-- [ ] **5. State model:** `GameState` / `PlayerState` / `Board` / `CreatureInstance`; seeded
+  <br>*Done: 122 tests. `RuleSet` validates in its constructor, so a malformed ruleset fails at
+  load rather than producing a nonsense game hours into a sim run. `TypeChart` carries the
+  effectiveness rule (cycle and multiplier configurable, merged-target rule hard-coded) and
+  rejects a malformed cycle (e.g. two types beating the same third, which would leave one type
+  invulnerable). Loading uses a **source-generated**
+  `JsonSerializerContext` — required for the iOS AOT export, and verified to emit rather than
+  assumed. Unknown properties are **rejected**: a typo like `scoreToWinn` would otherwise fall
+  back to the default and a balance run would measure the wrong ruleset while looking
+  plausible. `UnmappedMemberHandling` has to be declared on the context attribute — set on a
+  separately built `JsonSerializerOptions` it is silently ignored by the generated path.
+  A test asserts `default.json` and `RuleSet.Default` agree, since they are two statements of
+  the same rules.*
+- [ ] **5. State model:** `GameState` / `PlayerState` / `Board` / `CreatureInstance`;	 seeded
   `IRandomSource`.
   <br>*tests: `StateBuilder` fixture, determinism from seed.*
 - [ ] **6. Effect interpreter** + the op vocabulary above. **The critical piece** — build it
