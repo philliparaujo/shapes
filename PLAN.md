@@ -12,7 +12,9 @@ AI-driven balance → Godot client.
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-557 tests passing.
+568 tests passing.
+
+All Phase 1 exit criteria are met except step 1.13 itself (mobile toolchain spike).
 
 **Next up: step 1.13** — mobile toolchain spike: hello-world Godot 4 C# project exported to
 Android and iOS, to validate C# mobile export before the plan commits further to it.
@@ -848,9 +850,9 @@ numbers below name the suite that lands with each piece.
 **Exit criteria:**
 - [x] Two humans can play a full game to a win at the console.
 - [x] All ~36 cards implemented.
-- [ ] A scripted game replays identically from a seed.
-- [ ] Apply/undo property tests pass.
-- [ ] Every effect op has a passing test.
+- [x] A scripted game replays identically from a seed.
+- [x] Apply/undo property tests pass.
+- [x] Every effect op has a passing test.
 - [x] Fuzz harness runs clean over 10k games.
 
 ### Phase 2 — IS-MCTS AI
