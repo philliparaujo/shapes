@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared build settings live in ../Directory.Build.props. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shapes.Core\Shapes.Core.csproj" />
+    <ProjectReference Include="..\Shapes.Ai\Shapes.Ai.csproj" />
+    <!-- Card-data validation (step 1.7) loads the real content set. -->
+    <ProjectReference Include="..\Shapes.Content\Shapes.Content.csproj" />
+  </ItemGroup>
+
+</Project>

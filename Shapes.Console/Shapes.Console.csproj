@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Text client. Shared build settings live in ../Directory.Build.props. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shapes.Core\Shapes.Core.csproj" />
+    <ProjectReference Include="..\Shapes.Ai\Shapes.Ai.csproj" />
+    <ProjectReference Include="..\Shapes.Content\Shapes.Content.csproj" />
+  </ItemGroup>
+
+</Project>

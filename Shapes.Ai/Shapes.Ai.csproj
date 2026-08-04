@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    IS-MCTS search, determinization, and agents. Consumes the engine through
+    ObservedState and IAgent only. Shared build settings live in ../Directory.Build.props.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shapes.Core\Shapes.Core.csproj" />
+  </ItemGroup>
+
+</Project>

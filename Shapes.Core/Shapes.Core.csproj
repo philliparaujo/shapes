@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The engine. Pure game logic: no UI, no I/O, no third-party dependencies.
+
+    This project must reference nothing but the BCL, and must stay AOT-safe for the
+    Phase 4 iOS export. Both rules are enforced by CorePurityTests. Shared build
+    settings live in ../Directory.Build.props.
+  -->
+
+</Project>

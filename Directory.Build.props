@@ -1,0 +1,30 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    iOS export requires AOT compilation, so the engine must stay trim/AOT-safe.
+    These analyzers surface reflection-dependent patterns at build time rather than
+    at Phase 4 export time. See PLAN.md "Mobile-specific constraints".
+  -->
+  <PropertyGroup>
+    <IsAotSensitiveProject>false</IsAotSensitiveProject>
+    <IsAotSensitiveProject Condition="'$(MSBuildProjectName)' == 'Shapes.Core'">true</IsAotSensitiveProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsAotSensitiveProject)' == 'true'">
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+  </PropertyGroup>
+
+</Project>

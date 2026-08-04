@@ -1,0 +1,33 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# Balance run outputs (experiment logs are committed; raw data is not)
+balance/**/*.csv
+balance/**/raw/
+
+# Godot (Phase 4)
+.godot/
+*.translation
+
+# OS
+Thumbs.db
+.DS_Store

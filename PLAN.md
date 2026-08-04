@@ -3,6 +3,17 @@
 A 2-player, turn-based, board-and-cards game. Four phases: playable engine → IS-MCTS AI →
 AI-driven balance → Godot client.
 
+## Status
+
+| Phase                          | Progress   |
+|--------------------------------|------------|
+| 1 — Playable engine            | 2 / 14     |
+| 2 — IS-MCTS AI                 | 0 / 8      |
+| 3 — AI-driven balance          | 0 / 7      |
+| 4 — Godot client               | 0 / 12     |
+
+**Next up: step 1.3** — primitives (`ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`).
+
 ## 0. Confirmed ruleset
 
 This supersedes the reference PDF where they disagree. The PDF's resource-acquisition graph
@@ -472,82 +483,110 @@ covered, rather than a blanket line-coverage percentage.
 Tests are written **with** each step, not after — see the testing strategy above. The step
 numbers below name the suite that lands with each piece.
 
-1. **Prerequisite:** install .NET 8 SDK (x64).
-2. Solution + project skeleton, including `Shapes.Tests` from the start; enforce the "Core
-   references nothing" rule with a test.
-3. Primitives: `ResourceType`, `ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`.
-   → *tests: pool arithmetic, no negatives, type-mask combination.*
-4. `RuleSet` + JSON loading. Every volatile rule is a field from day one.
-   → *tests: defaults load; overrides actually take effect.*
-5. `GameState` / `PlayerState` / `Board` / `CreatureInstance`; seeded `IRandomSource`.
-   → *tests: `StateBuilder` fixture, determinism from seed.*
-6. Effect interpreter + the op vocabulary above. **The critical piece** — build it before
-   entering card data, so the vocabulary is validated against real cards.
-   → *tests: the full per-op suite against synthetic cards. Largest suite in the project;
-   write each op's test as that op is implemented.*
-7. Card JSON schema + loader + validation (fail loudly on an unknown op).
-   → *tests: card-data validation suite.*
-8. Action model: `PlayCard`, `UseMove`, `Merge`, `EndTurn` + legal-action generation.
-   Legal-action generation is the single most important API in the codebase — the AI, the
-   console, and the UI all consume it.
-   → *tests: legality rules (affordability, occupied slots, merge adjacency/depth,
-   once-per-turn moves), legal-action soundness property.*
-9. Turn loop: score → income → actions → end.
-   → *tests: scoring, income, phase-order, win-condition suites.*
-10. Enter all ~36 cards from the references as JSON.
-    → *tests: generated per-card smoke test — each card playable, each move usable.*
-11. Console client: render board/hands/resources, numbered legal actions, hotseat play.
-12. Debug affordances the PDF's "Demo reqs" asked for — adjustable score, health, manual
-    creature removal, forced draws, resource editing, POV swap. Build these as **console
-    commands over engine methods**, so the AI and Godot inherit them.
-13. Fuzz harness: thousands of seeded random-play games asserting the invariants (termination,
-    no illegal state). Cheap to write once legal-action generation exists, and it catches the
-    rule interactions that hand-written tests miss.
-14. **Mobile toolchain spike** (timeboxed, ~half a day, parallel to the above). Build a
-    hello-world Godot 4 C# project and export it to Android and iOS. This validates the
-    riskiest assumption in the whole plan — that Godot's C# export supports the target mobile
-    platforms — at the point where the response to bad news is still cheap. Do **not** defer
-    this to Phase 4.
+- [x] **1. Prerequisite:** install .NET 8 SDK (x64).
+  <br>*Done: SDK 8.0.423. The machine also carried a 32-bit runtime-only .NET 5.0.12 whose
+  `dotnet.exe` shadowed the SDK on PATH; uninstalled, including the files the MSI left behind.*
+- [x] **2. Solution + project skeleton**, including `Shapes.Tests` from the start; enforce the
+  "Core references nothing" rule with a test.
+  <br>*Done: 6 projects, `Directory.Build.props` (warnings-as-errors, nullable, AOT analyzers
+  on Core), `.gitignore`, README, content-copy pipeline verified. `CorePurityTests` reads
+  `Shapes.Core.csproj` as XML rather than inspecting the compiled assembly — the compiler
+  elides references that no code uses, so an unused-but-declared dependency is invisible at
+  runtime. Verified by deliberately adding a package and confirming the test fails.*
+- [ ] **3. Primitives:** `ResourceType`, `ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`.
+  <br>*tests: pool arithmetic, no negatives, type-mask combination.*
+  <br>*(partial: `ResourceType` + `ResourceTypes` landed with step 2 as an anchor for the
+  architecture tests.)*
+- [ ] **4. `RuleSet` + JSON loading.** Every volatile rule is a field from day one.
+  <br>*tests: defaults load; overrides actually take effect.*
+  <br>*(partial: placeholder class and `Shapes.Content/rulesets/default.json` exist; no fields
+  or loader yet.)*
+- [ ] **5. State model:** `GameState` / `PlayerState` / `Board` / `CreatureInstance`; seeded
+  `IRandomSource`.
+  <br>*tests: `StateBuilder` fixture, determinism from seed.*
+- [ ] **6. Effect interpreter** + the op vocabulary above. **The critical piece** — build it
+  before entering card data, so the vocabulary is validated against real cards.
+  <br>*tests: the full per-op suite against synthetic cards. Largest suite in the project;
+  write each op's test as that op is implemented.*
+- [ ] **7. Card JSON schema + loader + validation** (fail loudly on an unknown op; reject
+  multiple `chosen_*` selectors per card).
+  <br>*tests: card-data validation suite.*
+- [ ] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `EndTurn` + legal-action generation.
+  Legal-action generation is the single most important API in the codebase — the AI, the
+  console, and the UI all consume it.
+  <br>*tests: legality rules (affordability, occupied slots, merge adjacency/depth,
+  once-per-turn moves), legal-action soundness property.*
+- [ ] **9. Turn loop:** score → income → actions → end.
+  <br>*tests: scoring, income, type-effectiveness, phase-order, win-condition suites.*
+- [ ] **10. Enter all ~36 cards** from the references as JSON.
+  <br>*tests: generated per-card smoke test — each card playable, each move usable.*
+- [ ] **11. Console client:** render board/hands/resources, numbered legal actions, hotseat play.
+- [ ] **12. Debug affordances** the PDF's "Demo reqs" asked for — adjustable score, health,
+  manual creature removal, forced draws, resource editing, POV swap. Build these as **console
+  commands over engine methods**, so the AI and Godot inherit them.
+- [ ] **13. Fuzz harness:** thousands of seeded random-play games asserting the invariants
+  (termination, no illegal state). Cheap to write once legal-action generation exists, and it
+  catches the rule interactions that hand-written tests miss.
+- [ ] **14. Mobile toolchain spike** (timeboxed, ~half a day, parallel to the above). Build a
+  hello-world Godot 4 C# project and export it to Android and iOS. This validates the riskiest
+  assumption in the whole plan — that Godot's C# export supports the target mobile platforms —
+  at the point where the response to bad news is still cheap. Do **not** defer this to Phase 4.
 
-**Exit criteria:** two humans can play a full game to a win at the console; all ~36 cards
-implemented; a scripted game replays identically from a seed; apply/undo property tests pass;
-**every effect op has a passing test and the fuzz harness runs clean over 10k games.**
+**Exit criteria:**
+- [ ] Two humans can play a full game to a win at the console.
+- [ ] All ~36 cards implemented.
+- [ ] A scripted game replays identically from a seed.
+- [ ] Apply/undo property tests pass.
+- [ ] Every effect op has a passing test.
+- [ ] Fuzz harness runs clean over 10k games.
 
 ### Phase 2 — IS-MCTS AI
 
-1. `IAgent` interface: `GameAction Choose(ObservedState s, CancellationToken ct)`.
-2. `ObservedState` — a strict projection of `GameState` to one player's knowledge. If the AI
-   can read the opponent's hand, everything downstream is invalid; enforce by test.
-3. Determinizer: sample a hidden state consistent with all observations (deck composition
-   minus known cards, opponent hand size, revealed/discarded cards).
-4. Baseline agents first: `RandomAgent`, `GreedyAgent` (one-ply heuristic). These are the
-   yardstick — an MCTS that cannot crush both has a bug.
-5. IS-MCTS: selection (UCB1), expansion, playout, backprop; per-iteration resampling.
-6. Playout policy: start uniform-random, then lightly heuristic (prefer damage/score moves) —
-   usually a large strength gain for modest cost.
-7. Performance: apply/undo, node pooling, budget by time *or* iteration count.
-8. Tuning: exploration constant, playout depth cap, determinizations per search.
+- [ ] **1. `IAgent` interface:** `GameAction Choose(ObservedState s, CancellationToken ct)`.
+- [ ] **2. `ObservedState`** — a strict projection of `GameState` to one player's knowledge.
+  If the AI can read the opponent's hand, everything downstream is invalid; enforce by test.
+- [ ] **3. Determinizer:** sample a hidden state consistent with all observations (deck
+  composition minus known cards, opponent hand size, revealed/discarded cards).
+- [ ] **4. Baseline agents first:** `RandomAgent`, `GreedyAgent` (one-ply heuristic). These are
+  the yardstick — an MCTS that cannot crush both has a bug.
+- [ ] **5. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
+- [ ] **6. Playout policy:** start uniform-random, then lightly heuristic (prefer damage/score
+  moves) — usually a large strength gain for modest cost.
+- [ ] **7. Performance:** apply/undo, node pooling, budget by time *or* iteration count.
+- [ ] **8. Tuning:** exploration constant, playout depth cap, determinizations per search.
 
-**Exit criteria:** IS-MCTS beats Random >95% and Greedy >80% over 500+ seeded games; a
-decision at a realistic budget completes in a target wall-clock (suggest ≤2s).
+**Exit criteria:**
+- [ ] IS-MCTS beats `RandomAgent` >95% over 500+ seeded games.
+- [ ] IS-MCTS beats `GreedyAgent` >80% over 500+ seeded games.
+- [ ] A decision at a realistic budget completes in target wall-clock (suggest ≤2s desktop).
+- [ ] `ObservedState` provably leaks no hidden information.
 
 ### Phase 3 — AI-driven balance
 
-1. `Shapes.Sim`: headless batch runner, N games, parallel, seeded, → CSV/JSON.
-2. Metrics: win rate by player-1/2 (first-player advantage), average game length, score curves,
-   per-card play/win-rate correlation, per-move usage frequency, merge frequency, resource
-   starvation/flooding, and how often games end by score-out vs. board wipe.
-3. **Answer the two flagged questions first:** (a) does the AI merge every time it legally
-   can — i.e. is merging a real decision? (b) how strongly does unopposed-creature income
-   compound into a runaway lead?
-4. Sweep: parameterize over rulesets and card stat variants; run the matrix; rank outliers.
-5. Iterate: adjust JSON, rerun, compare. Keep a `balance/` log of each experiment and result
-   so changes are traceable.
-6. Watch for: never-played cards, auto-include cards, degenerate loops, first-player advantage
-   beyond ~55%, games that never terminate.
+- [ ] **1. `Shapes.Sim`:** headless batch runner, N games, parallel, seeded, → CSV/JSON.
+- [ ] **2. Metrics:** win rate by player-1/2 (first-player advantage), average game length,
+  score curves, per-card play/win-rate correlation, per-move usage frequency, merge frequency,
+  resource starvation/flooding, and how often games end by score-out vs. board wipe.
+- [ ] **3. Answer the two flagged questions first:**
+  - [ ] (a) Does the AI ever *decline* a legal merge? If it merges at nearly every opportunity,
+    the multi-type 2× vulnerability is priced too cheaply to make merging a real decision.
+  - [ ] (b) How strongly does unopposed-creature income compound into a runaway lead? An
+    unopposed creature both scores *and* pays, so tempo advantage compounds twice.
+- [ ] **4. Sweep:** parameterize over rulesets and card stat variants; run the matrix; rank
+  outliers.
+- [ ] **5. Iterate:** adjust JSON, rerun, compare. Keep a `balance/` log of each experiment and
+  result so changes are traceable.
+- [ ] **6. Watch for:** never-played cards, auto-include cards, degenerate loops, first-player
+  advantage beyond ~55%, games that never terminate.
+- [ ] **7. Archetype sweeps** (once `deckMode: "custom"` exists): mono-type vs. mixed, aggro vs.
+  control. Do this only after per-card balance has settled.
 
-**Exit criteria:** no card with an extreme play-rate outlier; first-player advantage within a
-few points of even; game length in a target band; the two flagged mechanics resolved.
+**Exit criteria:**
+- [ ] No card with an extreme play-rate outlier (never-played or auto-include).
+- [ ] First-player advantage within a few points of even.
+- [ ] Game length in a target band.
+- [ ] Merge tradeoff confirmed as a real decision.
+- [ ] Income compounding confirmed not to produce runaway leads.
 
 ### Phase 4 — Godot client (desktop + mobile)
 
@@ -556,33 +595,34 @@ one codebase is very achievable for a turn-based card game — there is no realt
 performance pressure — but it constrains layout and input from the first scene, so design for
 it up front rather than retrofitting.
 
-1. Godot 4.x with .NET; add `Shapes.Godot` referencing `Shapes.Core` **unchanged**.
-2. Adapter layer: engine events → visual updates. Engine stays authoritative and UI-agnostic;
-   the UI *never* mutates state directly, only submits actions.
-3. **Responsive layout from scene one.** A 3v3 board, two hands, and resource counters must fit
-   both a wide desktop window and a tall phone screen. Use Godot's anchor/container system with
-   distinct portrait and landscape arrangements; never hard-code pixel positions. Retrofitting
-   responsive layout onto fixed-position scenes is the expensive path.
-4. **Touch-first input**, with mouse as the superset. Tap-to-select-then-tap-to-target works
-   identically with a mouse; drag-and-drop needs separate handling on both. Hit targets sized
-   for fingers (~44px minimum). No hover-dependent information — a phone has no hover, so
-   card details need tap-to-inspect or long-press, not a hover tooltip.
-5. Scenes: board, slots, hand, resource counters, score track, card detail.
-6. Real card art replacing placeholders; animation for play/move/merge/score/destroy.
-7. Target selection UI over the same `chosen_*` legal actions — single-target only (see the
-   single-target rule), so this is one selection state with no chaining.
-8. AI opponent via the existing `IAgent` — difficulty = search budget. **Run search off the
-   main thread** and cap the budget on mobile; a 2s desktop budget is far more expensive on a
-   phone CPU and will drain battery and stutter the UI if run inline.
-9. **Deckbuilder** (`deckMode: "custom"`): browse the card set, build and save decks, validate
-   against `RuleSet` limits. Reuses the engine's validation so the UI cannot construct a deck
-   the engine would reject.
-10. Persistence: saved decks, settings, progress — Godot `user://`, which maps correctly on
-    both desktop and mobile sandboxes.
-11. Polish: sound, transitions, menus.
-12. Export pipeline: desktop builds, plus Android (keystore signing) and iOS (Xcode, Apple
-    developer account). Establish this **early with a trivial build** — mobile export config is
-    where projects lose days, and finding it broken after the UI is finished is worse.
+- [ ] **1. Godot 4.x with .NET;** add `Shapes.Godot` referencing `Shapes.Core` **unchanged**.
+- [ ] **2. Adapter layer:** engine events → visual updates. Engine stays authoritative and
+  UI-agnostic; the UI *never* mutates state directly, only submits actions.
+- [ ] **3. Responsive layout from scene one.** A 3v3 board, two hands, and resource counters
+  must fit both a wide desktop window and a tall phone screen. Use Godot's anchor/container
+  system with distinct portrait and landscape arrangements; never hard-code pixel positions.
+  Retrofitting responsive layout onto fixed-position scenes is the expensive path.
+- [ ] **4. Touch-first input**, with mouse as the superset. Tap-to-select-then-tap-to-target
+  works identically with a mouse; drag-and-drop needs separate handling on both. Hit targets
+  sized for fingers (~44px minimum). No hover-dependent information — a phone has no hover, so
+  card details need tap-to-inspect or long-press, not a hover tooltip.
+- [ ] **5. Scenes:** board, slots, hand, resource counters, score track, card detail.
+- [ ] **6. Art + animation:** real card art replacing placeholders; animation for
+  play/move/merge/score/destroy.
+- [ ] **7. Target selection UI** over the same `chosen_*` legal actions — single-target only
+  (see the single-target rule), so this is one selection state with no chaining.
+- [ ] **8. AI opponent** via the existing `IAgent` — difficulty = search budget. **Run search
+  off the main thread** and cap the budget on mobile; a 2s desktop budget is far more expensive
+  on a phone CPU and will drain battery and stutter the UI if run inline.
+- [ ] **9. Deckbuilder** (`deckMode: "custom"`): browse the card set, build and save decks,
+  validate against `RuleSet` limits. Reuses the engine's validation so the UI cannot construct
+  a deck the engine would reject.
+- [ ] **10. Persistence:** saved decks, settings, progress — Godot `user://`, which maps
+  correctly on both desktop and mobile sandboxes.
+- [ ] **11. Polish:** sound, transitions, menus.
+- [ ] **12. Export pipeline:** desktop builds, plus Android (keystore signing) and iOS (Xcode,
+  Apple developer account). Established early via the Phase 1 step 14 spike; this step is
+  productionizing it, not discovering it.
 
 **Mobile-specific constraints worth knowing before Phase 4 starts:**
 - Godot's .NET/C# export to **iOS and Android requires Godot 4.2+** and has historically been
@@ -594,9 +634,11 @@ it up front rather than retrofitting.
   references nothing but the BCL" rule — favor source-generated or explicit JSON
   deserialization over reflection-based binding.
 
-**Exit criteria:** full game playable with visuals against the Phase 2 AI on **both a desktop
-and a physical mobile device**, deckbuilder functional, with the Core library unmodified from
-Phase 3.
+**Exit criteria:**
+- [ ] Full game playable with visuals against the Phase 2 AI on a desktop build.
+- [ ] The same, on a **physical mobile device**.
+- [ ] Deckbuilder functional and validating against the engine's own rules.
+- [ ] `Shapes.Core` unmodified from Phase 3.
 
 ---
 

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Headless batch runner for balance analysis. Shared build settings live in
+    ../Directory.Build.props.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shapes.Core\Shapes.Core.csproj" />
+    <ProjectReference Include="..\Shapes.Ai\Shapes.Ai.csproj" />
+    <ProjectReference Include="..\Shapes.Content\Shapes.Content.csproj" />
+  </ItemGroup>
+
+</Project>
