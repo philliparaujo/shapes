@@ -7,15 +7,15 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 4 / 14     |
+| 1 — Playable engine            | 5 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-122 tests passing.
+192 tests passing.
 
-**Next up: step 1.5** — state model (`GameState`, `Board`, `CreatureInstance`) + seeded
-`IRandomSource`.
+**Next up: step 1.6** — effect interpreter + the op vocabulary. The critical piece: build it
+before entering card data, so the vocabulary is validated against real cards.
 
 ## 0. Confirmed ruleset
 
@@ -168,6 +168,14 @@ Used by the console, tests, and Godot.
 
 - `CreatureInstance` as a struct: `{ CardId: ushort, Health: sbyte, MaxHealth: sbyte,
   Types: TypeMask, MovesUsedThisTurn: byte (bitmask), IsMerged: bool, MergedFrom: ushort[] }`
+- **Moves are not stored on the creature.** They are static card data, identical for every
+  copy of a card, so storing them per-instance would duplicate the same list across every
+  creature on the board and every MCTS clone. A creature's move list is
+  `MergedFrom.SelectMany(id => cards[id].Moves)` — which is also why `MergedFrom` is an
+  ordered list rather than a set. `MovesUsedThisTurn` indexes into that concatenation, so the
+  order is a contract: if two source cards' moves overlapped, they would share a
+  once-per-turn bit. `CreatureInstance.MoveIndexOffset` owns that arithmetic so no caller
+  reinvents it.
 - Board as a fixed `CreatureInstance[6]` (3 per player), slot *i* opposing slot *i+3*.
 - `ResourcePool` as a 3-field struct, not a dictionary.
 - Hand/deck as `List<ushort>` of card IDs.
@@ -527,9 +535,19 @@ numbers below name the suite that lands with each piece.
   separately built `JsonSerializerOptions` it is silently ignored by the generated path.
   A test asserts `default.json` and `RuleSet.Default` agree, since they are two statements of
   the same rules.*
-- [ ] **5. State model:** `GameState` / `PlayerState` / `Board` / `CreatureInstance`;	 seeded
+- [x] **5. State model:** `GameState` / `PlayerState` / `Board` / `CreatureInstance`; seeded
   `IRandomSource`.
   <br>*tests: `StateBuilder` fixture, determinism from seed.*
+  <br>*Done: 192 tests. Mutable classes with `Clone()`, per "build the naive version first" —
+  the struct-in-a-flat-array layout comes with apply/undo in Phase 2, behind this same surface.
+  `CreatureInstance` is a class rather than the planned struct for now: a mutable struct
+  holding a reference field (`MergedFrom`) copies silently in ways that are hard to debug.
+  `SeededRandom` is a hand-rolled xorshift64* rather than `System.Random`, which guarantees no
+  cross-platform stability — a seed replayed on a phone in Phase 4 must produce the same game.
+  It uses rejection sampling, since a plain modulus biases low values and that bias would skew
+  millions of MCTS playouts. `IRandomSource.Fork()` exists because `GameState.Clone()` sharing
+  one RNG would let a search rollout advance the real game's stream and silently break
+  seed-replay.*
 - [ ] **6. Effect interpreter** + the op vocabulary above. **The critical piece** — build it
   before entering card data, so the vocabulary is validated against real cards.
   <br>*tests: the full per-op suite against synthetic cards. Largest suite in the project;
