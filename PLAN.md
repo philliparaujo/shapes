@@ -7,12 +7,14 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 2 / 14     |
+| 1 — Playable engine            | 3 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-**Next up: step 1.3** — primitives (`ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`).
+67 tests passing.
+
+**Next up: step 1.4** — `RuleSet` fields + JSON loading.
 
 ## 0. Confirmed ruleset
 
@@ -281,7 +283,6 @@ they are a **`RuleSet` object loaded from JSON**, never constants in code:
   "incomePerCreatureType": 1,
   "pointsPerUnopposedCreature": 1,
   "scoreToWin": 10,
-  "boardSlots": 3,
   "mergeEnabled": true, "mergeRequiresAdjacent": true, "mergeCostsAction": false,
   "maxMergeDepth": 2,
   "deckMode": "symmetric", "copiesPerCard": 2,
@@ -295,6 +296,12 @@ they are a **`RuleSet` object loaded from JSON**, never constants in code:
 
 Every rule the answers flagged as volatile is a field here. A balance experiment becomes a
 named ruleset file, and Phase 3 can sweep them programmatically.
+
+**Board size is deliberately not a ruleset field.** It is structural rather than a balance
+knob: scoring is defined in terms of facing slots, and the flat board array is sized from it
+at compile time. It lives once, as `SlotIndex.SlotsPerPlayer`. Making it runtime-configurable
+would mean a second definition that could silently disagree with the compiled constant, in
+exchange for flexibility the game does not need.
 
 ### Is IS-MCTS the right choice?
 
@@ -493,10 +500,16 @@ numbers below name the suite that lands with each piece.
   `Shapes.Core.csproj` as XML rather than inspecting the compiled assembly — the compiler
   elides references that no code uses, so an unused-but-declared dependency is invisible at
   runtime. Verified by deliberately adding a package and confirming the test fails.*
-- [ ] **3. Primitives:** `ResourceType`, `ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`.
+- [x] **3. Primitives:** `ResourceType`, `ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`.
   <br>*tests: pool arithmetic, no negatives, type-mask combination.*
-  <br>*(partial: `ResourceType` + `ResourceTypes` landed with step 2 as an anchor for the
-  architecture tests.)*
+  <br>*Done: 67 tests. All are immutable structs — allocation-free for the MCTS hot path, and
+  a pool can never be mutated out from under a search node. Two decisions worth remembering:
+  `ResourcePool.Subtract` **throws** rather than clamping (an unaffordable payment means
+  legal-action generation let through an unpayable action, and clamping would hide the real
+  bug upstream — `TrySubtract` covers the expected-failure path); and the slot-opposition and
+  merge-adjacency rules live on `SlotIndex` rather than as index arithmetic spread across the
+  engine. Both rules were mutation-tested — a mirrored `2-i` opposition and a silent clamp
+  were each confirmed to fail the suite before reverting.*
 - [ ] **4. `RuleSet` + JSON loading.** Every volatile rule is a field from day one.
   <br>*tests: defaults load; overrides actually take effect.*
   <br>*(partial: placeholder class and `Shapes.Content/rulesets/default.json` exist; no fields

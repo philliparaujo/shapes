@@ -11,8 +11,6 @@
   "pointsPerUnopposedCreature": 1,
   "scoreToWin": 10,
 
-  "boardSlots": 3,
-
   "mergeEnabled": true,
   "mergeRequiresAdjacent": true,
   "mergeCostsAction": false,
