@@ -7,14 +7,14 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 8 / 14     |
+| 1 — Playable engine            | 9 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-422 tests passing.
+429 tests passing.
 
-**Next up: step 1.9** — turn loop: score → income → actions → end.
+**Next up: step 1.10** — enter all ~36 cards from the references as JSON.
 
 ## 0. Confirmed ruleset
 
@@ -689,8 +689,34 @@ numbers below name the suite that lands with each piece.
   before this step began. Recreated from the plan's worked example above and committed this
   time. This is the exact failure step 1.7's notes flagged — a whole suite silently testing
   nothing — arriving one step later than expected.*
-- [ ] **9. Turn loop:** score → income → actions → end.
+- [x] **9. Turn loop:** score → income → actions → end.
   <br>*tests: scoring, income, type-effectiveness, phase-order, win-condition suites.*
+  <br>*Done: 429 tests. Scoring, income, and phase fields already existed from step 1.5; what
+  was missing was a single owner for the score → income → actions sequence. Before this step,
+  every caller of `EndTurn()` had to remember to check `Phase == TurnPhase.Scoring` and call
+  `ApplyScoring()`/`ApplyIncome()` itself -- `LegalActionSoundnessTests` was doing exactly that
+  inline, flagged in its own comment as "step 1.9's turn loop, not this step's". That duplication
+  is exactly what a rules bug hides in: a caller that forgets the check silently skips a turn's
+  income.
+  <br>Folded into one entry point: `GameState.AdvanceToActions()` runs `ApplyScoring()` then
+  `ApplyIncome()` in order, is a no-op once already at or past Actions (so callers never need to
+  check `Phase` first), and stops after scoring -- before income runs -- if scoring just won the
+  game. `ActionExecutor.ApplyEndTurn` calls it immediately after `state.EndTurn()`, so ending a
+  turn now always lands the state back in `Actions` (or `Ended`) rather than stranding it in
+  `Scoring`.
+  <br>`GameState`'s constructor now starts in `TurnPhase.Scoring` rather than `Actions`, so turn
+  one runs the same sequence as every later turn instead of being a special case that skips
+  straight to actions -- scoring and paying income against an empty board is simply a no-op.
+  `StateBuilder` is unaffected: it already calls `SetPhase` explicitly and defaults to `Actions`,
+  which is what board-position fixtures want.
+  <br>The win check's placement was the one real design decision: it sits between `ApplyScoring`
+  and `ApplyIncome` inside `AdvanceToActions`, not inside `ApplyScoring` itself, so a scoring
+  play that wins the game leaves `Phase` at `Ended` and income never fires -- pinned by a test
+  asserting the winning player's resources stay empty. Without that ordering a won game would
+  still silently grant one more turn's income before anyone checked `IsOver`.
+  <br>`LegalActionSoundnessTests`' inline `ApplyScoring`/`ApplyIncome` workaround is removed now
+  that `ActionExecutor` owns it; the property suite plays through phase transitions it previously
+  had to drive by hand.
 - [ ] **10. Enter all ~36 cards** from the references as JSON.
   <br>*tests: generated per-card smoke test — each card playable, each move usable.*
 - [ ] **11. Console client:** render board/hands/resources, numbered legal actions, hotseat play.

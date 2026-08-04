@@ -68,16 +68,6 @@ public class LegalActionSoundnessTests
 
             var action = actions[random.Next(actions.Count)];
             ActionExecutor.Apply(state, cards, action);
-
-            // Score and income are step 1.9's turn loop, not this step's. Applying them inline
-            // here keeps random play from stalling in a resource-starved position forever and
-            // makes the games reach genuinely varied board states -- which is the whole point
-            // of a property test.
-            if (state.Phase == TurnPhase.Scoring)
-            {
-                state.ApplyScoring();
-                state.ApplyIncome();
-            }
         }
 
         return taken;
@@ -248,12 +238,6 @@ public class LegalActionSoundnessTests
             var action = actions[random.Next(actions.Count)];
             ActionExecutor.Apply(state, cards, action);
             transcript.Add($"{action.Describe()} -> {state}");
-
-            if (state.Phase == TurnPhase.Scoring)
-            {
-                state.ApplyScoring();
-                state.ApplyIncome();
-            }
         }
 
         return transcript;

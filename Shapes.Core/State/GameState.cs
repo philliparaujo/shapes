@@ -35,6 +35,11 @@ public sealed class GameState
     // Counts full rounds, incrementing when play returns to player one. Starts at 1.
     public int TurnNumber { get; private set; }
 
+    // Starts in Scoring, not Actions: turn one runs the same score -> income -> actions
+    // sequence as every later turn (scoring an empty board is simply a no-op). A caller that
+    // wants to start playing immediately calls AdvanceToActions() once after construction, the
+    // same call it makes after every EndTurn -- one turn-loop entry point rather than turn one
+    // being a special case.
     public GameState(RuleSet rules, IRandomSource random, PlayerId startingPlayer = PlayerId.One)
     {
         ArgumentNullException.ThrowIfNull(rules);
@@ -45,7 +50,7 @@ public sealed class GameState
         Board = new Board();
         _players = [new PlayerState(PlayerId.One), new PlayerState(PlayerId.Two)];
         ActivePlayer = startingPlayer;
-        Phase = TurnPhase.Actions;
+        Phase = TurnPhase.Scoring;
         TurnNumber = 1;
     }
 
@@ -122,6 +127,31 @@ public sealed class GameState
         Active.GainResources(PendingIncome(ActivePlayer));
         Active.GainResources(Active.ConsumePendingNextTurnResources());
         Phase = TurnPhase.Actions;
+    }
+
+    // Runs scoring then income for the active player, in that order, and leaves the state ready
+    // for the Actions phase -- unless scoring just won the game, in which case Phase stops at
+    // Ended and income never runs. A no-op once the game is already in or past Actions, so
+    // callers can invoke it unconditionally after EndTurn (or on a freshly constructed game)
+    // without checking Phase themselves first. That "check Phase before calling ApplyScoring"
+    // duplication is exactly what step 1.9 folds away -- see ActionExecutor.ApplyEndTurn.
+    public void AdvanceToActions()
+    {
+        if (Phase == TurnPhase.Scoring)
+        {
+            ApplyScoring();
+
+            if (IsOver)
+            {
+                Phase = TurnPhase.Ended;
+                return;
+            }
+        }
+
+        if (Phase == TurnPhase.Income)
+        {
+            ApplyIncome();
+        }
     }
 
     // Hands the turn to the opponent and resets their per-turn creature state. Does not run

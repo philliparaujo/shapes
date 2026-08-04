@@ -139,6 +139,12 @@ public static class ActionExecutor
         DiscardToHandLimit(state, player);
 
         state.EndTurn();
+
+        // Runs the new active player's scoring and income immediately, so a caller never has
+        // to check Phase and call ApplyScoring/ApplyIncome itself after EndTurn -- the one thing
+        // step 1.9 exists to fold into a single turn-loop entry point. A no-op if scoring just
+        // won the game.
+        state.AdvanceToActions();
     }
 
     // Discards from the front of the hand until at the limit.

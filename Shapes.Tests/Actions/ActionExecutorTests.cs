@@ -1,5 +1,6 @@
 using Shapes.Core.Actions;
 using Shapes.Core.Primitives;
+using Shapes.Core.Rules;
 using Shapes.Core.State;
 using Shapes.Tests.Fixtures;
 
@@ -369,6 +370,42 @@ public class ActionExecutorTests
         Apply(state, new EndTurnAction(PlayerId.One));
 
         Assert.False(state.Board[slot]!.HasUsedMove(0));
+    }
+
+    [Fact]
+    public void Ending_the_turn_scores_and_pays_income_for_the_new_active_player()
+    {
+        // The turn loop: EndTurn must not merely pass the turn -- it drives the new active
+        // player's Scoring and Income phases immediately, landing back in Actions, so a caller
+        // never has to notice the intermediate phases or call ApplyScoring/ApplyIncome itself.
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel))
+            .P2(p => p.Slot(1, "b", TypeMask.Spike).Score(2))
+            .Build();
+
+        Apply(state, new EndTurnAction(PlayerId.One));
+
+        Assert.Equal(PlayerId.Two, state.ActivePlayer);
+        Assert.Equal(TurnPhase.Actions, state.Phase);
+        // P2's unopposed spike creature scored, then income landed (base 1/1/1 + 1 spike).
+        Assert.Equal(3, state[PlayerId.Two].Score);
+        Assert.Equal(new ResourcePool(2, 1, 1), state[PlayerId.Two].Resources);
+    }
+
+    [Fact]
+    public void Ending_the_turn_into_the_opponents_win_leaves_the_game_over()
+    {
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .P2(p => p.Slot(0, "b", TypeMask.Spike).Score(RuleSet.Default.ScoreToWin - 1))
+            .Build();
+
+        Apply(state, new EndTurnAction(PlayerId.One));
+
+        Assert.True(state.IsOver);
+        Assert.Equal(PlayerId.Two, state.Winner);
+        Assert.Equal(TurnPhase.Ended, state.Phase);
     }
 
     // -- Action identity -------------------------------------------------------------------

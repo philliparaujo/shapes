@@ -201,6 +201,87 @@ public class GameStateTests
         Assert.Null(state.Winner);
     }
 
+    // -- Turn loop: score -> income -> actions ----------------------------------------------
+
+    [Fact]
+    public void A_freshly_built_game_starts_in_the_scoring_phase()
+    {
+        // Turn one runs the same score -> income -> actions sequence as every later turn --
+        // scoring an empty board is simply a no-op, rather than turn one being a special case
+        // that skips straight to Actions.
+        var state = new StateBuilder().Phase(TurnPhase.Scoring).Build();
+
+        Assert.Equal(TurnPhase.Scoring, state.Phase);
+    }
+
+    [Fact]
+    public void AdvanceToActions_runs_scoring_then_income_and_lands_in_actions()
+    {
+        var state = new StateBuilder()
+            .Phase(TurnPhase.Scoring)
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Score(3))
+            .Build();
+
+        state.AdvanceToActions();
+
+        Assert.Equal(TurnPhase.Actions, state.Phase);
+        Assert.Equal(4, state[PlayerId.One].Score);
+        Assert.Equal(new ResourcePool(1, 1, 2), state[PlayerId.One].Resources);
+    }
+
+    [Fact]
+    public void AdvanceToActions_from_income_only_runs_income()
+    {
+        var state = new StateBuilder()
+            .Phase(TurnPhase.Income)
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Score(3))
+            .Build();
+
+        state.AdvanceToActions();
+
+        Assert.Equal(TurnPhase.Actions, state.Phase);
+        // Scoring must not have re-run from the Income phase -- score stays at 3, not 4.
+        Assert.Equal(3, state[PlayerId.One].Score);
+    }
+
+    [Fact]
+    public void AdvanceToActions_is_a_no_op_once_already_in_actions()
+    {
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Score(3).Resources(spike: 2))
+            .Build();
+
+        state.AdvanceToActions();
+
+        Assert.Equal(TurnPhase.Actions, state.Phase);
+        Assert.Equal(3, state[PlayerId.One].Score);
+        Assert.Equal(new ResourcePool(2, 0, 0), state[PlayerId.One].Resources);
+    }
+
+    [Fact]
+    public void Scoring_into_a_win_stops_before_income_runs()
+    {
+        // The win check must land between scoring and income: a player who scores past the
+        // threshold wins immediately, and no further phase (income, let alone actions) should
+        // execute on a decided game.
+        var state = new StateBuilder()
+            .Phase(TurnPhase.Scoring)
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Score(RuleSet.Default.ScoreToWin - 1))
+            .Build();
+
+        state.AdvanceToActions();
+
+        Assert.Equal(TurnPhase.Ended, state.Phase);
+        Assert.True(state.IsOver);
+        Assert.Equal(PlayerId.One, state.Winner);
+        // Income never ran: base income would otherwise have landed.
+        Assert.Equal(ResourcePool.Empty, state[PlayerId.One].Resources);
+    }
+
     [Fact]
     public void Clone_is_fully_independent()
     {
