@@ -1,0 +1,195 @@
+using Shapes.Core.Effects;
+using Shapes.Core.Primitives;
+using Shapes.Core.State;
+using Shapes.Tests.Fixtures;
+
+namespace Shapes.Tests.Effects;
+
+public class DamageOpTests
+{
+    private static GameState BasicState(int p1Health = 5, int p2Health = 5) =>
+        new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel, maxHealth: p1Health))
+            .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: p2Health))
+            .Build();
+
+    private static EffectContext SourceContext(GameState state, ResourceType? moveType = null) =>
+        new(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null, moveType);
+
+    [Fact]
+    public void Damage_reduces_target_health_by_the_exact_amount()
+    {
+        var state = BasicState();
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 2)), ctx);
+
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Lethal_damage_reduces_health_to_zero_and_marks_dead()
+    {
+        var state = BasicState(p2Health: 2);
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 10)), ctx);
+
+        var defender = state.Board[new SlotIndex(PlayerId.Two, 0)]!;
+        Assert.Equal(0, defender.Health);
+        Assert.True(defender.IsDead);
+    }
+
+    [Fact]
+    public void Damage_with_no_target_present_is_a_no_op()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .Build();
+        var ctx = SourceContext(state);
+
+        // Opposing slot is empty; should not throw.
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 3)), ctx);
+    }
+
+    [Fact]
+    public void Attack_type_doubles_damage_against_a_weak_target()
+    {
+        // Wheel beats Anvil.
+        var state = BasicState();
+        var ctx = SourceContext(state, ResourceType.Wheel);
+
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 2)), ctx);
+
+        Assert.Equal(1, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Typeless_damage_is_never_doubled()
+    {
+        var state = BasicState();
+        var ctx = SourceContext(state, moveType: null);
+
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 2)), ctx);
+
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Next_attack_bonus_combines_with_base_before_the_type_multiplier()
+    {
+        // Pinned ordering: (base + bonus) * multiplier, not base * multiplier + bonus.
+        // (2 + 1) * 2 = 6, versus the wrong ordering's 2*2 + 1 = 5 -- distinct enough that a
+        // large defender health tells the two orderings apart instead of both clamping to 0.
+        var state = BasicState(p2Health: 20);
+        var attacker = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        attacker.SetNextAttackBonus(1);
+
+        var ctx = SourceContext(state, ResourceType.Wheel);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 2)), ctx);
+
+        Assert.Equal(14, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Next_attack_bonus_is_consumed_after_one_use()
+    {
+        var state = BasicState();
+        var attacker = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        attacker.SetNextAttackBonus(2);
+
+        var ctx = SourceContext(state);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 1)), ctx);
+        Assert.Equal(2, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // 5 - (1+2)
+
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 1)), ctx);
+        Assert.Equal(1, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // bonus gone, -1 only
+    }
+
+    [Fact]
+    public void Next_damage_taken_bonus_is_consumed_after_one_hit()
+    {
+        var state = BasicState();
+        var defender = state.Board[new SlotIndex(PlayerId.Two, 0)]!;
+        defender.SetNextDamageTakenBonus(3);
+
+        var ctx = SourceContext(state);
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 1)), ctx);
+        Assert.Equal(1, defender.Health); // 5 - (1+3)
+
+        EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 1)), ctx);
+        Assert.Equal(0, defender.Health);
+    }
+
+    [Fact]
+    public void Spell_damage_has_no_creature_source_and_is_typeless()
+    {
+        var state = BasicState();
+        var ctx = new EffectContext(state, PlayerId.One, sourceSlot: null, chosenTarget: null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 2)),
+            ctx.WithChosenTarget(new SlotIndex(PlayerId.Two, 0)));
+
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Damage_scaled_by_source_health()
+    {
+        var state = BasicState(p1Health: 4);
+        var attacker = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        attacker.TakeDamage(1); // health now 3
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "health"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(2, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // 5 - 3
+    }
+
+    [Fact]
+    public void Damage_scaled_by_friendly_creature_count()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Slot(1, "b", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "count"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // 5 - 2
+    }
+
+    [Fact]
+    public void Damage_scaled_by_hand_size()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Hand("x", "y", "z"))
+            .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "hand_size"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(2, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // 5 - 3
+    }
+
+    [Fact]
+    public void Damage_scaled_at_zero_deals_no_damage()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        var ctx = SourceContext(state);
+
+        EffectInterpreter.Apply(
+            Eff.Node("damage_scaled", ("target", "opposing"), ("scale", "hand_size"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(5, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+}

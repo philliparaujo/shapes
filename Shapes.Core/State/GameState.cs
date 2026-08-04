@@ -120,6 +120,7 @@ public sealed class GameState
     public void ApplyIncome()
     {
         Active.GainResources(PendingIncome(ActivePlayer));
+        Active.GainResources(Active.ConsumePendingNextTurnResources());
         Phase = TurnPhase.Actions;
     }
 

@@ -7,15 +7,14 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 5 / 14     |
+| 1 — Playable engine            | 6 / 14     |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-192 tests passing.
+282 tests passing.
 
-**Next up: step 1.6** — effect interpreter + the op vocabulary. The critical piece: build it
-before entering card data, so the vocabulary is validated against real cards.
+**Next up: step 1.7** — card JSON schema + loader + validation.
 
 ## 0. Confirmed ruleset
 
@@ -548,10 +547,36 @@ numbers below name the suite that lands with each piece.
   millions of MCTS playouts. `IRandomSource.Fork()` exists because `GameState.Clone()` sharing
   one RNG would let a search rollout advance the real game's stream and silently break
   seed-replay.*
-- [ ] **6. Effect interpreter** + the op vocabulary above. **The critical piece** — build it
+- [x] **6. Effect interpreter** + the op vocabulary above. **The critical piece** — build it
   before entering card data, so the vocabulary is validated against real cards.
   <br>*tests: the full per-op suite against synthetic cards. Largest suite in the project;
   write each op's test as that op is implemented.*
+  <br>*Done: 282 tests. `Shapes.Core/Effects/` — `EffectNode`/`EffectArgs` are the interpreter's
+  input shape, deliberately independent of JSON, so the card loader (step 1.7) is the only
+  place that knows about `System.Text.Json` and synthetic test cards build effect lists by
+  hand. `EffectRegistry` is the single source of truth for "what ops exist": one array of
+  `EffectOp` instances that both the interpreter's dispatch and (in step 1.7) the schema
+  validator's "unknown op fails loudly" check will read from, so the two can't drift apart the
+  way two independently maintained lists eventually do. All ~20 ops from the vocabulary table
+  are implemented, plus `conditional` (predicate: `self_at_full_health` only, for now — the
+  one case in the plan's own card example) and `for_each` (collections: friendly/enemy/all
+  creatures or hand; optional filter: `damaged`, `full_health`, `type:<x>`).
+  <br>Three status keywords needed real design decisions the plan hadn't pinned down, resolved
+  and implemented as: **taunt** restricts `chosen_enemy` targeting to taunted creatures, but
+  only for creature-sourced (move) effects — spells ignore it, since there's no creature to be
+  taunted away from. **Reflect** is one-shot: the next creature-sourced attack a reflecting
+  creature would take deals its damage to the attacker instead, zero to the defender, then the
+  keyword clears; spell damage never triggers it. **Ricochet** is standing and directional
+  (`grant_keyword(ricochet, direction: left|right)`): every attack the creature would take
+  redirects in full to the specified-side neighbor, or hits normally if that neighbor is
+  empty. Pierce is deferred — not yet needed by any card.
+  <br>Damage resolution ordering is pinned in `CombatResolver`: `(base + next_attack_bonus +
+  next_damage_taken_bonus) × typeMultiplier`, both bonuses consumed on use. A move's attack
+  type comes from its cost's resource type (`EffectContext.MoveType`), not a separately
+  declared field — cost-type ambiguity (mixed or zero-cost moves) is deferred to step 1.7's
+  card-load validation rather than resolved here. `gain_next_turn` needed a real deferred-grant
+  mechanism, not just a flag: `PlayerState.PendingNextTurnResources`, added to income once by
+  `GameState.ApplyIncome` and cleared, so a second income phase can't double-grant it.*
 - [ ] **7. Card JSON schema + loader + validation** (fail loudly on an unknown op; reject
   multiple `chosen_*` selectors per card).
   <br>*tests: card-data validation suite.*

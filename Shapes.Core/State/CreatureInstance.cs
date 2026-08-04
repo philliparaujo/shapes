@@ -41,6 +41,24 @@ public sealed class CreatureInstance
     // turn.
     private uint _movesUsedThisTurn;
 
+    // Status keywords granted by `grant_keyword` (taunt/reflect/ricochet). Persistent
+    // until something removes them -- nothing does yet, since no card needs it. Reflect is
+    // the exception: it is consumed the first time it triggers (see ConsumeReflect).
+    public KeywordFlags Keywords { get; private set; }
+
+    // Which side ricochet redirects to. Only meaningful while Keywords has Ricochet.
+    public RicochetDirection RicochetDirection { get; private set; }
+
+    // True while `stun` prevents this creature from using moves. Cleared at the start of its
+    // controller's next turn, alongside the per-turn move-usage reset.
+    public bool IsStunned { get; private set; }
+
+    // One-shot flat damage modifiers set by `next_attack_bonus` / `next_damage_taken_bonus`.
+    // Each applies once then clears itself -- see EffectContext for the consume call sites.
+    public int NextAttackBonus { get; private set; }
+
+    public int NextDamageTakenBonus { get; private set; }
+
     public CreatureInstance(string cardId, int maxHealth, TypeMask types, int? health = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardId);
@@ -63,7 +81,9 @@ public sealed class CreatureInstance
 
     private CreatureInstance(
         string cardId, int health, int maxHealth, TypeMask types,
-        List<string> mergedFrom, uint movesUsedThisTurn)
+        List<string> mergedFrom, uint movesUsedThisTurn, KeywordFlags keywords,
+        RicochetDirection ricochetDirection, bool isStunned, int nextAttackBonus,
+        int nextDamageTakenBonus)
     {
         CardId = cardId;
         Health = health;
@@ -71,6 +91,11 @@ public sealed class CreatureInstance
         Types = types;
         _mergedFrom = mergedFrom;
         _movesUsedThisTurn = movesUsedThisTurn;
+        Keywords = keywords;
+        RicochetDirection = ricochetDirection;
+        IsStunned = isStunned;
+        NextAttackBonus = nextAttackBonus;
+        NextDamageTakenBonus = nextDamageTakenBonus;
     }
 
     // True once this creature is the product of a merge, which locks it out of merging again
@@ -157,7 +182,58 @@ public sealed class CreatureInstance
         _movesUsedThisTurn |= 1u << moveIndex;
     }
 
-    public void ResetMovesForNewTurn() => _movesUsedThisTurn = 0;
+    public void ResetMovesForNewTurn()
+    {
+        _movesUsedThisTurn = 0;
+        IsStunned = false;
+    }
+
+    public void GrantKeyword(KeywordFlags keyword) => Keywords |= keyword;
+
+    // Ricochet needs a side; the other keywords ignore the argument entirely.
+    public void GrantRicochet(RicochetDirection direction)
+    {
+        Keywords |= KeywordFlags.Ricochet;
+        RicochetDirection = direction;
+    }
+
+    public bool HasKeyword(KeywordFlags keyword) => (Keywords & keyword) == keyword;
+
+    // Reflect fires once then clears -- a second attack this turn (or any later turn) is not
+    // reflected until the keyword is granted again.
+    public bool ConsumeReflect()
+    {
+        if (!HasKeyword(KeywordFlags.Reflect))
+        {
+            return false;
+        }
+
+        Keywords &= ~KeywordFlags.Reflect;
+        return true;
+    }
+
+    public void Stun() => IsStunned = true;
+
+    public void SetNextAttackBonus(int amount) => NextAttackBonus = amount;
+
+    // Consumes the bonus: returns its value and resets it, so a second attack this turn does
+    // not silently reapply it. The bonus is folded into the base damage before the
+    // type-effectiveness multiplier is applied -- see the damage op.
+    public int ConsumeNextAttackBonus()
+    {
+        var bonus = NextAttackBonus;
+        NextAttackBonus = 0;
+        return bonus;
+    }
+
+    public void SetNextDamageTakenBonus(int amount) => NextDamageTakenBonus = amount;
+
+    public int ConsumeNextDamageTakenBonus()
+    {
+        var bonus = NextDamageTakenBonus;
+        NextDamageTakenBonus = 0;
+        return bonus;
+    }
 
     // Folds `other` into this creature: health and max health sum, typings union, and the
     // merged-from lists concatenate. The caller is responsible for checking legality
@@ -173,7 +249,8 @@ public sealed class CreatureInstance
     }
 
     public CreatureInstance Clone() =>
-        new(CardId, Health, MaxHealth, Types, [.. _mergedFrom], _movesUsedThisTurn);
+        new(CardId, Health, MaxHealth, Types, [.. _mergedFrom], _movesUsedThisTurn, Keywords,
+            RicochetDirection, IsStunned, NextAttackBonus, NextDamageTakenBonus);
 
     public override string ToString() =>
         $"{CardId} [{Types}] {Health}/{MaxHealth}{(IsMerged ? $" (merged x{MergeDepth})" : string.Empty)}";

@@ -15,6 +15,11 @@ public sealed class PlayerState
 
     public ResourcePool Resources { get; private set; }
 
+    // Resources granted by `gain_next_turn`, added to income on this player's next turn and
+    // then cleared. Not visible via Resources until then -- the whole point is that it does
+    // NOT land this turn.
+    public ResourcePool PendingNextTurnResources { get; private set; }
+
     public int Score { get; private set; }
 
     // Deck order matters and is hidden: index 0 is the next card drawn.
@@ -35,7 +40,7 @@ public sealed class PlayerState
 
     private PlayerState(
         PlayerId id, List<string> deck, List<string> hand, List<string> discard,
-        ResourcePool resources, int score)
+        ResourcePool resources, int score, ResourcePool pendingNextTurnResources)
     {
         Id = id;
         _deck = deck;
@@ -43,6 +48,7 @@ public sealed class PlayerState
         _discard = discard;
         Resources = resources;
         Score = score;
+        PendingNextTurnResources = pendingNextTurnResources;
     }
 
     public bool DeckIsEmpty => _deck.Count == 0;
@@ -51,6 +57,18 @@ public sealed class PlayerState
 
     public void GainResource(ResourceType type, int amount) =>
         Resources = Resources.Add(type, amount);
+
+    public void AddPendingNextTurnResources(ResourcePool amount) =>
+        PendingNextTurnResources = PendingNextTurnResources.Add(amount);
+
+    // Returns the pending grant and clears it -- called once by GameState.ApplyIncome so a
+    // grant lands exactly on the next income phase, never twice.
+    public ResourcePool ConsumePendingNextTurnResources()
+    {
+        var pending = PendingNextTurnResources;
+        PendingNextTurnResources = ResourcePool.Empty;
+        return pending;
+    }
 
     public bool CanAfford(ResourcePool cost) => Resources.Covers(cost);
 
@@ -160,7 +178,7 @@ public sealed class PlayerState
     }
 
     public PlayerState Clone() =>
-        new(Id, [.. _deck], [.. _hand], [.. _discard], Resources, Score);
+        new(Id, [.. _deck], [.. _hand], [.. _discard], Resources, Score, PendingNextTurnResources);
 
     public override string ToString() =>
         $"P{Id.ToIndex() + 1} score={Score} res={Resources} hand={_hand.Count} deck={_deck.Count}";
