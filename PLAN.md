@@ -7,15 +7,15 @@ AI-driven balance → Godot client.
 
 | Phase                          | Progress   |
 |--------------------------------|------------|
-| 1 — Playable engine            | 10 / 14    |
+| 1 — Playable engine            | 11 / 14    |
 | 2 — IS-MCTS AI                 | 0 / 8      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
 555 tests passing.
 
-**Next up: step 1.11** — console client: render board/hands/resources, numbered legal actions,
-hotseat play.
+**Next up: step 1.12** — debug affordances (adjustable score/health, manual creature removal,
+forced draws, resource editing, POV swap) as console commands over engine methods.
 
 ## 0. Confirmed ruleset
 
@@ -796,7 +796,23 @@ numbers below name the suite that lands with each piece.
   `ContentCardSetTests` gained an explicit `Assert.Equal(36, db.Count)` and a "deck is large
   enough to sustain a few turns" check, both deferred from step 1.7/1.8 specifically until the
   full set landed.
-- [ ] **11. Console client:** render board/hands/resources, numbered legal actions, hotseat play.
+- [x] **11. Console client:** render board/hands/resources, numbered legal actions, hotseat play.
+  <br>*Done: `Shapes.Console/Program.cs` + `BoardView.cs`. Builds a fresh symmetric-deck game from
+  `RuleSet.Default` and a seed (prompted, or random), then loops
+  `ActionGenerator.Generate → render numbered choices → ActionExecutor.Apply` until
+  `GameState.IsOver`. `BoardView.Render` prints both players' score, resources (△▢◯), board
+  slots (name, health/max, types, status badges — Taunt/Reflect/Ricochet/Stunned/attack buff),
+  and hands, with a marker on the active player. `GameAction.Describe()` already exists and does
+  the heavy lifting for numbering actions; the client only re-labels `PlayCardAction`'s raw card
+  id with `CardDefinition.Name` for readability.
+  <br>Named the renderer type `BoardView` rather than `Board`, and called `System.Console`
+  explicitly throughout: the project's own root namespace is `Shapes.Console`, which shadows
+  `System.Console`, and `Shapes.Core.State.Board` collides with an in-project `Board` type —
+  both are compile errors, not style nits.
+  <br>No new engine surface was needed — `GameState`/`ActionGenerator`/`ActionExecutor` from
+  steps 1.5–1.9 were sufficient. Verified by scripting stdin to always pick option 1 through a
+  full seeded game to a real win (`Player 2 wins with 11 points!`), and confirmed all 555 tests
+  still pass.*
 - [ ] **12. Debug affordances** the PDF's "Demo reqs" asked for — adjustable score, health,
   manual creature removal, forced draws, resource editing, POV swap. Build these as **console
   commands over engine methods**, so the AI and Godot inherit them.
@@ -809,7 +825,7 @@ numbers below name the suite that lands with each piece.
   at the point where the response to bad news is still cheap. Do **not** defer this to Phase 4.
 
 **Exit criteria:**
-- [ ] Two humans can play a full game to a win at the console.
+- [x] Two humans can play a full game to a win at the console.
 - [x] All ~36 cards implemented.
 - [ ] A scripted game replays identically from a seed.
 - [ ] Apply/undo property tests pass.
