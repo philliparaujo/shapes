@@ -122,8 +122,13 @@ public class DamageOpTests
     }
 
     [Fact]
-    public void Spell_damage_has_no_creature_source_and_is_typeless()
+    public void A_spell_effect_with_no_move_type_deals_typeless_damage()
     {
+        // Only a genuinely free spell has no MoveType (see CardDefinition.AttackType) -- a
+        // spell has no creature source, but "no creature source" and "no attack type" are
+        // independent. This test is about the interpreter's own handling of a null MoveType,
+        // not a claim that every spell is typeless; see DamageOpTypingTests for a spell whose
+        // cost DOES give it an attack type.
         var state = BasicState();
         var ctx = new EffectContext(state, PlayerId.One, sourceSlot: null, chosenTarget: null);
 

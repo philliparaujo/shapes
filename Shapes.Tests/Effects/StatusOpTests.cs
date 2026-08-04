@@ -102,8 +102,12 @@ public class StatusOpTests
     }
 
     [Fact]
-    public void Reflect_does_not_trigger_against_typeless_spell_damage()
+    public void Reflect_does_not_trigger_against_damage_with_no_creature_source()
     {
+        // Reflect gates on HasCreatureSource, not on whether the attack has a type -- a spell
+        // can be typed (see ActionExecutorTests.A_spells_attack_type_comes_from_its_own_cost)
+        // and still never trigger reflect, because there is no attacking creature to redirect
+        // the hit back onto.
         var state = new StateBuilder()
             .P1(p => p.Slot(0, "caster", TypeMask.Wheel, maxHealth: 5))
             .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 5))

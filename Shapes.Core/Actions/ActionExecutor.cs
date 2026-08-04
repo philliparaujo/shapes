@@ -75,9 +75,12 @@ public static class ActionExecutor
         }
 
         // A spell resolves and is gone. It goes to discard AFTER its effects run so a "count
-        // your discard" effect cannot see the card that is still resolving.
+        // your discard" effect cannot see the card that is still resolving. Its attacking type
+        // comes from its own cost (CardDefinition.AttackType), exactly like a move's -- a spell
+        // has no creature source, but it is not typeless merely for that reason.
         ResolveEffects(
-            state, cards, card.Effects, action.Player, sourceSlot: null, action.ChosenTarget, null);
+            state, cards, card.Effects, action.Player, sourceSlot: null, action.ChosenTarget,
+            card.AttackType);
 
         player.SendToDiscard(action.CardId);
     }

@@ -32,6 +32,15 @@ public sealed class CardDefinition
     // The top-left pip cost paid to play this card from hand.
     public ResourcePool Cost { get; }
 
+    // The attacking type for a spell's own damage, derived from its play cost -- a spell paid
+    // for with spikes attacks as Spike, exactly like a creature move. Null for a free spell,
+    // whose damage is typeless and always 1x. Meaningless for a creature (a creature's damage
+    // always comes from an activated move, never the card itself), so left null there.
+    //
+    // CardValidator enforces that a spell's cost is single-type, which is what makes this
+    // well-defined -- see MoveDefinition.AttackType, the same rule for the same reason.
+    public ResourceType? AttackType { get; }
+
     // Creature stats. Both are zero for a spell, which never enters the board.
     public int Health { get; }
 
@@ -69,11 +78,37 @@ public sealed class CardDefinition
         Name = name;
         Kind = kind;
         Cost = cost;
+        AttackType = SingleCostType(cost);
         Health = health;
         Types = types;
         Moves = moves ?? [];
         Effects = effects ?? [];
         ChosenSelector = EffectTree.FindChosenSelector(Effects);
+    }
+
+    // The one type present in a single-type cost, or null for a zero cost / mixed cost.
+    // Shared with MoveDefinition.AttackType's identical derivation below -- both read a
+    // ResourcePool and answer "the single attacking type, if there is exactly one."
+    internal static ResourceType? SingleCostType(ResourcePool cost)
+    {
+        ResourceType? found = null;
+
+        foreach (var type in ResourceTypes.All)
+        {
+            if (cost[type] <= 0)
+            {
+                continue;
+            }
+
+            if (found is not null)
+            {
+                return null;
+            }
+
+            found = type;
+        }
+
+        return found;
     }
 
     public bool IsCreature => Kind == CardKind.Creature;
@@ -123,33 +158,8 @@ public sealed class MoveDefinition
         Cost = cost;
         Effects = effects;
         Condition = condition;
-        AttackType = SingleCostType(cost);
+        AttackType = CardDefinition.SingleCostType(cost);
         ChosenSelector = EffectTree.FindChosenSelector(effects);
-    }
-
-    // The one type present in a single-type cost, or null for a zero cost. Returns null rather
-    // than throwing on a mixed cost: CardValidator rejects those before construction, and this
-    // is not the layer that should produce that error message.
-    private static ResourceType? SingleCostType(ResourcePool cost)
-    {
-        ResourceType? found = null;
-
-        foreach (var type in ResourceTypes.All)
-        {
-            if (cost[type] <= 0)
-            {
-                continue;
-            }
-
-            if (found is not null)
-            {
-                return null;
-            }
-
-            found = type;
-        }
-
-        return found;
     }
 
     public override string ToString() => $"{Name} ({Cost})";

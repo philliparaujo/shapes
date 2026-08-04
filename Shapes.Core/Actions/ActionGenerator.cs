@@ -140,10 +140,11 @@ public static class ActionGenerator
             return;
         }
 
-        // A spell has no source slot: its damage is typeless, and taunt does not restrict it
-        // (there is no creature to be taunted away from). Passing sourceSlot: null is what
-        // communicates that to TargetResolver.
-        var ctx = new EffectContext(state, player, sourceSlot: null, chosenTarget: null);
+        // A spell has no source slot: taunt does not restrict its targeting (there is no
+        // creature to be taunted away from). Passing sourceSlot: null is what communicates that
+        // to TargetResolver. Its attacking type still comes from its own cost (AttackType) --
+        // absence of a creature source and absence of a type are two different things.
+        var ctx = new EffectContext(state, player, sourceSlot: null, chosenTarget: null, card.AttackType);
         var candidates = TargetResolver.ChosenCandidates(ctx, chosen.Value);
 
         // A targeted spell with no legal target is not playable. Generating it anyway would let

@@ -99,8 +99,8 @@ public sealed class TypeChart
     public bool IsWeakTo(ResourceType target, ResourceType attacker) => Beats(attacker) == target;
 
     // The damage multiplier for an attack of `attacker` type against a target with `target`
-    // types. Attacks with no creature source (spells) are typeless and never scale -- callers
-    // handle that by not calling this.
+    // types. A genuinely free (typeless) move or spell has no attacker type at all -- callers
+    // handle that by not calling this, not by treating every spell as typeless.
     public double MultiplierAgainst(ResourceType attacker, TypeMask target) =>
         IsDoubled(attacker, target) ? WeaknessMultiplier : 1.0;
 

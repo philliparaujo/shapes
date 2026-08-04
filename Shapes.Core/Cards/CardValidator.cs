@@ -58,6 +58,19 @@ public static class CardValidator
                     "creature must declare at least one type -- it determines income and defense.");
             }
 
+            // A creature's defensive type comes from its play cost (see the confirmed
+            // ruleset), same as an attacker's type comes from a move's cost. 'types' stays an
+            // explicit field rather than being derived outright -- see CardDefinition.Types --
+            // but the two must never drift apart, so this cross-checks them at load rather than
+            // trusting an author to keep them in sync by hand.
+            var costTypes = TypeMask.Of(ResourceTypes.All.Where(t => card.Cost[t] > 0).ToArray());
+            if (card.Types != costTypes)
+            {
+                throw new CardValidationException(
+                    $"creature 'types' ({card.Types}) must match the resource type(s) in its cost " +
+                    $"({card.Cost}) -- a creature's defensive type comes from what it costs to play.");
+            }
+
             if (card.Effects.Count > 0)
             {
                 // No passive or triggered effects exist: all creature damage comes from
@@ -81,7 +94,20 @@ public static class CardValidator
         if (!card.Types.IsEmpty)
         {
             throw new CardValidationException(
-                "spell must not declare 'types' -- spell damage is typeless and always 1x.");
+                "spell must not declare 'types' -- a spell has no board presence to defend, so " +
+                "'types' (a defensive property) is meaningless for it. Its own attacking type is " +
+                "derived from its cost instead -- see CardDefinition.AttackType.");
+        }
+
+        // A spell's attacking type is read from its cost (see CardDefinition.AttackType), same
+        // rule and same reasoning as a move's: a mixed cost has no single answer, and rejecting
+        // beats inventing a tie-break nobody asked for.
+        if (CostTypeCount(card.Cost) > 1)
+        {
+            throw new CardValidationException(
+                $"spell has a mixed-type cost ({card.Cost}). A spell's attacking type is derived " +
+                "from its cost, so the cost must use a single resource type (or be free, for " +
+                "typeless damage).");
         }
 
         if (card.Moves.Count > 0)

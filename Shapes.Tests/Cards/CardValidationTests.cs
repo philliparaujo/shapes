@@ -320,7 +320,8 @@ public class CardValidationTests
     public void A_move_with_no_effects_is_rejected()
     {
         var ex = Rejects("""
-            { "id": "idle", "name": "Idle", "kind": "creature", "health": 2, "types": ["spike"],
+            { "id": "idle", "name": "Idle", "kind": "creature", "cost": { "spike": 1 },
+              "health": 2, "types": ["spike"],
               "moves": [ { "name": "Wait", "cost": { "spike": 1 }, "effects": [] } ] }
             """);
 
@@ -333,7 +334,7 @@ public class CardValidationTests
         // Conditions take a predicate, not an effect. Confusing the two is a likely authoring
         // mistake and would otherwise throw at play time inside ConditionEvaluator.
         var ex = Rejects("""
-            { "id": "muddled", "name": "Muddled", "kind": "creature",
+            { "id": "muddled", "name": "Muddled", "kind": "creature", "cost": { "spike": 1 },
               "health": 2, "types": ["spike"],
               "moves": [ { "name": "Try", "cost": { "spike": 1 },
                            "condition": { "op": "draw" },

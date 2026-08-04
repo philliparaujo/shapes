@@ -109,6 +109,24 @@ public class ActionExecutorTests
     }
 
     [Fact]
+    public void A_spells_attack_type_comes_from_its_own_cost_and_can_double()
+    {
+        // TargetedBolt costs wheel, so it attacks as Wheel -- a spell has no creature source,
+        // but that is independent of whether it has a type. Wheel beats Anvil, so its 2 damage
+        // should double against an Anvil target, exactly as a Wheel-costed MOVE's would.
+        var state = new StateBuilder()
+            .P1(p => p.Hand(TestCards.TargetedBolt).Resources(wheel: 3))
+            .P2(p => p.Slot(0, TestCards.Chooser, TypeMask.Anvil, maxHealth: 5))
+            .Build();
+
+        var target = new SlotIndex(PlayerId.Two, 0);
+        Apply(state, new PlayCardAction(
+            PlayerId.One, TestCards.TargetedBolt, targetSlot: null, chosenTarget: target));
+
+        Assert.Equal(1, state.Board[target]!.Health); // 5 - (2 * 2)
+    }
+
+    [Fact]
     public void An_unaffordable_action_throws_rather_than_playing_for_free()
     {
         // The generator/executor contract: the executor assumes legality, so an illegal action

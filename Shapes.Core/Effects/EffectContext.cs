@@ -5,10 +5,11 @@ namespace Shapes.Core.Effects;
 
 // Everything an effect op needs to resolve, beyond its own arguments.
 //
-// SourceSlot is null for spell effects (no creature source -- damage from these is typeless
-// and untouched by taunt, per the confirmed ruleset). ChosenTarget is the slot a player
-// picked for this effect's chosen_* selector, resolved by legal-action generation (step 1.8)
-// before the op ever runs; the interpreter itself never asks the player anything.
+// SourceSlot is null for spell effects (no creature source -- untouched by taunt/reflect/
+// ricochet, which all require one, per the confirmed ruleset). A spell's attacking type is a
+// separate question from whether it has a creature source -- see MoveType. ChosenTarget is the
+// slot a player picked for this effect's chosen_* selector, resolved by legal-action generation
+// (step 1.8) before the op ever runs; the interpreter itself never asks the player anything.
 public sealed class EffectContext
 {
     public GameState State { get; }
@@ -19,11 +20,11 @@ public sealed class EffectContext
 
     public SlotIndex? ChosenTarget { get; }
 
-    // The attacking resource type for damage dealt by this effect, when it has one. Resolved
-    // by the caller from the move's cost -- a move's cost must be single-type or empty, which
-    // step 1.7's card-load validation enforces, so the interpreter never has to disambiguate a
-    // mixed-cost move itself. Null for spells and any non-damage effect: spell damage is
-    // typeless and always 1x, per the confirmed ruleset.
+    // The attacking resource type for damage dealt by this effect, when it has one. Resolved by
+    // the caller from the acting card's cost -- a move's cost from MoveDefinition.AttackType, a
+    // spell's from CardDefinition.AttackType -- both of which CardValidator enforces are
+    // single-type or free, so the interpreter never has to disambiguate a mixed cost itself.
+    // Null only for a genuinely free move or spell, whose damage is typeless and always 1x.
     public ResourceType? MoveType { get; }
 
     // How many cards in the controller's hand cost each resource type -- e.g. a hand of two

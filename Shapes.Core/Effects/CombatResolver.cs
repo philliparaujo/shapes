@@ -45,7 +45,9 @@ internal static class CombatResolver
     }
 
     // Reflect and ricochet redirect where the damage actually lands; both only trigger against
-    // an attack from a creature (a move), never a typeless spell.
+    // an attack from a creature (a move), never a spell -- gated on HasCreatureSource, which is
+    // independent of whether the attack has a type (a spell can be typed; it still has no
+    // creature to redirect the hit back onto).
     private static void ApplyToTarget(EffectContext ctx, SlotIndex targetSlot, CreatureInstance target, int amount)
     {
         if (ctx.HasCreatureSource && target.HasKeyword(KeywordFlags.Ricochet))

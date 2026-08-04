@@ -118,20 +118,21 @@ public class CardLoaderTests
     }
 
     [Fact]
-    public void A_card_cost_may_mix_types_even_though_a_move_cost_may_not()
+    public void A_creatures_cost_must_match_its_declared_types()
     {
-        // The single-type restriction exists only because a MOVE's cost determines its
-        // attacking type. A card's play cost attacks nothing, so mixing is fine.
-        var card = Load("""
+        // A creature's defensive type comes from its play cost, so the two must agree -- a
+        // three-type cost with a single declared type is exactly the drift CardValidator now
+        // rejects at load, rather than trusting an author to keep them in sync by hand.
+        var ex = Assert.Throws<CardLoadException>(() => Load("""
             {
               "id": "hybrid", "name": "Hybrid", "kind": "creature",
               "cost": { "spike": 2, "anvil": 1, "wheel": 3 }, "health": 3, "types": ["spike"],
               "moves": [ { "name": "Hit", "cost": { "spike": 1 },
                            "effects": [ { "op": "damage", "target": "opposing", "amount": 1 } ] } ]
             }
-            """);
+            """));
 
-        Assert.Equal(new ResourcePool(2, 1, 3), card.Cost);
+        Assert.Contains("must match the resource type(s) in its cost", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -159,7 +160,8 @@ public class CardLoaderTests
         // Synthetic and token cards rarely want a display name; a real card always has one.
         var card = Load("""
             {
-              "id": "token_spike", "kind": "creature", "health": 1, "types": ["spike"],
+              "id": "token_spike", "kind": "creature", "cost": { "spike": 1 }, "health": 1,
+              "types": ["spike"],
               "moves": [ { "name": "Poke", "cost": { "spike": 1 },
                            "effects": [ { "op": "damage", "target": "opposing", "amount": 1 } ] } ]
             }
