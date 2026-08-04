@@ -8,19 +8,22 @@ AI-driven balance → Godot client.
 | Phase                          | Progress   |
 |--------------------------------|------------|
 | 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 1 / 8      |
+| 2 — IS-MCTS AI                 | 2 / 9      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-600 tests passing.
+615 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
 
-**Phase 2 is underway.** Step 2.1 landed the `IAgent` seam (`Shapes.Ai/Agents/`).
+**Phase 2 is underway.** Step 2.1 landed the `IAgent` seam (`Shapes.Ai/Agents/`). Step 2.2 landed
+`ObservedState`, narrowing `AgentContext.State` from the full `GameState` to a projection that
+structurally cannot leak the opponent's hand contents or deck order — pinned by
+`Shapes.Tests/Agents/ObservedStateTests.cs`.
 
-**Next up: step 2.2** — `ObservedState`, which narrows `AgentContext.State` from the full
-`GameState` to a projection that structurally cannot leak the opponent's hand or deck order.
+**Next up: step 2.3** — the determinizer: sample a hidden state consistent with all observations
+(deck composition minus known cards, opponent hand size, revealed/discarded cards).
 
 ### Common commands
 
@@ -261,7 +264,7 @@ the usual performance killer. Instead every action should eventually produce an 
 so the search can apply/rollback on one mutable state — this requires every effect to be exactly
 invertible, so it's gated by a property test (apply then undo → byte-identical state). Build the
 naive clone path first, get it correct, optimize behind the same interface once tests pin the
-behavior (Phase 2, step 2.7).
+behavior (Phase 2, step 2.8).
 
 **Determinism.** All randomness flows through a single seeded `IRandomSource`. No
 `Random.Shared`, no `DateTime.Now`, anywhere in `Shapes.Core`. Makes bug reports reproducible and
@@ -578,23 +581,87 @@ rather than a blanket line-coverage percentage.
   against one implementation — chosen action is legal and applicable, choosing never mutates the
   caller's state, and same seed → same decisions (with a different-seeds test guarding the
   degenerate "always return `LegalActions[0]`" way that could pass).
-- [ ] **2. `ObservedState`** — a strict projection of `GameState` to one player's knowledge.
+- [x] **2. `ObservedState`** — a strict projection of `GameState` to one player's knowledge.
   If the AI can read the opponent's hand, everything downstream is invalid; enforce by test.
+  Narrows `AgentContext.State` (see step 2.1); **engine-side only** — no client changes. The
+  console keeps rendering from `GameState`, so this step cannot alter what a human sees; that is
+  step 2.5's separate decision.
+
+  Lives in `Shapes.Ai/Agents/ObservedState.cs`, not `Shapes.Core` — the dependency-direction
+  tests (`CorePurityTests`) would fail a new public type under an unlisted namespace, and the
+  point of the projection is to sit on the AI side of the seam anyway. Three types: `ObservedState`
+  (board, phase/turn bookkeeping, pending-discard count — all public information), `ObservedSelf`
+  (own hand and discard in full, own deck as `DeckComposition` + `DeckSize`), and
+  `ObservedOpponent` (hand and deck reduced to **counts** only, everything else — discard,
+  resources, score — visible in full, matching what's physically visible across a table). Hand
+  size stays knowable on both sides because step 2.3's determinizer needs it to sample a
+  correctly-sized hand.
+
+  **Deck order is hidden even from its own owner.** The first pass exposed `Self.Deck` as the
+  real ordered list on the theory that a player can see their own deck; that's wrong for this
+  game — nothing in the ruleset lets a player see their own next draw, so leaking it would let a
+  search built on `ObservedState` quietly read its own future draws. `Self.DeckComposition` is
+  the real deck's contents re-sorted into a fixed, draw-order-independent order (alphabetical by
+  card id) — composition is legitimately knowable (a player can count their own remaining deck),
+  order is not, for either side. Deliberately carries no `GameState` or `IRandomSource` reference
+  anywhere in its public surface, so there's no path from an `ObservedState` back to the hidden
+  data or the live RNG stream — a determinizer builds its own fresh source rather than reading
+  the real one.
+
+  `AgentContext`'s constructor now takes either a `GameState` (the common path — it builds the
+  `ObservedState` internally) or an `ObservedState` directly (for tests constructing one side of
+  a hidden-information position without a full game). `RandomAgent` needed no changes: it only
+  ever reads `context.LegalActions`, never `context.State`.
+
+  Pinned by `Shapes.Tests/Agents/ObservedStateTests.cs`: opponent hand/deck are counts, not
+  content, on both an instance-value basis and a "no member of the wrong type exists" reflection
+  check (so a future accidental leak has to add the leaking property visibly, not fall through an
+  existing one); own hand/deck/discard visible in full; the board is the identical object
+  regardless of observer; observing from the other side flips which hand is hidden; no public
+  member anywhere in the three types returns `GameState` or `IRandomSource`.
 - [ ] **3. Determinizer:** sample a hidden state consistent with all observations (deck
   composition minus known cards, opponent hand size, revealed/discarded cards).
 - [ ] **4. Baseline agents first:** `RandomAgent`, `GreedyAgent` (one-ply heuristic). These are
   the yardstick — an MCTS that cannot crush both has a bug.
-- [ ] **5. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
-- [ ] **6. Playout policy:** start uniform-random, then lightly heuristic (prefer damage/score
+- [ ] **5. Console hidden-hand mode** (`--reveal` flag, default **off**). Today `BoardView`
+  renders both hands in full every turn — fine for hotseat, but the moment step 2.4 makes
+  human-vs-AI real it means the human sees the AI's hand while the AI cannot see theirs, so
+  "I beat the AI" stops meaning anything.
+
+  Deliberately **not** part of step 2.2, and deliberately not solved by handing the console an
+  `ObservedState`. Two independent switches: *what an agent may see* is a correctness property
+  enforced by test, while *what the screen shows* is a UI preference. The console renders from
+  `GameState` and continues to; this step only decides which parts it prints. Wiring the console
+  through `ObservedState` instead would couple a display choice to an engine invariant and make
+  full-visibility debugging impossible.
+
+  Default hidden, with the flag restoring today's behaviour — full visibility is genuinely
+  useful for debugging a strange board state or watching an AI-vs-AI game, so it stays available
+  rather than being deleted. When hidden, the non-active player's hand renders as a **count**
+  (hand size is public information — the determinizer in step 2.3 depends on it being knowable).
+
+  Note this changes **hotseat** too: hiding the inactive player's hand is what hotseat should
+  have done all along (two humans sharing a screen genuinely shouldn't see each other's cards),
+  but it means the current both-hands-visible view becomes `--reveal` rather than the default.
+  Worth confirming that trade is wanted before implementing, since it costs a little convenience
+  on every hotseat game to gain correctness on all of them.
+
+  Also needs a one-line event log for actions whose result would otherwise be invisible: an
+  opponent's discard currently reads off their visible hand, and with hands hidden it would
+  happen silently.
+- [ ] **6. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
+- [ ] **7. Playout policy:** start uniform-random, then lightly heuristic (prefer damage/score
   moves) — usually a large strength gain for modest cost.
-- [ ] **7. Performance:** apply/undo, node pooling, budget by time *or* iteration count.
-- [ ] **8. Tuning:** exploration constant, playout depth cap, determinizations per search.
+- [ ] **8. Performance:** apply/undo, node pooling, budget by time *or* iteration count.
+- [ ] **9. Tuning:** exploration constant, playout depth cap, determinizations per search.
 
 **Exit criteria:**
 - [ ] IS-MCTS beats `RandomAgent` >95% over 500+ seeded games.
 - [ ] IS-MCTS beats `GreedyAgent` >80% over 500+ seeded games.
 - [ ] A decision at a realistic budget completes in target wall-clock (suggest ≤2s desktop).
 - [ ] `ObservedState` provably leaks no hidden information.
+- [ ] A human-vs-AI console game hides the AI's hand by default, and `--reveal` restores full
+  visibility for debugging.
 
 ### Phase 3 — AI-driven balance
 
