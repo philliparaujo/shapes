@@ -30,7 +30,6 @@ public static class ConditionEvaluator
 {
     public static bool Evaluate(EffectContext ctx, EffectNode condition)
     {
-        ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(condition);
 
         if (condition.Op != "creature_state")

@@ -10,7 +10,16 @@ namespace Shapes.Core.Effects;
 // separate question from whether it has a creature source -- see MoveType. ChosenTarget is the
 // slot a player picked for this effect's chosen_* selector, resolved by legal-action generation
 // (step 1.8) before the op ever runs; the interpreter itself never asks the player anything.
-public sealed class EffectContext
+//
+// A READONLY STRUCT, not a class: PLAN.md step 3.3c found this constructed thousands of times
+// per playout (once per hand card/move ActionGenerator/PlayoutActionSampler considers, plus once
+// per ActionExecutor.ResolveEffects call), and every existing usage already passes it by value
+// and never stores it beyond one call (EffectOp.Apply takes it as a parameter; With* methods
+// return a fresh value rather than mutating in place) -- exactly the shape a struct fits for
+// free, at the cost of a heap allocation + GC per construction a class pays and a struct does
+// not. State is a reference type (GameState), so copying this struct is cheap: one reference
+// plus a handful of small value fields, not a deep copy of the game.
+public readonly struct EffectContext
 {
     public GameState State { get; }
 

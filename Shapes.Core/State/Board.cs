@@ -8,6 +8,10 @@ namespace Shapes.Core.State;
 // here. This class only stores occupancy and answers questions in terms of it.
 public sealed class Board
 {
+    // Shared, never mutated: the common-case return of RemoveDead(), where a Fresh `List<T>`
+    // would otherwise be allocated on every single Apply call just to say "nothing died".
+    private static readonly List<(SlotIndex Slot, CreatureInstance Creature)> NoneRemoved = [];
+
     private readonly CreatureInstance?[] _slots;
 
     public Board()
@@ -81,20 +85,35 @@ public sealed class Board
     // Clears dead creatures and reports where they were (and which creature it was), so callers
     // can trigger death-dependent effects (draw-on-destroy, the turn's destroyed-creature log,
     // and the like).
+    //
+    // Two allocation cuts, both aimed at the same fact: this runs on EVERY Apply call (via
+    // ActionExecutor.ResolveEffects), whether or not anything actually died -- a kill is rare,
+    // so the common case is "nothing to report" and should not allocate to say so.
+    //
+    //   1. Iterates AllCreatures() directly rather than a defensive .ToList() copy of it: the
+    //      enumerator reads _slots[slot.ToFlatIndex()] fresh at each step from a fixed,
+    //      precomputed slot-index sequence (SlotIndex.AllFor), so nulling an EARLIER slot
+    //      mid-loop cannot shift or invalidate a LATER one -- there is no live view of a mutable
+    //      collection to invalidate. The copy was pure allocation for a hazard that doesn't
+    //      exist here.
+    //   2. The result list itself is allocated lazily, only once a first dead creature is found,
+    //      and the truly-empty case returns a single shared empty list rather than a fresh one --
+    //      staying non-null and List-typed (not Nullable) so every existing caller's
+    //      foreach/.Count/Assert.Empty usage keeps working unchanged.
     public List<(SlotIndex Slot, CreatureInstance Creature)> RemoveDead()
     {
-        var removed = new List<(SlotIndex, CreatureInstance)>();
+        List<(SlotIndex, CreatureInstance)>? removed = null;
 
-        foreach (var (slot, creature) in AllCreatures().ToList())
+        foreach (var (slot, creature) in AllCreatures())
         {
             if (creature.IsDead)
             {
                 _slots[slot.ToFlatIndex()] = null;
-                removed.Add((slot, creature));
+                (removed ??= []).Add((slot, creature));
             }
         }
 
-        return removed;
+        return removed ?? NoneRemoved;
     }
 
     public Board Clone()

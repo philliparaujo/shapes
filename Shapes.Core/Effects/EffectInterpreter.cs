@@ -8,7 +8,6 @@ public static class EffectInterpreter
     public static void Apply(EffectNode node, EffectContext ctx)
     {
         ArgumentNullException.ThrowIfNull(node);
-        ArgumentNullException.ThrowIfNull(ctx);
 
         EffectRegistry.Resolve(node.Op).Apply(ctx, node.Args);
     }
@@ -25,7 +24,6 @@ public static class EffectInterpreter
     public static void ApplyAll(IReadOnlyList<EffectNode> nodes, EffectContext ctx)
     {
         ArgumentNullException.ThrowIfNull(nodes);
-        ArgumentNullException.ThrowIfNull(ctx);
 
         foreach (var node in nodes)
         {

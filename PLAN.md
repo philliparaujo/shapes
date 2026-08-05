@@ -9,24 +9,19 @@ agent measurement & optimization → AI-driven balance → Godot client.
 |------------------------------------------|------------|
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
-| 3 — Agent measurement & optimization     | 4 / 9      |
+| 3 — Agent measurement & optimization     | 6 / 9      |
 | 4 — AI-driven balance                    | 0 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
-726 tests passing. **Phases 1 and 2 are complete.**
+729 tests passing. **Phases 1 and 2 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: step 3.3b** — a cheap playout-only action sampler that skips `Generate`'s full
-`List<GameAction>`/`HashSet`/`EffectContext` materialization for a caller that only needs one
-uniform-random pick. Step 3.3a already delivered a measured 2.1× per-decision speedup (87.55ms →
-41.67ms, same-seed microbenchmark) by tuning `PlayoutDepth` from an untuned 400 down to 200 (the
-measured p90 of uniform-random playout length); 3.3b goes after the remaining cost in the same
-86.4%-of-iteration hot path profiling found (playout `Generate`+`Apply`), without touching
-`ActionGenerator.Generate` itself or any of its other callers.
+**Next up: step 3.4** — determinizations per search (whether reusing a sampled world across
+several iterations trades acceptable sampling breadth for speed).
 
 ### Common commands
 
@@ -390,15 +385,89 @@ looking reasonable in a watched game.
   profiling predicted, versus step 3's own apply/undo attempt's measured zero. Win rates in
   `Shapes.Sim` matrices stayed consistent with pre-change numbers (no collapse in play quality);
   726 tests still pass unchanged, since no test pinned the old default.
-- [ ] **3b. A cheap playout-only action sampler** — add a path (behind `IPlayoutPolicy` or
-  alongside it) that picks one legal action for a playout step without materializing the full
-  `List<GameAction>`/`HashSet`/`EffectContext` machinery `Generate` builds for every caller,
-  e.g. reservoir-sampling over the same enumeration `Generate` does internally. Must leave
-  `ActionGenerator.Generate` itself, and every other caller (console, tree expansion, tests),
-  completely unchanged — this is additive, not a rewrite of the shared API. Gated on the same
-  correctness suite `IsMctsAgent`'s uniform-playout tests already run (a faster sampler must
-  choose from the identical legal set `Generate` would have produced, provable by a test that
-  compares the two directly over many random positions) plus its own stopwatch before/after.
+- [x] **3b. A cheap playout-only action sampler.** Added `PlayoutActionSampler.SampleOne`
+  (`Shapes.Core/Actions/`), a reservoir-sampling mirror of `ActionGenerator.Generate`'s exact
+  traversal (same hand/board/move iteration order, same legality checks, same `chosen_*` target
+  expansion) that returns one uniformly-chosen legal action directly, without ever allocating the
+  `List<GameAction>` or dedup `HashSet<string>` `Generate` builds for every caller. `IsMctsAgent`'s
+  `PlayOut` takes this path only when `_playoutPolicy` is `UniformPlayoutPolicy.Instance`
+  (`ReferenceEquals` check) — `HeuristicPlayoutPolicy` still needs the full materialized list
+  since it scores every candidate to pick the best, so `IPlayoutPolicy`'s contract ("pick one from
+  this list") is untouched rather than widened to fit a policy that no longer needs a list.
+  `ActionGenerator.Generate` itself, and every other caller (console, tree expansion, tests), is
+  unmodified.
+
+  **Correctness**: `Shapes.Tests/Actions/PlayoutActionSamplerTests.cs` (3 tests) drives 300 random
+  games (`LegalActionSoundnessTests`' shape) asserting `SampleOne`'s result is always a member of
+  `Generate`'s own list at that position (and null exactly when `Generate`'s list is empty), plus
+  a 20,000-draw uniformity check at one fixed multi-option position. **Not** tested as exact
+  per-call agreement with `legal[random.Next(legal.Count)]` even from an `IRandomSource.Fork()`'d
+  identical position — reservoir sampling consumes one random draw per candidate where index-pick
+  consumes exactly one, so the two walk the same random stream differently and land on different
+  (each still individually uniform) picks; confirmed by hand this is a property of the two
+  algorithms, not a bug, before dropping that assertion. All existing `IsMctsAgent` correctness
+  tests (selection/expansion/backprop/resampling) now exercise this path unchanged, since it's the
+  new default `PlayOut` behaviour for the uniform policy.
+
+  **Measured result**: a git-worktree before/after of the same fixed real mid-game position (60
+  repeated `Choose` calls per side, 200 iterations, `-c Release`) showed **48.28ms → 45.09ms per
+  decision, a ~1.07× (~6.6%) speedup** — real and reproducible across repeated runs, but far
+  smaller than step 3.3a's 2.1×. Root cause, found by re-examining what the sampler actually
+  avoids: step 3.3's profiling attributed playout `Generate` cost to *building* an `EffectContext`
+  and calling `TargetResolver` per hand card/move considered, not to the outer `List`/`HashSet`
+  bookkeeping — and `PlayoutActionSampler` still has to consider every candidate (and therefore
+  still builds every `EffectContext`/resolves every target) to reservoir-sample correctly over
+  them. It only ever removes the list/hashset allocations sitting on top of that, which turns out
+  to be the smaller share of the cost. 729 tests still pass; no correctness regression.
+- [x] **3c. Profiled `Apply` and `EffectContext` directly, instead of guessing from 3b's
+  leftover theory.** 3b's own before/after showed a much smaller win than step 3's table implied,
+  which meant the table's shape (Generate 51.6% / Apply 34.8%) was right but *where inside each*
+  the cost lived was still unmeasured. Added the same kind of temporary `Stopwatch` bracketing
+  step 3 used (2000 iterations, same real mid-game position, removed after recording results — no
+  instrumentation left in the shipped code) around `ActionExecutor.Apply`'s internals and around
+  `PlayoutActionSampler`'s per-candidate `EffectContext`/`TargetResolver`/`ConditionEvaluator`
+  calls.
+
+  **What it found**: the two top-level buckets reproduced step 3's split almost exactly
+  (playout `SampleOne` ~51.7%, `Apply` ~35.3%, `Determinize` ~5.8%, selection `Generate` ~3.1%).
+  Inside them, `EffectContext` construction + `TargetResolver` + `ConditionEvaluator` combined
+  were only ~8% of total iteration time — confirming 3b's re-reading that `EffectContext` was
+  never the expensive part. Two real, previously-unmeasured costs turned up instead:
+
+  - `Board.RemoveDead()` — called on **every** `ActionExecutor.Apply`, whether or not anything
+    died — was iterating `AllCreatures().ToList()`, an unconditional defensive copy. The copy
+    protects against nothing: `AllCreatures()`'s enumerator reads `_slots[slot.ToFlatIndex()]`
+    fresh at each step from a fixed, precomputed slot-index sequence, so nulling an *earlier*
+    slot mid-loop cannot invalidate a *later* one. There is no live view of a mutable collection
+    for the copy to protect. Removed the `.ToList()`, and made the result list itself lazy —
+    allocated only once a first dead creature is actually found, returning a single shared empty
+    `List` (`Board.NoneRemoved`, never mutated) on the common "nothing died" path, so a call that
+    finds nothing to report allocates nothing. Kept the public signature `List<...>` (not
+    nullable), so every existing caller's `foreach`/`.Count`/`Assert.Empty` usage needed no
+    changes.
+  - `EffectContext` was a `sealed class`, heap-allocated on every construction — of which there
+    are thousands per playout (once per hand card/move `PlayoutActionSampler`/`ActionGenerator`
+    considers, plus once per `ActionExecutor.ResolveEffects` call) — despite every existing call
+    site already passing it by value and never storing it past one call (`EffectOp.Apply` takes
+    it as a parameter; `WithChosenTarget`/`WithSelf`/`WithSelfAsController` return a fresh value
+    rather than mutating in place). Converted to a `readonly struct`. Required removing five
+    `ArgumentNullException.ThrowIfNull(ctx)` calls across `EffectInterpreter`, `ConditionEvaluator`,
+    and `TargetResolver` — meaningless on a non-nullable value type — and nothing else; no call
+    site's logic changed, since every existing usage pattern already matched struct-by-value
+    semantics.
+
+  **Measured result**: a git-worktree before/after of the same fixed real mid-game position (60
+  repeated `Choose` calls per side, 200 iterations, `-c Release`, 6 total runs per side to control
+  for machine variance) showed **~43.4ms → ~40.0ms per decision, a ~1.09× (~8%) speedup** — smaller
+  than 3.3a's 2.1×, similar in size to 3.3b's ~1.07×, and stacks with it rather than replacing it
+  (this step changes `Board`/`EffectContext`, used by every `Apply` call including 3.3b's playout
+  path). Confirms the emerging pattern for this phase: the two big, clean wins were tuning
+  `PlayoutDepth` (3.3a, cuts the iteration *count*) and this step's two allocation fixes (3.3c,
+  cuts unconditional per-call waste); the two shape-changing rewrites aimed at "the expensive-
+  looking API" by inspection alone (step 3's original apply/undo guess, 3.3b's list/HashSet guess)
+  both underperformed their own premise once actually measured. 729 tests still pass; no
+  correctness regression. All temporary profiling instrumentation was removed before committing —
+  none of it is in the diff, matching how step 3's original profiling was done and discarded.
 - [ ] **4. Determinizations per search** — measure whether reusing a sampled world across several
   iterations trades acceptable sampling breadth for speed.
 - [ ] **5. Tuning** — exploration constant, playout depth cap (whatever 3a did not already settle);

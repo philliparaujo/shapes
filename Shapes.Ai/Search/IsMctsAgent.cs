@@ -279,8 +279,21 @@ public sealed class IsMctsAgent : IAgent
     //
     // Mutates `state`, which is this iteration's private determinized copy and is discarded
     // immediately afterwards.
+    //
+    // PLAN.md step 3.3b: the uniform policy takes a cheap path here that skips
+    // ActionGenerator.Generate's full List/HashSet/EffectContext materialization -- see
+    // PlayoutActionSampler's header. Only safe for UniformPlayoutPolicy: HeuristicPlayoutPolicy
+    // genuinely needs every legal action, since it scores each one to pick the best. Branching on
+    // the concrete type rather than widening IPlayoutPolicy's contract keeps that interface
+    // exactly what it was in step 3.2 -- "pick one action from this list" -- for every policy that
+    // still needs the list, instead of forcing a no-op materialization path onto them.
     private double PlayOut(GameState state, int depth)
     {
+        if (ReferenceEquals(_playoutPolicy, UniformPlayoutPolicy.Instance))
+        {
+            return PlayOutUniform(state, depth);
+        }
+
         while (!state.IsOver && depth < PlayoutDepth)
         {
             var legal = ActionGenerator.Generate(state, _cards);
@@ -294,6 +307,26 @@ public sealed class IsMctsAgent : IAgent
             }
 
             ActionExecutor.Apply(state, _cards, _playoutPolicy.SelectAction(state, legal, _cards, _random));
+            depth++;
+        }
+
+        return Reward(state);
+    }
+
+    private double PlayOutUniform(GameState state, int depth)
+    {
+        while (!state.IsOver && depth < PlayoutDepth)
+        {
+            var action = PlayoutActionSampler.SampleOne(state, _cards, _random);
+
+            // Mirrors the defensive break above: SampleOne returns null under exactly the
+            // conditions Generate would have returned an empty list.
+            if (action is null)
+            {
+                break;
+            }
+
+            ActionExecutor.Apply(state, _cards, action);
             depth++;
         }
 

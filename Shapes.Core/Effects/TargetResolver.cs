@@ -16,8 +16,6 @@ public static class TargetResolver
     // slot, LeftFriendly from slot 0).
     public static IReadOnlyList<SlotIndex> Resolve(EffectContext ctx, TargetSelector selector)
     {
-        ArgumentNullException.ThrowIfNull(ctx);
-
         return selector switch
         {
             TargetSelector.Self => ctx.SourceSlot is { } self ? [self] : [],
@@ -73,8 +71,6 @@ public static class TargetResolver
     // restricted to taunted creatures only.
     public static IReadOnlyList<SlotIndex> ChosenCandidates(EffectContext ctx, TargetSelector selector)
     {
-        ArgumentNullException.ThrowIfNull(ctx);
-
         return selector switch
         {
             TargetSelector.ChosenEnemy => ChosenEnemyCandidates(ctx),
