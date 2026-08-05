@@ -9,7 +9,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 |------------------------------------------|------------|
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
-| 3 — Agent measurement & optimization     | 2 / 7      |
+| 3 — Agent measurement & optimization     | 4 / 9      |
 | 4 — AI-driven balance                    | 0 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
@@ -20,9 +20,13 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: step 3.3** — apply/undo instead of clone, node pooling, gated by Phase 1's apply/undo
-property test. Measure with a same-seed stopwatch before/after, now that `ismcts-heuristic` (step
-3.2) is the config worth making fast.
+**Next up: step 3.3b** — a cheap playout-only action sampler that skips `Generate`'s full
+`List<GameAction>`/`HashSet`/`EffectContext` materialization for a caller that only needs one
+uniform-random pick. Step 3.3a already delivered a measured 2.1× per-decision speedup (87.55ms →
+41.67ms, same-seed microbenchmark) by tuning `PlayoutDepth` from an untuned 400 down to 200 (the
+measured p90 of uniform-random playout length); 3.3b goes after the remaining cost in the same
+86.4%-of-iteration hot path profiling found (playout `Generate`+`Apply`), without touching
+`ActionGenerator.Generate` itself or any of its other callers.
 
 ### Common commands
 
@@ -124,9 +128,12 @@ shapes/
 **State representation** — authoritative state is plain mutable classes (console/tests/Godot);
 search state is the same data laid out for speed inside MCTS (`CreatureInstance` as a struct;
 moves not stored per-instance, derived from `MergedFrom` card ids since storing them would
-duplicate across every clone; board as fixed `CreatureInstance[6]`). **Apply/undo over clone** is
-the eventual perf path (Phase 3 step 3) — gated by an apply/undo property test (byte-identical
-round trip) written in Phase 1, before the optimization exists. **Determinism** — all randomness
+duplicate across every clone; board as fixed `CreatureInstance[6]`). **Apply/undo over clone**
+was Phase 3 step 3's originally planned perf path, gated by an apply/undo property test
+(byte-identical round trip) written in Phase 1 before the optimization existed — built in full,
+then measured and found to save nothing, because `IsMctsAgent` was never cloning in its hot loop
+to begin with (see step 3's notes). Profiling found the real cost is playout-depth
+`ActionGenerator.Generate` calls instead; steps 3.3a/3.3b chase that. **Determinism** — all randomness
 through one seeded `IRandomSource` (hand-rolled xorshift64*, `Fork()`-able so search clones don't
 advance the real RNG stream); no `Random.Shared`/`DateTime.Now` anywhere in `Shapes.Core`.
 
@@ -324,12 +331,78 @@ looking reasonable in a watched game.
   quietly moved). `ismcts-heuristic` is the explicit, opt-in stronger-but-slower configuration —
   worth reaching for deliberately (a stronger sparring partner, a Phase 4 balance signal), not a
   silent replacement for what "ismcts" means elsewhere in the codebase.
-- [ ] **3. Performance** — apply/undo instead of clone, node pooling; success is a stopwatch
-  before/after, gated by Phase 1's apply/undo property test.
+- [x] **3. Performance — profiled, and re-scoped from what was guessed to what was measured.**
+  The step as originally written ("apply/undo instead of clone, node pooling") was a guess made
+  before any profiling existed. Both were implemented in full — a `GameStateMemento`-based
+  apply/undo API on `GameState`/`ActionExecutor` (satisfying Phase 1's byte-identical property
+  test, extended with two new apply/undo-specific cases), `Determinizer.RepopulateInto` reusing
+  one scratch `GameState` object graph across a search's iterations instead of allocating fresh
+  per iteration, and `SearchNodePool` reusing `SearchNode` objects across `Choose()` calls — then
+  measured with a same-seed stopwatch (a git worktree of the pre-change commit vs. the changed
+  code, plus an isolated microbenchmark) and **produced no measurable wall-clock improvement**
+  (~81.7ms/decision before, ~82.0ms/decision after, at 200 iterations — within noise). That
+  attempt's code was discarded rather than merged, since a change that cannot show a before/after
+  win fails this step's own success criterion.
+
+  **Why it didn't help, found by profiling instead of guessing**: `IsMctsAgent` never actually
+  cloned — `Determinizer.Determinize` already built one private `GameState` per iteration and
+  mutated it in place, so there was no clone-in-a-hot-loop for apply/undo to remove. A stopwatch
+  bracketing every phase of one iteration (2000 iterations, real mid-game position) found:
+
+  | Phase                          | % of iteration time | Calls/iteration |
+  |---------------------------------|---------------------|------------------|
+  | `Determinize`                   | 5.9%                | 1                |
+  | Selection `Generate` + `Apply`  | 5.2%                | ~12              |
+  | **Playout `Generate`**          | **51.6%**           | ~98              |
+  | **Playout `Apply`**             | **34.8%**           | ~98              |
+  | Playout policy's action pick    | 0.5%                | ~98              |
+
+  Determinization — the thing the original step 3 text targeted — was never more than ~6% of
+  the cost. **86.4% of one iteration is `ActionGenerator.Generate` + `ActionExecutor.Apply`,
+  called roughly 98 times per playout** (a playout runs until the game ends or hits
+  `PlayoutDepth`, untuned at 400 since step 5 hadn't run yet). `Generate` is the more expensive
+  half of that because it fully enumerates every legal action on every call — allocating a
+  `List<GameAction>`, one or two `HashSet<string>`s, and an `EffectContext` per hand
+  card/move considered — even when the caller (a uniform-random playout) only needs to pick
+  *one* action. Correct architecture for a console menu or an MCTS tree expansion; expensive
+  when called at playout depth thousands of times per decision.
+
+  This is the actual target for step 3's stopwatch-gated win, and it is bigger and
+  higher-blast-radius than "apply/undo + node pooling" — `ActionGenerator.Generate` is, by its
+  own doc comment, "the single most important API in the codebase," shared by console, AI, and
+  tests. Split into two independently-measurable sub-steps below rather than folded back into
+  this one, so each has its own before/after and its own review surface.
+- [x] **3a. Tuned `PlayoutDepth` down from its untuned 400 to 200.** Measured the uniform-random
+  playout-length distribution directly (4000 samples: a real game played a random 0–60-action
+  prefix, then a uniform-random rollout to completion or the old 400 cap — matching exactly what
+  `IsMctsAgent.PlayOut` does, rather than reusing whole-game `Shapes.Sim` stats, which reflect
+  decision-making agents' games, not a playout's own uniform-random length): **p50=90, p90=198,
+  p95=244, p99=330, max=541**. 400 covered 99.8% of playouts; 200 covers 90.4%. Chose 200 —
+  covering the large majority while cutting worst-case playout length roughly in half — because a
+  truncated playout is scored by `Reward()`'s score-margin heuristic rather than discarded, so
+  truncation is a soft precision cost on the long tail, not a correctness bug.
+
+  **Measured result**: an isolated same-seed microbenchmark (one fixed real mid-game position,
+  200-iteration search, only `PlayoutDepth` varied, 20 repeated `Choose` calls per setting — the
+  `Shapes.Sim` full-game numbers were too noisy for this, since changing the cap changes the
+  search's own decisions and therefore game length, entangling the speedup with unrelated
+  variance) showed **87.55ms → 41.67ms per decision, a 2.1× speedup** — the real win step 3's
+  profiling predicted, versus step 3's own apply/undo attempt's measured zero. Win rates in
+  `Shapes.Sim` matrices stayed consistent with pre-change numbers (no collapse in play quality);
+  726 tests still pass unchanged, since no test pinned the old default.
+- [ ] **3b. A cheap playout-only action sampler** — add a path (behind `IPlayoutPolicy` or
+  alongside it) that picks one legal action for a playout step without materializing the full
+  `List<GameAction>`/`HashSet`/`EffectContext` machinery `Generate` builds for every caller,
+  e.g. reservoir-sampling over the same enumeration `Generate` does internally. Must leave
+  `ActionGenerator.Generate` itself, and every other caller (console, tree expansion, tests),
+  completely unchanged — this is additive, not a rewrite of the shared API. Gated on the same
+  correctness suite `IsMctsAgent`'s uniform-playout tests already run (a faster sampler must
+  choose from the identical legal set `Generate` would have produced, provable by a test that
+  compares the two directly over many random positions) plus its own stopwatch before/after.
 - [ ] **4. Determinizations per search** — measure whether reusing a sampled world across several
   iterations trades acceptable sampling breadth for speed.
-- [ ] **5. Tuning** — exploration constant, playout depth cap; pure measurement, no
-  first-principles shortcut.
+- [ ] **5. Tuning** — exploration constant, playout depth cap (whatever 3a did not already settle);
+  pure measurement, no first-principles shortcut.
 - [ ] **6. Re-verify correctness tests still pass at tuned settings.**
 - [ ] **7. Record the final agent matrix** as Phase 4's frozen reference instrument.
 

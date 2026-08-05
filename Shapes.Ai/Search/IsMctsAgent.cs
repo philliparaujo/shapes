@@ -81,11 +81,16 @@ public sealed class IsMctsAgent : IAgent
     // because it plays real games from a real start, not because random play is guaranteed to
     // finish from every position. Without a cap a single unlucky playout would hang the search.
     //
-    // In ACTIONS, not turns, since a node is one atomic action (see above). 400 is roughly a
-    // long-but-real game at the observed action counts in AI-v-AI console games; a playout hitting
-    // it is scored by the score heuristic in Reward() rather than discarded, because discarding it
-    // would bias the statistics toward whatever lines happen to end quickly.
-    private const int DefaultPlayoutDepth = 400;
+    // In ACTIONS, not turns, since a node is one atomic action (see above). PLAN.md step 3.3a:
+    // TUNED, not a round number -- 200 is the measured p90 of uniform-random playout length from
+    // realistic mid-search positions (4000-sample distribution: p50=90, p90=198, p95=244, p99=330,
+    // max=541), chosen because profiling (step 3.3) found playout ActionGenerator.Generate and
+    // ActionExecutor.Apply calls are 86.4% of one iteration's cost, and this is the single lever
+    // that cuts directly into how many of those calls a playout makes. The other 9.6% of playouts
+    // hit the cap and are scored by Reward()'s margin heuristic instead of a decided result --
+    // soft precision loss, not a correctness bug, and a good trade against roughly halving
+    // worst-case playout cost versus the previous, untuned 400.
+    private const int DefaultPlayoutDepth = 200;
 
     public IsMctsAgent(
         CardDatabase cards, IRandomSource random, SearchBudget? budget = null,
