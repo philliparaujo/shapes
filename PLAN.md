@@ -8,11 +8,11 @@ AI-driven balance → Godot client.
 | Phase                          | Progress   |
 |--------------------------------|------------|
 | 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 3 / 9      |
+| 2 — IS-MCTS AI                 | 4 / 9      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-642 tests passing.
+661 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
@@ -22,10 +22,15 @@ physical Android device.
 structurally cannot leak the opponent's hand contents or deck order — pinned by
 `Shapes.Tests/Agents/ObservedStateTests.cs`. Step 2.3 landed the determinizer
 (`Shapes.Ai/Search/Determinizer.cs`), along with a **rules fix it exposed**: destroyed creatures
-now go to their owner's discard pile (`GameState.DestroyCreature`) instead of vanishing.
+now go to their owner's discard pile (`GameState.DestroyCreature`) instead of vanishing. Step 2.4
+landed `GreedyAgent` (`Shapes.Ai/Agents/GreedyAgent.cs`), completing the baseline pair — it scores
+actions from static card data rather than simulating, so it stays independent of the search it
+exists to measure. How strong the baselines actually are is Phase 3 step 1's measurement, not a
+Phase 2 claim.
 
-**Next up: step 2.4** — baseline agents: `RandomAgent` already exists (it landed with step 2.1),
-so this is `GreedyAgent`, the one-ply heuristic yardstick.
+**Next up: step 2.5** — console hidden-hand mode (`--reveal` flag, default off). Note this step
+asks for a decision before implementing: hiding the inactive player's hand changes **hotseat**
+too, trading a little convenience on every hotseat game for correctness on all of them.
 
 ### Common commands
 
@@ -37,6 +42,8 @@ Run these from the repo root (`shapes/`, where `Shapes.sln` lives).
 | Run all tests                 | `dotnet test Shapes.Tests/Shapes.Tests.csproj`       |
 | Run one test by name          | `dotnet test Shapes.Tests/Shapes.Tests.csproj --filter "FullyQualifiedName~TestMethodName"` |
 | Play the game (console)       | `dotnet run --project Shapes.Console`                |
+| Play against the AI           | `dotnet run --project Shapes.Console -- --p2 greedy` |
+| **Watch a full AI game**      | `dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet` |
 
 `dotnet build` compiles every project in the solution and reports errors/warnings — run it after
 any code change to check nothing broke, before bothering with tests. `dotnet test` builds first
@@ -48,6 +55,20 @@ argument to run everything.
 
 `dotnet run --project Shapes.Console` starts the hotseat text client (step 1.11): it asks for a
 random seed, then two players take turns picking numbered actions in the same terminal.
+
+**Any seat can be an agent** (added with step 2.4): `--p1` and `--p2` each take `human`
+(default), `random`, or `greedy`, so the same client covers hotseat, human-v-AI, and AI-v-AI.
+`--seed <n>` skips the prompt, making a game scriptable and exactly replayable; `--quiet` drops
+the board render for one line per action plus a turn header, which fits a whole game on a screen.
+Every AI decision is echoed either way. `--help` lists it all.
+
+**This is how you watch a game rather than just assert about one.** A green test suite says an
+agent's decisions were legal; it does not show what the agent did with its turns. Step 2.4's
+blocking-slot bug was invisible to a passing suite and only surfaced under inspection — so when an
+agent's behaviour is in question, run a game and read it before writing another test.
+`Shapes.Sim` (Phase 3, step 1) is the batch version of this for statistics across thousands of
+games; the console is the single-game, human-readable one. Both matter, and they answer different
+questions: aggregates say *whether* something changed, a watched game says *what* changed.
 
 ## 0. Confirmed ruleset
 
@@ -704,8 +725,103 @@ rather than a blanket line-coverage percentage.
   determinism, and the round-trip property (re-observing a sample reproduces the original
   observation), plus a fuzz pass determinizing every position of 300 real games from both seats.
   All three failure modes were verified to fail the suite before the fix.
-- [ ] **4. Baseline agents first:** `RandomAgent`, `GreedyAgent` (one-ply heuristic). These are
-  the yardstick — an MCTS that cannot crush both has a bug.
+- [x] **4. Baseline agents:** `RandomAgent` (landed with step 2.1) and `GreedyAgent`
+  (`Shapes.Ai/Agents/GreedyAgent.cs`). These are the yardstick — an MCTS that cannot beat both
+  clearly has a bug.
+
+  **This step delivers the agents, not a measurement of them.** Deciding how strong they are means
+  running batches across seeds and rulesets, which is Phase 3 step 1's job (`Shapes.Sim`) — so no
+  strength figure is recorded here and none is asserted by a test. What step 2.4 owes is a
+  baseline that is *well-defined*: deterministic given a position, independent of the search it
+  will be used to evaluate, and stable under Phase 3's card edits. Those are properties of the
+  agent, checkable directly, and they are what the tests cover.
+
+  **`GreedyAgent` scores actions from static card data — it does not simulate.** The obvious
+  one-ply implementation (apply each action to a clone, evaluate the result) is unavailable by
+  construction: an agent sees an `ObservedState`, which carries no `GameState` and no path to one,
+  so simulating would require determinizing first — and determinize-then-simulate *is* a
+  one-iteration IS-MCTS. That would ruin it as a yardstick twice over. A comparison against
+  search would largely measure iteration count rather than whether search works, and a bug in
+  selection or backprop shared by both sides would cancel instead of showing. The baseline's
+  strength would also vary with whichever world it happened to sample, putting noise into the
+  very comparison it exists to make clean. So it reads what a move *will* do instead of doing it —
+  weaker in principle, but independent of the search, deterministic given the position, and cheap
+  enough that hundreds of full games run in well under a second.
+
+  It prices flat `damage` (through the type chart, including the merged-target rule and
+  `attack_buff`/`next_attack_bonus`), lethal as a bonus, `heal` against actual missing health,
+  board presence, and **both halves of the scoring race** (below). Damage is **capped at the
+  target's remaining health** so overkill isn't counted as value.
+
+  **The scoring race has two halves, and the first version of the heuristic only priced one.**
+  Taking a slot whose facing enemy slot is empty scores a point per turn *for you*; taking a slot
+  that faces a currently-**unopposed enemy creature** denies a point per turn *to them*. The
+  original only rewarded the former, rating a blocking placement at exactly zero — so at a
+  position where blocking would stop an enemy creature scoring every turn, it instead tie-broke
+  randomly between two indistinguishable open slots. Found by inspection prompted by a question
+  about turn sequencing, then confirmed by probe, not by any test.
+
+  Blocking is now weighted *slightly above* taking an open slot, and the ordering is deliberate:
+  both are worth a point per turn, but blocking pays **sooner and surer**. It denies the point at
+  the opponent's very next scoring step — which happens the instant the turn ends, since
+  `ActionExecutor.ApplyEndTurn` runs the opponent's `AdvanceToActions`, whose first step is
+  `ApplyScoring`. An unopposed placement pays its first point a full turn later, and only if it
+  survives the opponent's turn unopposed.
+
+  **Win rate was the wrong instrument for judging this fix, and nearly hid it.** Against
+  `RandomAgent` the rate barely moved — a random opponent rarely builds the scoring board that
+  makes blocking matter, so the situation the fix addresses seldom arises. What showed the fix was
+  real is an *opportunity* count: how often a blocking play is even available. That is markedly
+  higher against another `GreedyAgent` than against `RandomAgent`, and it will be higher still
+  against search. The lesson generalizes — an aggregate rate against a weak opponent measures the
+  opponent as much as the agent, which is another reason strength numbers belong to Phase 3's
+  batch runner rather than to a step that is building the agent.
+
+  Everything the heuristic has no rule for — every scaled op, draws, resource gains, keywords,
+  control flow — scores a small flat positive: enough that an unread card beats passing, not
+  enough to beat a visible kill. Modelling those properly would mean re-implementing the effect
+  interpreter against a state it cannot see, which is how a baseline becomes a second, drifting
+  definition of the rules.
+
+  Two deliberate weight choices. **`EndTurn` scores negative**, since passing with resources
+  unspent is the main way a weak agent throws a game away — confirmed by inspecting the action
+  mix of full games, where it never passed while a play or move was available. **Merging is scored
+  barely positive**, deliberately unenthusiastic: step 3.3a asks whether the AI ever *declines* a
+  merge, and a baseline that merged eagerly would bias the measurement meant to answer that
+  question.
+
+  **Ties break randomly**, via the injected `IRandomSource` (reservoir sampling, one pass). Always
+  taking the first-scoring action would bias play toward low slot indices and toward the
+  generator's emission order — a systematic bias that would surface in Phase 3's per-card
+  statistics as an artifact of card list ordering.
+
+  `AgentContractTests` became theories over an agent factory, so both agents are held to the same
+  three clauses rather than `GreedyAgent` getting a parallel suite that checks less; step 2.6 adds
+  one line. The non-mutation clause is a live risk for this agent rather than a formality — it
+  reads `AttackBuff`/`NextAttackBonus`, which the real damage path *consumes*, so a scoring pass
+  written against the engine's own consume-methods would silently spend a bonus. One clause
+  splits: "different seeds → different decisions" is `RandomAgent`-only, and its counterpart pins
+  that Greedy **ignores** its seed when one action scores highest (randomness must reach ties
+  only, or the baseline would play differently run-to-run at the same position).
+  `Shapes.Tests/Agents/GreedyAgentTests.cs` covers each priority in the weight table at a position
+  where one action is unambiguously correct.
+
+  **What the tests do and don't assert.** They pin *decisions* (given this position, this action)
+  and *robustness* (full games on the real card set complete without faulting) — never a win rate.
+  An earlier draft asserted a win-rate threshold over a batch of games, and that was the wrong
+  test in the right place. Two things are wrong with it. A win rate is a **balance measurement**,
+  belonging to Phase 3 step 1, which runs batches properly — parallel, seeded, across rulesets —
+  rather than as a side effect of a unit test. And any threshold would have been unprincipled:
+  picked by rounding down whatever the agent currently scored, it would pass until an unrelated
+  Phase 3 rebalance moved the number, then fail while indicating no defect. A test that fails for
+  reasons unconnected to the code it names is worse than no test.
+
+  What that test *was* uniquely providing is worth keeping, and is now what it asserts: it is the
+  only place `GreedyAgent` meets the **real ~36-card set** (everything else uses synthetic
+  `TestCards`, which cover rule shapes but not the actual effect vocabulary). Verified to have
+  teeth by making the heuristic's unknown-op branch throw — it failed immediately, naming
+  `buff_max_health`, a real card effect no synthetic card exercises. Robustness is a property of
+  the agent alone, so unlike a win rate it cannot drift when cards are repriced.
 - [ ] **5. Console hidden-hand mode** (`--reveal` flag, default **off**). Today `BoardView`
   renders both hands in full every turn — fine for hotseat, but the moment step 2.4 makes
   human-vs-AI real it means the human sees the AI's hand while the AI cannot see theirs, so
@@ -739,16 +855,39 @@ rather than a blanket line-coverage percentage.
 - [ ] **9. Tuning:** exploration constant, playout depth cap, determinizations per search.
 
 **Exit criteria:**
-- [ ] IS-MCTS beats `RandomAgent` >95% over 500+ seeded games.
-- [ ] IS-MCTS beats `GreedyAgent` >80% over 500+ seeded games.
+- [ ] IS-MCTS beats both baselines decisively, and beats `RandomAgent` by a wider margin than
+  `GreedyAgent` does. The ordering is the real test — it is what distinguishes "search works"
+  from "search runs." **Thresholds and sample sizes are set in Phase 3 step 1**, which owns batch
+  measurement; fixing a number here would mean picking it before the tool that measures it exists.
 - [ ] A decision at a realistic budget completes in target wall-clock (suggest ≤2s desktop).
 - [ ] `ObservedState` provably leaks no hidden information.
 - [ ] A human-vs-AI console game hides the AI's hand by default, and `--reveal` restores full
   visibility for debugging.
 
+> **On strength numbers in Phase 2.** Phase 2 builds agents; Phase 3 measures them. Any figure
+> quoted during Phase 2 is a development observation from an ad-hoc run — useful for spotting that
+> something regressed, not a result. Two reasons to keep it that way: a rate measured against a
+> weak opponent partly measures the opponent (see step 2.4's blocking-slot fix, which a win rate
+> against `RandomAgent` almost concealed), and every such number is relative to the current card
+> balance, which Phase 3 exists to change.
+
 ### Phase 3 — AI-driven balance
 
 - [ ] **1. `Shapes.Sim`:** headless batch runner, N games, parallel, seeded, → CSV/JSON.
+
+  **This step owns agent-strength measurement**, which Phase 2 deliberately defers to it (see the
+  note under Phase 2's exit criteria). First job once it runs: establish the agent-vs-agent
+  baseline matrix — `RandomAgent`, `GreedyAgent`, and IS-MCTS at a few budgets, every pairing,
+  both seats, enough seeds for the confidence interval to be reported rather than assumed. Set the
+  Phase 2 strength thresholds from that matrix rather than in advance, and record it as a
+  `balance/` entry so later runs are comparable against a stated baseline instead of a
+  remembered one.
+
+  Report **both seats separately**, never pooled: pooling hides first-player advantage inside the
+  agent comparison, and first-player advantage is itself a metric this phase must track (step 2).
+  Prefer opportunity/behaviour counts alongside win rate where a mechanic is in question — step
+  2.4's blocking-slot bug moved a win rate barely at all while moving an availability count
+  sharply, and step 3.3's two flagged questions are of exactly that shape.
 - [ ] **2. Metrics:** win rate by player-1/2 (first-player advantage), average game length,
   score curves, per-card play/win-rate correlation, per-move usage frequency, merge frequency,
   resource starvation/flooding, and how often games end by score-out vs. board wipe.

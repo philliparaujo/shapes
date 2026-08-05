@@ -7,8 +7,10 @@ namespace Shapes.Ai.Agents;
 // Picks uniformly at random from the legal actions.
 //
 // The floor of the yardstick the plan's step 2.4 sets up: an IS-MCTS that cannot beat this
-// >95% of the time has a bug, not a tuning problem. It is also the simplest possible proof
-// that IAgent is implementable and that a game can be driven end-to-end through the interface.
+// overwhelmingly has a bug, not a tuning problem. (How overwhelmingly, as a number, is Phase 3's
+// measurement to make -- see GreedyAgent's note on why strength figures do not live in the AI
+// project.) It is also the simplest possible proof that IAgent is implementable and that a game
+// can be driven end-to-end through the interface.
 //
 // Randomness comes from an injected IRandomSource, not Random.Shared, for the same reason
 // everything else in the engine does: a sim result that cannot be replayed from its seed
