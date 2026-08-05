@@ -9,21 +9,20 @@ agent measurement & optimization → AI-driven balance → Godot client.
 |------------------------------------------|------------|
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
-| 3 — Agent measurement & optimization     | 0 / 7      |
+| 3 — Agent measurement & optimization     | 2 / 7      |
 | 4 — AI-driven balance                    | 0 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
-689 tests passing. **Phases 1 and 2 are complete.**
+726 tests passing. **Phases 1 and 2 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: step 3.1** — `Shapes.Sim`, the headless batch runner (currently a five-line
-placeholder). It unlocks everything after it: the playout policy, tuning, and Phase 2's
-unasserted strength claims all depend on it. Build it before the more interesting-looking
-optimizations — an optimization you cannot measure is a guess.
+**Next up: step 3.3** — apply/undo instead of clone, node pooling, gated by Phase 1's apply/undo
+property test. Measure with a same-seed stopwatch before/after, now that `ismcts-heuristic` (step
+3.2) is the config worth making fast.
 
 ### Common commands
 
@@ -38,9 +37,11 @@ Run from repo root (`shapes/`, where `Shapes.sln` lives).
 | Play against the AI           | `dotnet run --project Shapes.Console -- --p2 greedy` |
 | **Watch a full AI game**      | `dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet` |
 | Watch the search play         | `dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet` |
+| **Run the agent matrix**      | `dotnet run -c Release --project Shapes.Sim -- --agents random,greedy,ismcts,ismcts-heuristic --games 30` |
 
-`--p1`/`--p2` each take `human` (default), `random`, `greedy`, or `ismcts`. `--iterations <n>`
-sets the `ismcts` search budget (default 200, in iterations so seeded games replay exactly).
+`--p1`/`--p2` each take `human` (default), `random`, `greedy`, `ismcts`, or `ismcts-heuristic`
+(step 3.2's heuristic playout, same search otherwise). `--iterations <n>` sets the `ismcts`/
+`ismcts-heuristic` search budget (default 200, in iterations so seeded games replay exactly).
 `--seed <n>` skips the prompt; `--quiet` gives one line per action. `--help` lists it all.
 
 **The waiting seat's hand renders as a count** (`--reveal` shows both) so a human never reads
@@ -262,13 +263,67 @@ that's the whole reason this is a separate phase from Phase 4. Everything is gat
 unmeasured optimization is a guess, and a bad heuristic can make search weaker while still
 looking reasonable in a watched game.
 
-- [ ] **1. `Shapes.Sim`** — headless batch runner (N games, parallel, seeded → CSV/JSON),
-  currently a placeholder. Establish the agent-vs-agent baseline matrix first (all pairings, both
-  seats reported separately — never pooled, since that hides first-player advantage — with
-  behaviour/opportunity counts alongside win rate, per Phase 2's blocking-slot lesson).
-- [ ] **2. Playout policy** — replace uniform-random rollout with a lightly heuristic one (favor
-  damage/scoring, avoid idle passing). Keep the uniform policy switchable as a control; evaluate
-  against `GreedyAgent`, not `RandomAgent`, per Phase 2's lesson about weak-opponent measurement.
+- [x] **1. `Shapes.Sim`** — headless batch runner (N games, parallel via `Parallel.ForEach`,
+  every game independently seeded from `(baseSeed, agentOne, agentTwo, gameIndex)` so no two
+  games in a matrix ever collide → CSV summary + full-detail JSON). Every ordered pairing
+  (including self-play) is run with both seat assignments, reported as separate `PairingSummary`
+  rows — never pooled, since pooling hides first-player advantage. Each `GameResult` also carries
+  a per-`ActionKind` action count, the behaviour-count instrumentation Phase 2's blocking-slot
+  lesson calls for. 23 tests (`Shapes.Tests/Sim/`) cover option parsing, same-seed
+  reproducibility of both a single game and a whole matrix, seat-separation, and seed-collision
+  freedom.
+
+  **Baseline matrix** (30 games/pairing, `ismcts` at 200 iterations, real card set, seed 1):
+
+  | P1 \ P2   | random | greedy | ismcts |
+  |-----------|--------|--------|--------|
+  | random    | 63.3%  | 36.7%  | 3.3%   |
+  | greedy    | 96.7%  | 70.0%  | 13.3%  |
+  | ismcts    | 100.0% | 90.0%  | 80.0%  |
+
+  (Cell = P1's win rate.) `ismcts` beats `random` by a ~97-point margin (100% − 3.3% across
+  seats) and `greedy` by a ~77-point margin (90% − 13.3%) — the wider-margin-against-the-weaker-
+  opponent ordering Phase 3's exit criteria call for. Ad hoc dev numbers, not a tuned result —
+  Phase 3 steps 2–6 (playout policy, performance, tuning) still change these; step 7 records the
+  final frozen matrix.
+- [x] **2. Playout policy** — `IPlayoutPolicy` (`Shapes.Ai/Search/`), selected via
+  `IsMctsAgent`'s constructor and defaulting to `UniformPlayoutPolicy` (the original rollout,
+  kept as the control — `IsMctsAgent`'s own correctness tests still run against it unchanged, so
+  a heuristic playout can never paper over a selection/backprop bug in the suite that exists to
+  catch one). `HeuristicPlayoutPolicy` scores each legal action by the same damage/lethal/board-
+  presence priorities as `GreedyAgent`, but computed directly against the playout's own real
+  `GameState` (via `EffectContext`/`TargetResolver`) rather than reused wholesale — `GreedyAgent`'s
+  scorer is written against a hidden-information-safe `ObservedState` a playout doesn't need, and
+  playing back through it once per remaining ply of every iteration would cost far more than
+  `GreedyAgent`'s own once-per-`Choose` budget affords. Exposed as `ismcts-heuristic` in both
+  `Shapes.Console` and `Shapes.Sim`; `IsMctsAgent.Name` folds the policy in
+  (`"ISMCTS(200,heuristic)"`) so a batch matrix never pools the two configurations. 15 new tests
+  (`Shapes.Tests/Ai/HeuristicPlayoutPolicyTests.cs` mirrors `GreedyAgentTests`' one-unambiguous-
+  action-per-test shape; four more in `IsMctsAgentTests.cs` pin the wiring — default stays
+  uniform, the heuristic policy still finds a decided lethal move, and still resamples a new
+  world every iteration).
+
+  **Measured result** (30 games/pairing, both at 200 iterations, both seats, seed 1):
+
+  | P1 \ P2            | greedy | ismcts | ismcts-heuristic |
+  |---------------------|--------|--------|------------------|
+  | greedy              | 70.0%  | 13.3%  | 6.7%             |
+  | ismcts              | 90.0%  | 80.0%  | 60.0%            |
+  | ismcts-heuristic    | 100.0% | 80.0%  | 46.7%            |
+
+  `ismcts-heuristic` beats plain `ismcts` in both seat assignments (60.0% and 80.0% — the mirror
+  cells read 40.0%/20.0% for `ismcts`) and beats `GreedyAgent` by a wider margin than uniform
+  `ismcts` does (93.3–100pp vs. 76.7–86.7pp). The heuristic playout is a real improvement at this
+  budget — but not a free one: per-decision wall-clock (isolated as seconds/action, since the
+  heuristic policy also plays longer games) rose from 0.41s to 0.52s against `GreedyAgent`
+  (~1.26×) and from 0.69s to 1.26–1.30s in `ismcts`-involving pairings (~1.8–1.9×), because every
+  playout step now builds an `EffectContext` and calls `TargetResolver` instead of an O(1) random
+  pick. **`ismcts` therefore stays uniform-by-default** — the cost is real enough that switching
+  it silently would confound step 3's own before/after measurements (step 3's clone→apply/undo
+  swap and step 5's tuning both need a stable baseline to measure against, not one this step
+  quietly moved). `ismcts-heuristic` is the explicit, opt-in stronger-but-slower configuration —
+  worth reaching for deliberately (a stronger sparring partner, a Phase 4 balance signal), not a
+  silent replacement for what "ismcts" means elsewhere in the codebase.
 - [ ] **3. Performance** — apply/undo instead of clone, node pooling; success is a stopwatch
   before/after, gated by Phase 1's apply/undo property test.
 - [ ] **4. Determinizations per search** — measure whether reusing a sampled world across several

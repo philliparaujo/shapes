@@ -175,8 +175,11 @@ static IAgent? BuildAgent(string kind, ulong seed, CardDatabase cards, int itera
         "greedy" => new GreedyAgent(new SeededRandom(seed)),
         "ismcts" => new IsMctsAgent(
             cards, new SeededRandom(seed), SearchBudget.OfIterations(iterations)),
+        "ismcts-heuristic" => new IsMctsAgent(
+            cards, new SeededRandom(seed), SearchBudget.OfIterations(iterations),
+            playoutPolicy: HeuristicPlayoutPolicy.Instance),
         _ => throw new ArgumentException(
-            $"Unknown agent '{kind}'. Expected human, random, greedy, or ismcts."),
+            $"Unknown agent '{kind}'. Expected human, random, greedy, ismcts, or ismcts-heuristic."),
     };
 
 static ulong PromptSeed()

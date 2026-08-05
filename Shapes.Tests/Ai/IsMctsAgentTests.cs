@@ -439,4 +439,85 @@ public class IsMctsAgentTests
         }
     }
 
+    // -- Step 3.2: pluggable playout policy ----------------------------------------------------
+    //
+    // The default must stay UniformPlayoutPolicy -- the search's own correctness tests above all
+    // run through Agent(), which does not pass a policy, and PLAN.md is explicit that a heuristic
+    // playout must not become the default silently: it could paper over a selection/backprop bug
+    // by making even broken search play plausibly. These tests pin the wiring only -- whether the
+    // heuristic policy is actually stronger is Shapes.Sim's question, not this suite's.
+
+    [Fact]
+    public void The_default_constructor_uses_the_uniform_playout_policy()
+    {
+        // Observable only through Name, since the policy field itself is private -- which is
+        // exactly the point: Name is what a Shapes.Sim matrix keys pairings on, so this is
+        // checking the same signal a batch run would rely on to keep the two configurations
+        // from being silently pooled.
+        var agent = Agent();
+
+        Assert.Equal($"ISMCTS({agent.Budget})", agent.Name);
+    }
+
+    [Fact]
+    public void An_explicit_heuristic_policy_is_reflected_in_the_name()
+    {
+        var agent = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(7), SearchBudget.OfIterations(50),
+            playoutPolicy: HeuristicPlayoutPolicy.Instance);
+
+        Assert.Equal($"ISMCTS({agent.Budget},heuristic)", agent.Name);
+    }
+
+    [Fact]
+    public void A_search_using_the_heuristic_playout_still_finds_a_decided_lethal_move()
+    {
+        // Swapping the playout policy must not break the search itself: a position with one
+        // obviously correct move should still be found regardless of which policy scores the
+        // random-play tail of each iteration.
+        var state = new StateBuilder()
+            .P1(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Resources(wheel: 4))
+            .P2(p => p.Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2, health: 1))
+            .ConservingDecks(TestCards.Database)
+            .Build();
+
+        var agent = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(7), SearchBudget.OfIterations(300),
+            playoutPolicy: HeuristicPlayoutPolicy.Instance);
+
+        var context = AgentContext.ForActivePlayer(state, TestCards.Database);
+        var action = agent.Choose(context);
+
+        var move = Assert.IsType<UseMoveAction>(action);
+        Assert.Equal(new SlotIndex(PlayerId.One, 0), move.SourceSlot);
+    }
+
+    [Fact]
+    public void The_heuristic_policy_still_resamples_a_new_world_every_iteration()
+    {
+        // The property IsMctsAgentTests guards most carefully (see
+        // It_resamples_a_new_world_every_iteration above) must survive a policy swap: nothing
+        // about the playout policy should touch determinization.
+        var state = new StateBuilder()
+            .ConservingDecks(TestCards.Database)
+            .P1(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Hand(TestCards.Striker)
+                .Resources(spike: 4, anvil: 4, wheel: 4))
+            .P2(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Hand(TestCards.Bolt, TestCards.Chooser, TestCards.TwoMove))
+            .Build();
+
+        var agent = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(5), SearchBudget.OfIterations(50),
+            playoutPolicy: HeuristicPlayoutPolicy.Instance);
+
+        agent.Choose(AgentContext.ForActivePlayer(state, TestCards.Database));
+
+        Assert.True(agent.LastDistinctWorldCount > 1);
+    }
+
 }

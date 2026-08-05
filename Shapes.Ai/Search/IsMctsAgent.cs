@@ -46,9 +46,12 @@ namespace Shapes.Ai.Search;
 //
 // == What this deliberately does NOT do yet ==
 //
-// PLAYOUTS ARE UNIFORM RANDOM. Phase 3 step 2 makes them lightly heuristic; doing it here would
-// conflate "is the search correct" with "is the playout policy good," and a heuristic playout can
-// paper over a backprop bug by making even a broken search play plausibly.
+// THE PLAYOUT POLICY IS PLUGGABLE, BUT UNIFORM RANDOM REMAINS THE DEFAULT. Step 3.2 added
+// HeuristicPlayoutPolicy as a lightly-heuristic alternative to UniformPlayoutPolicy, selectable
+// via the constructor -- but the search's own correctness tests still exercise the original
+// uniform playout by default, since a heuristic playout can paper over a selection/backprop bug
+// by making even a broken search play plausibly. Which policy is actually stronger is Phase 3's
+// Shapes.Sim to measure, not something to assume from here.
 //
 // IT CLONES RATHER THAN APPLYING AND UNDOING. Phase 3 step 3's optimisation. Determinize already
 // returns a fresh GameState per iteration, so selection and playout mutate that private copy and
@@ -64,6 +67,7 @@ public sealed class IsMctsAgent : IAgent
     private readonly CardDatabase _cards;
     private readonly IRandomSource _random;
     private readonly Determinizer _determinizer;
+    private readonly IPlayoutPolicy _playoutPolicy;
     private readonly HashSet<string> _sampledWorlds = new(StringComparer.Ordinal);
 
     // UCB1's exploration weight. sqrt(2) is the theoretical value for rewards in [0,1], which is
@@ -85,7 +89,8 @@ public sealed class IsMctsAgent : IAgent
 
     public IsMctsAgent(
         CardDatabase cards, IRandomSource random, SearchBudget? budget = null,
-        double explorationConstant = DefaultExploration, int playoutDepth = DefaultPlayoutDepth)
+        double explorationConstant = DefaultExploration, int playoutDepth = DefaultPlayoutDepth,
+        IPlayoutPolicy? playoutPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(cards);
         ArgumentNullException.ThrowIfNull(random);
@@ -95,6 +100,7 @@ public sealed class IsMctsAgent : IAgent
         _cards = cards;
         _random = random;
         _determinizer = new Determinizer(cards);
+        _playoutPolicy = playoutPolicy ?? UniformPlayoutPolicy.Instance;
 
         Budget = budget ?? SearchBudget.Default;
         ExplorationConstant = explorationConstant;
@@ -109,8 +115,13 @@ public sealed class IsMctsAgent : IAgent
 
     // Includes the budget, because IAgent.Name is what a balance table keys on and "ISMCTS(100)"
     // and "ISMCTS(10000)" are different players as far as that table is concerned. Collapsing
-    // them to "ISMCTS" would silently pool two different agents' results.
-    public string Name => $"ISMCTS({Budget})";
+    // them to "ISMCTS" would silently pool two different agents' results. The playout policy is
+    // folded in the same way, but only when it isn't the uniform default -- so step 3.2's
+    // heuristic-vs-uniform comparison in Shapes.Sim gets two distinct rows ("ISMCTS(200)" and
+    // "ISMCTS(200,heuristic)") instead of two agents silently sharing one label.
+    public string Name => _playoutPolicy is UniformPlayoutPolicy
+        ? $"ISMCTS({Budget})"
+        : $"ISMCTS({Budget},heuristic)";
 
     // How many iterations the last Choose actually ran. Not part of IAgent -- it exists because a
     // time budget makes the count vary, and a caller measuring throughput or checking that a
@@ -277,7 +288,7 @@ public sealed class IsMctsAgent : IAgent
                 break;
             }
 
-            ActionExecutor.Apply(state, _cards, legal[_random.Next(legal.Count)]);
+            ActionExecutor.Apply(state, _cards, _playoutPolicy.SelectAction(state, legal, _cards, _random));
             depth++;
         }
 
