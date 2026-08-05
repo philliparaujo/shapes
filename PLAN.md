@@ -9,7 +9,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 |------------------------------------------|------------|
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
-| 3 — Agent measurement & optimization     | 6 / 9      |
+| 3 — Agent measurement & optimization     | 7 / 9      |
 | 4 — AI-driven balance                    | 0 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
@@ -20,8 +20,8 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: step 3.4** — determinizations per search (whether reusing a sampled world across
-several iterations trades acceptable sampling breadth for speed).
+**Next up: step 3.5** — tuning (exploration constant, remaining knobs 3.3a didn't already
+settle), by measurement against `Shapes.Sim`.
 
 ### Common commands
 
@@ -468,8 +468,69 @@ looking reasonable in a watched game.
   both underperformed their own premise once actually measured. 729 tests still pass; no
   correctness regression. All temporary profiling instrumentation was removed before committing —
   none of it is in the diff, matching how step 3's original profiling was done and discarded.
-- [ ] **4. Determinizations per search** — measure whether reusing a sampled world across several
-  iterations trades acceptable sampling breadth for speed.
+- [x] **4. Determinizations per search — measured, and the trade is not worth taking.** Added
+  `IterationsPerDeterminization` to `IsMctsAgent` (default 1, true per-iteration resampling,
+  unchanged from step 2.6): the number of consecutive iterations that share one `Determinize`
+  sample before drawing a fresh one. `Choose` samples once, then hands the same `GameState` to
+  `RunIteration` for up to that many iterations, cloning it per iteration once reuse is requested
+  (`Clone()` forks the RNG, so a clone's rollout cannot leak into a sibling or the real game) --
+  at the default of 1 the clone is skipped entirely and the world is mutated directly exactly as
+  before, so the existing default path pays nothing for the feature's existence.
+  `LastDistinctWorldCount` (the resampling instrumentation step 2.6 built) needed no changes: it
+  already counts distinct sampled hands, which is exactly "how many times did we actually
+  resample" regardless of how many iterations each sample served.
+
+  **Why this was worth measuring rather than assuming**: step 3's profiling table put
+  `Determinize` at ~5.9% of one iteration's cost, well behind playout `Generate`/`Apply`'s 86.4%
+  -- so reuse could only ever buy a small, capped win, and the question was whether that win
+  survives contact with a stopwatch at all, and whether the sampling breadth it costs is even
+  visible in play quality.
+
+  **Measured result** (git-worktree-style same-seed microbenchmark, one fixed real mid-game
+  position built by driving `RandomAgent` 30 actions into a fresh game from seed 21, 200
+  iterations, `-c Release`, 10 warmup `Choose` calls per setting before timing 40 more -- the
+  first pass without adequate warmup showed reuse=1 at 53ms vs reuse=2-50 clustered at ~31ms, a
+  gap that reproduced in reverse order too and turned out to be JIT tiering on the first
+  configuration constructed in the process, not the mechanism; re-run with warmup and in both
+  forward and reverse order collapsed it):
+
+  | Reuse window | ms/decision (forward) | ms/decision (reverse) |
+  |--------------|------------------------|------------------------|
+  | 1            | 31.89                  | 33.51                  |
+  | 2            | 33.85                  | 31.90                  |
+  | 5            | 30.73                  | 30.83                  |
+  | 10           | 30.26                  | 29.45                  |
+  | 20           | 30.24                  | 31.15                  |
+  | 50           | 30.55                  | 29.24                  |
+
+  No reuse window is distinguishable from any other -- every value falls within ~4ms of every
+  other, which is machine noise, not a trend. This matches the profiling prediction: even
+  eliminating `Determinize` entirely could not buy more than its ~5.9% share, which is under 2ms
+  at this position's ~31ms baseline and is exactly the size noise this benchmark can't resolve
+  from zero.
+
+  **Play quality** (same real card set, 200 iterations, 30 games per reuse window against the
+  reuse=1 baseline, seats alternated every game to cancel first-player advantage):
+
+  | Reuse window vs. reuse=1 | Win rate |
+  |----------------------------|----------|
+  | 2                           | 14/30 (46.7%) |
+  | 5                           | 15/30 (50.0%) |
+  | 10                          | 12/30 (40.0%) |
+  | 20                          | 16/30 (53.3%) |
+
+  All four sit inside ordinary 30-game noise around 50% -- no reuse window measurably weakens
+  play, but per the timing table above there was never a speed budget to spend that weakening
+  would have been trading against. **`IterationsPerDeterminization` stays at its default of 1.**
+  Shipped as a constructor parameter (tested in `IsMctsAgentTests.cs`: a reuse window larger than
+  the whole budget samples exactly one world, a window of N resamples every N iterations, a
+  reused world's mutations do not leak into the next iteration sharing it, and an explicit 1
+  reproduces the default path's decision bit-for-bit) rather than reverted outright, since the
+  measurement is what step 3.4 asked for and a future change to `Determinize`'s cost (Phase 5's
+  belief-model sampling, say) could revisit the trade -- but nothing in `Shapes.Sim`/`Shapes.Console`
+  wires it to anything other than 1, matching step 3's own precedent of keeping a
+  measured-not-worth-it change out of the default path rather than deleting the capability. 733
+  tests pass (729 + 4 new); no correctness regression.
 - [ ] **5. Tuning** — exploration constant, playout depth cap (whatever 3a did not already settle);
   pure measurement, no first-principles shortcut.
 - [ ] **6. Re-verify correctness tests still pass at tuned settings.**

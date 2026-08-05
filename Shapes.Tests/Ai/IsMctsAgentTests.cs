@@ -364,6 +364,121 @@ public class IsMctsAgentTests
         Assert.True(state.IsOver, "The game did not finish within 600 actions.");
     }
 
+    // -- Step 3.4: determinizations per search --------------------------------------------------
+    //
+    // IterationsPerDeterminization lets several consecutive iterations reuse one sampled world
+    // instead of resampling every time. Default (1) must stay true per-iteration resampling, since
+    // that is what step 2.6 chose for correctness and It_resamples_a_new_world_every_iteration
+    // above already guards it -- these tests only cover the opt-in reuse path itself.
+
+    [Fact]
+    public void A_reuse_window_larger_than_the_budget_samples_exactly_one_world()
+    {
+        // The clearest possible check on the wiring: if every iteration in the whole search shares
+        // one world, LastDistinctWorldCount must read 1, not one per iteration.
+        var state = new StateBuilder()
+            .ConservingDecks(TestCards.Database)
+            .P1(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Hand(TestCards.Striker)
+                .Resources(spike: 4, anvil: 4, wheel: 4))
+            .P2(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Hand(TestCards.Bolt, TestCards.Chooser, TestCards.TwoMove))
+            .Build();
+
+        var agent = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(5), SearchBudget.OfIterations(50),
+            iterationsPerDeterminization: 1000);
+
+        agent.Choose(Context(state));
+
+        Assert.Equal(1, agent.LastDistinctWorldCount);
+        Assert.Equal(50, agent.LastIterationCount);
+    }
+
+    [Fact]
+    public void A_reuse_window_of_N_resamples_every_N_iterations()
+    {
+        // A finer check than "exactly one world": with a 60-iteration budget and a window of 20,
+        // exactly 3 worlds should have been drawn (one every 20 iterations), not 60 and not 1.
+        var state = new StateBuilder()
+            .ConservingDecks(TestCards.Database)
+            .P1(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Hand(TestCards.Striker)
+                .Resources(spike: 4, anvil: 4, wheel: 4))
+            .P2(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Hand(TestCards.Bolt, TestCards.Chooser, TestCards.TwoMove))
+            .Build();
+
+        var agent = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(5), SearchBudget.OfIterations(60),
+            iterationsPerDeterminization: 20);
+
+        agent.Choose(Context(state));
+
+        Assert.True(
+            agent.LastDistinctWorldCount <= 3,
+            $"A 60-iteration search with a 20-iteration reuse window sampled "
+            + $"{agent.LastDistinctWorldCount} worlds, more than the 3 resample points it should "
+            + "have hit.");
+    }
+
+    [Fact]
+    public void A_reused_world_does_not_carry_mutations_between_iterations()
+    {
+        // The correctness hazard reuse introduces: if the second iteration sharing a world saw the
+        // first iteration's playout mutations instead of the position as sampled, the search would
+        // be exploring a corrupted, drifting state rather than several honest samples of the same
+        // world. Exercised indirectly -- a reused-world search must still find the same obviously
+        // correct lethal move a fresh-every-iteration search finds, which a state that silently
+        // drifted (e.g. a creature already dead from a prior iteration's rollout) could easily miss.
+        var state = new StateBuilder()
+            .ConservingDecks(TestCards.Database)
+            .P1(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Resources(spike: 4, anvil: 4, wheel: 4))
+            .P2(p => p.Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2, health: 1))
+            .Build();
+
+        var agent = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(7), SearchBudget.OfIterations(400),
+            iterationsPerDeterminization: 10);
+
+        var choice = agent.Choose(Context(state));
+
+        var move = Assert.IsType<UseMoveAction>(choice);
+        Assert.Equal(new SlotIndex(PlayerId.One, 0), move.SourceSlot);
+    }
+
+    [Fact]
+    public void Reuse_window_of_one_is_the_default_and_behaves_identically_to_omitting_it()
+    {
+        // Pins that the new parameter is additive: an explicit 1 must be indistinguishable from
+        // not passing it at all, at the level the rest of the suite already checks (a decided
+        // position's correct move, found deterministically from the same seed).
+        var state = new StateBuilder()
+            .ConservingDecks(TestCards.Database)
+            .P1(p => p
+                .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
+                .Resources(spike: 4, anvil: 4, wheel: 4))
+            .P2(p => p.Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2, health: 1))
+            .Build();
+
+        var withDefault = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(7), SearchBudget.OfIterations(400));
+        var withExplicitOne = new IsMctsAgent(
+            TestCards.Database, new SeededRandom(7), SearchBudget.OfIterations(400),
+            iterationsPerDeterminization: 1);
+
+        var a = withDefault.Choose(Context(state));
+        var b = withExplicitOne.Choose(Context(state));
+
+        Assert.Equal(a, b);
+    }
+
     [Fact]
     public void A_cancelled_search_still_returns_a_legal_action()
     {

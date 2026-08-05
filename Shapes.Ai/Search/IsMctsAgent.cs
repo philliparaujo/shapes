@@ -13,12 +13,14 @@ namespace Shapes.Ai.Search;
 // One iteration, in the four standard phases:
 //
 //   0. DETERMINIZE. Sample a concrete world consistent with the observation (step 2.3's
-//      Determinizer). A FRESH world each iteration -- this is the "per-iteration resampling" the
-//      plan specifies, and the one line that separates IS-MCTS from "MCTS on a guess." Sampling
-//      once per search would make every statistic conditional on whatever hand the opponent
-//      happened to be given, and the search would confidently play around a hand they do not
-//      hold. Resampling makes the tree's statistics an average over the opponent's plausible
-//      hands, which is the thing worth averaging.
+//      Determinizer). A FRESH world every iteration BY DEFAULT -- this is the "per-iteration
+//      resampling" the plan specifies, and the one line that separates IS-MCTS from "MCTS on a
+//      guess." Sampling once per search would make every statistic conditional on whatever hand
+//      the opponent happened to be given, and the search would confidently play around a hand
+//      they do not hold. Resampling makes the tree's statistics an average over the opponent's
+//      plausible hands, which is the thing worth averaging. PLAN.md step 3.4 makes the reuse
+//      window a measured, opt-in parameter (IterationsPerDeterminization) rather than assuming 1
+//      is always worth its cost -- see its own doc comment for the tradeoff and the measurement.
 //   1. SELECT. Walk down the tree by UCB1 with the availability correction (see SearchNode),
 //      considering only the actions legal in THIS world, until reaching a node with an untried
 //      legal action or a terminal position.
@@ -92,15 +94,26 @@ public sealed class IsMctsAgent : IAgent
     // worst-case playout cost versus the previous, untuned 400.
     private const int DefaultPlayoutDepth = 200;
 
+    // How many consecutive iterations reuse one determinized world before resampling. PLAN.md
+    // step 3.4: per-iteration resampling (1, the default) is what step 2.6's design chose for
+    // correctness -- see Determinize's header -- but Determinize itself is ~5.9% of an
+    // iteration's cost (step 3's profiling table), so reusing a world for a few iterations in a
+    // row is a plausible speed/breadth trade worth MEASURING, not assuming. Left at 1 so every
+    // existing correctness test, including the resampling test this very feature could silently
+    // break, keeps exercising true per-iteration resampling unless a caller opts in.
+    private const int DefaultIterationsPerDeterminization = 1;
+
     public IsMctsAgent(
         CardDatabase cards, IRandomSource random, SearchBudget? budget = null,
         double explorationConstant = DefaultExploration, int playoutDepth = DefaultPlayoutDepth,
-        IPlayoutPolicy? playoutPolicy = null)
+        IPlayoutPolicy? playoutPolicy = null,
+        int iterationsPerDeterminization = DefaultIterationsPerDeterminization)
     {
         ArgumentNullException.ThrowIfNull(cards);
         ArgumentNullException.ThrowIfNull(random);
         ArgumentOutOfRangeException.ThrowIfNegative(explorationConstant);
         ArgumentOutOfRangeException.ThrowIfLessThan(playoutDepth, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(iterationsPerDeterminization, 1);
 
         _cards = cards;
         _random = random;
@@ -110,6 +123,7 @@ public sealed class IsMctsAgent : IAgent
         Budget = budget ?? SearchBudget.Default;
         ExplorationConstant = explorationConstant;
         PlayoutDepth = playoutDepth;
+        IterationsPerDeterminization = iterationsPerDeterminization;
     }
 
     public SearchBudget Budget { get; }
@@ -117,6 +131,13 @@ public sealed class IsMctsAgent : IAgent
     public double ExplorationConstant { get; }
 
     public int PlayoutDepth { get; }
+
+    // How many consecutive iterations share one sampled world. 1 (the default) is true
+    // per-iteration resampling, unchanged from step 2.6. Not folded into Name: it stays 1 for
+    // every agent Shapes.Sim builds today (AgentFactory passes no override), so folding it in
+    // would only add a constant suffix to every row without distinguishing anything yet -- the
+    // same reasoning playoutPolicy's folding explicitly avoids for the uniform default.
+    public int IterationsPerDeterminization { get; }
 
     // Includes the budget, because IAgent.Name is what a balance table keys on and "ISMCTS(100)"
     // and "ISMCTS(10000)" are different players as far as that table is concerned. Collapsing
@@ -179,6 +200,8 @@ public sealed class IsMctsAgent : IAgent
         _sampledWorlds.Clear();
         var clock = Stopwatch.StartNew();
         var iterations = 0;
+        GameState? sharedWorld = null;
+        var worldAge = 0;
 
         while (Budget.Allows(iterations, clock))
         {
@@ -193,7 +216,40 @@ public sealed class IsMctsAgent : IAgent
                 break;
             }
 
-            RunIteration(root, context);
+            // Resample when the shared world is stale or exhausted (IterationsPerDeterminization
+            // consecutive iterations already drawn from it) -- see IterationsPerDeterminization's
+            // header. Never resample MID-batch even if a prior iteration finished the game; a
+            // determinized state is discarded after each RunIteration regardless, since Determinize
+            // returns a fresh object every call and reuse here means reusing the SAMPLE, not the
+            // mutated object.
+            if (sharedWorld is null || worldAge >= IterationsPerDeterminization)
+            {
+                sharedWorld = _determinizer.Determinize(context.State, _random);
+                worldAge = 0;
+
+                // Keyed on the opponent's hand at the moment of sampling, same as before: this is
+                // the property LastDistinctWorldCount exists to guard, and it is unaffected by how
+                // many iterations subsequently reuse the sample.
+                _sampledWorlds.Add(
+                    string.Join(",", sharedWorld[context.Player.Opponent()].Hand));
+            }
+
+            // At the default (reuse of 1), there is only ever one iteration left to run against
+            // this sample, so it is handed over directly rather than cloned -- preserving step
+            // 2.6/3.3's behaviour (and cost) exactly when reuse is not in play. A shared world
+            // spanning more than one iteration must be cloned per iteration instead, or the second
+            // iteration would see the first playout's mutations rather than the sampled position.
+            if (IterationsPerDeterminization == 1)
+            {
+                RunIteration(root, sharedWorld, cloneWorld: false);
+                sharedWorld = null;
+            }
+            else
+            {
+                RunIteration(root, sharedWorld, cloneWorld: true);
+            }
+
+            worldAge++;
             iterations++;
         }
 
@@ -206,19 +262,18 @@ public sealed class IsMctsAgent : IAgent
         return root.BestChild()?.IncomingAction ?? context.LegalActions[0];
     }
 
-    // One iteration: determinize, select, expand, play out, back propagate.
-    private void RunIteration(SearchNode root, AgentContext context)
+    // One iteration: select, expand, play out, back propagate, against `world` -- a determinized
+    // state Choose sampled (see IterationsPerDeterminization).
+    //
+    // `cloneWorld` is false only when this is the ONLY iteration that will ever see `world` (the
+    // default, IterationsPerDeterminization == 1): mutating it directly then is exactly step
+    // 2.6/3.3's original behaviour, and skipping the clone keeps this path at its original cost.
+    // When a world is shared across several iterations it must be cloned each time instead, or the
+    // second iteration would see the first playout's mutations rather than the sampled position --
+    // Clone() forks the RNG, so a clone's rollout cannot affect another clone or the real game.
+    private void RunIteration(SearchNode root, GameState world, bool cloneWorld)
     {
-        // A fresh world, drawn from the agent's own stream. The determinizer builds the sampled
-        // state its own RNG, so mutating this state cannot touch the real game's randomness --
-        // and the state itself is a private copy, so neither can mutating the board.
-        var state = _determinizer.Determinize(context.State, _random);
-
-        // Records which world this iteration drew, for LastDistinctWorldCount. Keyed on the
-        // opponent's hand because that IS the hidden information being sampled -- the rest of a
-        // determinized state is copied from observations and identical across worlds.
-        _sampledWorlds.Add(string.Join(",", state[context.Player.Opponent()].Hand));
-
+        var state = cloneWorld ? world.Clone() : world;
         var node = root;
         var depth = 0;
 
