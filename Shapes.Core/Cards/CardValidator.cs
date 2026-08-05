@@ -16,7 +16,7 @@ public sealed class CardValidationException : Exception
 // The card schema's rules, in one place.
 //
 // A typo in card data must fail here, at load, rather than becoming a silent gameplay bug --
-// an unknown op that throws mid-game during a Phase 3 sim run costs a whole batch, and an
+// an unknown op that throws mid-game during a Phase 4 sim run costs a whole batch, and an
 // unknown op that quietly does nothing is worse, because the run completes and the numbers
 // look plausible.
 //
@@ -257,8 +257,8 @@ public static class CardValidator
     //
     // The single-target rule (see PLAN.md): at most one player-chosen target per card. This is
     // a schema error rather than a convention precisely so it cannot creep back in during
-    // Phase 3 balance edits -- it keeps MCTS branching flat (N actions per move, not N x M),
-    // cards readable, and the Phase 4 targeting UI a single state.
+    // Phase 4 balance edits -- it keeps MCTS branching flat (N actions per move, not N x M),
+    // cards readable, and the Phase 5 targeting UI a single state.
     //
     // The count is per CARD, not per move: a move is the unit a player activates, but a card
     // with two differently-targeted moves would still present the same chained-prompt problem

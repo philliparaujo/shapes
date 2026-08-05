@@ -6,7 +6,7 @@ namespace Shapes.Ai.Agents;
 // A decision-maker: given what it can see, pick one action.
 //
 // This is the seam the whole of Phase 2 hangs off. The console client, the Phase 3 sim runner,
-// and the Phase 4 Godot client all drive play through this one method, so a RandomAgent, a
+// and the Phase 5 Godot client all drive play through this one method, so a RandomAgent, a
 // GreedyAgent, and a full IS-MCTS search are interchangeable at every call site. Nothing
 // downstream may type-test for a particular agent -- if a caller needs to know which agent it
 // holds, the abstraction has already failed.
@@ -22,7 +22,7 @@ namespace Shapes.Ai.Agents;
 //      header); an agent computing its own candidate list is a second definition, and the two
 //      drift. The returned action MUST be one of context.LegalActions.
 //   3. IT TAKES A CancellationToken. An IS-MCTS search is budget-bounded and may run for
-//      seconds. Phase 4 runs it off the main thread and needs to abandon a search when the
+//      seconds. Phase 5 runs it off the main thread and needs to abandon a search when the
 //      player quits or the turn is conceded; a cooperative token is how that happens without
 //      killing a thread mid-mutation.
 //

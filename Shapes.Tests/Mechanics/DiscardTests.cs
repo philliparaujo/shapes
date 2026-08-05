@@ -178,7 +178,7 @@ public class DiscardTests
     [Fact]
     public void A_burned_card_is_logged_as_a_turn_event()
     {
-        // Phase 3 measures how often the hand limit actually costs a card. Inferring that from
+        // Phase 4 measures how often the hand limit actually costs a card. Inferring that from
         // hand sizes after the fact is not possible, so the burn is logged when it happens.
         var rules = RuleSetTestHelper.WithHandLimit(4);
         var state = new StateBuilder()

@@ -5,7 +5,7 @@ namespace Shapes.Tests.Cards;
 
 // The shipped card set in Shapes.Content, loaded exactly as the game loads it.
 //
-// This is the test that catches a hand-edit mistake during Phase 3 balance work: the suites
+// This is the test that catches a hand-edit mistake during Phase 4 balance work: the suites
 // above prove the validator rejects bad cards in principle, and this one applies it to the
 // real data. It is written now, with step 1.7, rather than with the cards themselves in step
 // 1.10 -- so the first real card is validated the moment it lands rather than whenever someone

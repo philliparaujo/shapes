@@ -132,8 +132,8 @@ public class AgentContractTests
     [MemberData(nameof(Agents))]
     public void The_same_seed_produces_the_same_decisions(string name)
     {
-        // The property every balance number in Phase 3 depends on. Without it a suspicious sim
-        // result cannot be re-run and inspected, so a bug found in Phase 3 could not be
+        // The property every balance number in Phase 4 depends on. Without it a suspicious sim
+        // result cannot be re-run and inspected, so a bug found in Phase 4 could not be
         // isolated to a game.
         var context = Context(Position());
 

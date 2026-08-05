@@ -7,7 +7,7 @@ namespace Shapes.Tests.Fixtures;
 // A synthetic card set for action tests.
 //
 // Deliberately not the real cards: an action test asserting "this move costs 1 wheel" must not
-// start failing because a Phase 3 balance pass repriced a real card. These exist only to be
+// start failing because a Phase 4 balance pass repriced a real card. These exist only to be
 // unremarkable examples of each shape the action model has to handle -- a plain creature, a
 // targeted move, a gated move, a spell -- so the tests describe the RULES rather than the
 // content.

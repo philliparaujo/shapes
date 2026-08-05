@@ -10,7 +10,7 @@ public enum DeckMode
     Symmetric = 0,
 
     // Players supply their own decks, validated against DeckSize/MaxCopiesPerCard.
-    // Phase 4 deckbuilding.
+    // Phase 5 deckbuilding.
     Custom = 1,
 }
 
@@ -18,7 +18,7 @@ public enum DeckMode
 //
 // Income, scoring, draw, hand limits, and win conditions change frequently during balance
 // work, so none of them may be hard-coded elsewhere in the engine. A balance experiment is a
-// named ruleset file; Phase 3 sweeps over them.
+// named ruleset file; Phase 4 sweeps over them.
 //
 // Board size is deliberately absent -- it is structural rather than a balance knob, and lives
 // once as SlotIndex.SlotsPerPlayer.

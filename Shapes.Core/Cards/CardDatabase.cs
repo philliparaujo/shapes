@@ -109,7 +109,7 @@ public sealed class CardDatabase
         return deck;
     }
 
-    // Checks a custom deck against the ruleset's limits. Phase 4's deckbuilder calls this so
+    // Checks a custom deck against the ruleset's limits. Phase 5's deckbuilder calls this so
     // the UI cannot construct a deck the engine would reject -- one definition of "legal deck",
     // not two.
     public void ValidateDeck(IReadOnlyList<string> deck, RuleSet rules)

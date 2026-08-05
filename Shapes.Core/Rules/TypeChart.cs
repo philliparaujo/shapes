@@ -7,7 +7,7 @@ namespace Shapes.Core.Rules;
 // Cycle: Spike -> Wheel -> Anvil -> Spike, each dealing WeaknessMultiplier to the next.
 // Everything else is 1x; there is no resistance/halving.
 //
-// The cycle and multiplier are configurable so Phase 3 can sweep them; the shipping values
+// The cycle and multiplier are configurable so Phase 4 can sweep them; the shipping values
 // live once, in Default.
 public sealed class TypeChart
 {
@@ -79,7 +79,7 @@ public sealed class TypeChart
         },
         weaknessMultiplier: 2.0);
 
-    // A copy of this chart with a different multiplier. The natural way to express a Phase 3
+    // A copy of this chart with a different multiplier. The natural way to express a Phase 4
     // sweep -- vary the multiplier without restating the cycle.
     public TypeChart With(double weaknessMultiplier) => new(BuildCycle(), weaknessMultiplier);
 

@@ -17,7 +17,7 @@ namespace Shapes.Tests.Agents;
 // than measuring a baseline that quietly does the wrong thing.
 //
 // Each test states one priority from the class's weight table, positioned so that a single
-// action is unambiguously correct. Written against synthetic TestCards, so a Phase 3 rebalance
+// action is unambiguously correct. Written against synthetic TestCards, so a Phase 4 rebalance
 // of a real card cannot break them.
 public class GreedyAgentTests
 {
@@ -354,10 +354,10 @@ public class GreedyAgentTests
         // returns an action the executor then rejects.
         //
         // Deliberately NOT a strength assertion. How often one agent beats another is a balance
-        // question, and balance questions belong to Phase 3's Shapes.Sim, which runs batches
+        // question, and balance questions belong to Phase 4's balance work, which runs batches
         // properly (parallel, seeded, CSV) and compares numbers across rulesets. A threshold here
         // would be a number picked by rounding down whatever the agent currently scores -- it
-        // would pass until an unrelated Phase 3 rebalance moved it, then fail while indicating no
+        // would pass until an unrelated Phase 4 rebalance moved it, then fail while indicating no
         // defect, which is worse than not testing it. What this asserts instead is robustness, a
         // property of the agent alone that cannot drift when cards are repriced.
         //

@@ -119,7 +119,7 @@ public class RuleSetTests
     [Fact]
     public void Zero_income_per_creature_is_allowed()
     {
-        // A legitimate Phase 3 sweep: turns off the creature-income compounding to measure
+        // A legitimate Phase 4 sweep: turns off the creature-income compounding to measure
         // how much of the runaway-leader effect it accounts for.
         var rules = Build(incomePerCreatureType: 0);
 

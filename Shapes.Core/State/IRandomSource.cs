@@ -28,7 +28,7 @@ public interface IRandomSource
 //
 // Hand-rolled rather than System.Random because the algorithm must be stable across .NET
 // versions and platforms: a balance run on Windows and the same seed replayed on a phone in
-// Phase 4 have to produce identical games. System.Random makes no such guarantee.
+// Phase 5 have to produce identical games. System.Random makes no such guarantee.
 public sealed class SeededRandom : IRandomSource
 {
     private ulong _state;

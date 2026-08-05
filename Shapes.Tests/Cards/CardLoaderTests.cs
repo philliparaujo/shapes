@@ -13,7 +13,7 @@ public class CardLoaderTests
     //
     // Deliberately NOT one of the shipped cards, even though the structure mirrors what a real
     // one looks like. These tests assert exact parsed values, so pinning them to real content
-    // would mean a Phase 3 rebalance breaks tests that are only about JSON parsing -- and the
+    // would mean a Phase 4 rebalance breaks tests that are only about JSON parsing -- and the
     // shipped card would silently stop matching the copy asserted here. Real cards are covered
     // by ContentCardSetTests, which loads them from disk.
     private const string TestCreature = """
@@ -279,7 +279,7 @@ public class CardLoaderTests
     [Fact]
     public void Comments_and_trailing_commas_are_tolerated()
     {
-        // Card files are hand-edited throughout Phase 3 balance work, exactly like rulesets.
+        // Card files are hand-edited throughout Phase 4 balance work, exactly like rulesets.
         var card = Load("""
             {
               // a test card

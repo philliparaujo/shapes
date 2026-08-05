@@ -46,17 +46,17 @@ namespace Shapes.Ai.Search;
 //
 // == What this deliberately does NOT do yet ==
 //
-// PLAYOUTS ARE UNIFORM RANDOM. Step 2.7 makes them lightly heuristic; doing it here would
+// PLAYOUTS ARE UNIFORM RANDOM. Phase 3 step 2 makes them lightly heuristic; doing it here would
 // conflate "is the search correct" with "is the playout policy good," and a heuristic playout can
 // paper over a backprop bug by making even a broken search play plausibly.
 //
-// IT CLONES RATHER THAN APPLYING AND UNDOING. Step 2.8's optimisation. Determinize already
+// IT CLONES RATHER THAN APPLYING AND UNDOING. Phase 3 step 3's optimisation. Determinize already
 // returns a fresh GameState per iteration, so selection and playout mutate that private copy and
 // nothing else -- correct, and slower than it will be. The interface does not change when that
 // lands, which is the point of building the naive version first.
 //
 // ITS CONSTANTS ARE UNTUNED. The exploration constant, the depth cap, and the default budget are
-// literature defaults and round numbers, not measurements. Step 2.9 tunes them against Phase 3's
+// literature defaults and round numbers, not measurements. Phase 3 step 5 tunes them against its
 // batch runner; picking numbers here would mean picking them before the tool that measures them
 // exists.
 public sealed class IsMctsAgent : IAgent
@@ -67,7 +67,7 @@ public sealed class IsMctsAgent : IAgent
     private readonly HashSet<string> _sampledWorlds = new(StringComparer.Ordinal);
 
     // UCB1's exploration weight. sqrt(2) is the theoretical value for rewards in [0,1], which is
-    // the range Reward() produces. Step 2.9 tunes it.
+    // the range Reward() produces. Phase 3 step 5 tunes it.
     private const double DefaultExploration = 1.4142135623730951;
 
     // How many actions a playout may take before being scored as an unfinished game.
@@ -297,7 +297,7 @@ public sealed class IsMctsAgent : IAgent
     //     throws away the only signal a truncated playout carries.
     //
     // The margin is divided by ScoreToWin so the measure is "how much of the race is won,"
-    // independent of the ruleset's win threshold -- Phase 3 sweeps that value, and a reward scale
+    // independent of the ruleset's win threshold -- Phase 4 sweeps that value, and a reward scale
     // that shifted with it would make searches at different rulesets incomparable. Clamped into
     // [0,1] so a truncated playout can never outrank a real win, which would let the search prefer
     // a long good-looking line over an actual victory.

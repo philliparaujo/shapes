@@ -23,7 +23,7 @@ public enum ActionKind
 // Immutable, and complete: an action carries everything needed to apply it, including a
 // resolved chosen target. Nothing asks the player a question at apply time -- the choice was
 // already made by picking THIS action out of the legal list. That is what lets the search
-// treat an action as an opaque edge, and what lets the Phase 4 UI be a single selection state.
+// treat an action as an opaque edge, and what lets the Phase 5 UI be a single selection state.
 //
 // Value equality is deliberate. The search compares and dedupes actions, and two actions
 // describing the same choice must be the same edge; reference equality would silently create

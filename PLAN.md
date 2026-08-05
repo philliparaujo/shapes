@@ -1,44 +1,33 @@
 # Shapes — Development Plan
 
-A 2-player, turn-based, board-and-cards game. Four phases: playable engine → IS-MCTS AI →
-AI-driven balance → Godot client.
+A 2-player, turn-based, board-and-cards game. Five phases: playable engine → IS-MCTS AI →
+agent measurement & optimization → AI-driven balance → Godot client.
 
 ## Status
 
-| Phase                          | Progress   |
-|--------------------------------|------------|
-| 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 6 / 9      |
-| 3 — AI-driven balance          | 0 / 7      |
-| 4 — Godot client               | 0 / 12     |
+| Phase                                    | Progress   |
+|------------------------------------------|------------|
+| 1 — Playable engine                      | 13 / 13    |
+| 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
+| 3 — Agent measurement & optimization     | 0 / 7      |
+| 4 — AI-driven balance                    | 0 / 7      |
+| 5 — Godot client                         | 0 / 12     |
 
-689 tests passing.
+689 tests passing. **Phases 1 and 2 are complete.**
 
-**Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
-physical Android device.
+Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
+comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
+content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
+ends at a *correct* search, not a fast or tuned one.
 
-**Phase 2 is underway.** Step 2.1 landed the `IAgent` seam (`Shapes.Ai/Agents/`). Step 2.2 landed
-`ObservedState`, narrowing `AgentContext.State` from the full `GameState` to a projection that
-structurally cannot leak the opponent's hand contents or deck order — pinned by
-`Shapes.Tests/Agents/ObservedStateTests.cs`. Step 2.3 landed the determinizer
-(`Shapes.Ai/Search/Determinizer.cs`), along with a **rules fix it exposed**: destroyed creatures
-now go to their owner's discard pile (`GameState.DestroyCreature`) instead of vanishing. Step 2.4
-landed `GreedyAgent` (`Shapes.Ai/Agents/GreedyAgent.cs`), completing the baseline pair — it scores
-actions from static card data rather than simulating, so it stays independent of the search it
-exists to measure. How strong the baselines actually are is Phase 3 step 1's measurement, not a
-Phase 2 claim. Step 2.5 landed console hidden-hand mode: the waiting seat's hand renders as a
-count, with `--reveal` restoring the old both-hands view. The decision the step asked for was
-confirmed — hiding applies to **hotseat** too, not only when a seat is an agent. Step 2.6 landed
-IS-MCTS itself (`Shapes.Ai/Search/IsMctsAgent.cs`) — selection with the availability-corrected
-UCB1, expansion, uniform playout, backprop, and a fresh determinization every iteration. It is
-playable at the console as `--p1 ismcts`.
-
-**Next up: step 2.7** — the playout policy: replace uniform-random rollouts with a lightly
-heuristic one (prefer damage/score moves), which is usually a large strength gain for modest cost.
+**Next up: step 3.1** — `Shapes.Sim`, the headless batch runner (currently a five-line
+placeholder). It unlocks everything after it: the playout policy, tuning, and Phase 2's
+unasserted strength claims all depend on it. Build it before the more interesting-looking
+optimizations — an optimization you cannot measure is a guess.
 
 ### Common commands
 
-Run these from the repo root (`shapes/`, where `Shapes.sln` lives).
+Run from repo root (`shapes/`, where `Shapes.sln` lives).
 
 | What                          | Command                                              |
 |-------------------------------|-------------------------------------------------------|
@@ -50,1086 +39,314 @@ Run these from the repo root (`shapes/`, where `Shapes.sln` lives).
 | **Watch a full AI game**      | `dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet` |
 | Watch the search play         | `dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet` |
 
-`dotnet build` compiles every project in the solution and reports errors/warnings — run it after
-any code change to check nothing broke, before bothering with tests. `dotnet test` builds first
-automatically, so a separate build step isn't required before testing.
+`--p1`/`--p2` each take `human` (default), `random`, `greedy`, or `ismcts`. `--iterations <n>`
+sets the `ismcts` search budget (default 200, in iterations so seeded games replay exactly).
+`--seed <n>` skips the prompt; `--quiet` gives one line per action. `--help` lists it all.
 
-The `--filter` flag on `dotnet test` accepts a substring match against test names — useful when
-iterating on one failing test instead of waiting for all ~570 to run. Drop the whole `--filter`
-argument to run everything.
-
-`dotnet run --project Shapes.Console` starts the hotseat text client (step 1.11): it asks for a
-random seed, then two players take turns picking numbered actions in the same terminal.
-
-**Any seat can be an agent** (added with step 2.4): `--p1` and `--p2` each take `human`
-(default), `random`, `greedy`, or `ismcts`, so the same client covers hotseat, human-v-AI, and
-AI-v-AI. `--iterations <n>` sets the search budget per `ismcts` decision (default 200) — in
-iterations rather than milliseconds, so a seeded game still replays exactly.
-`--seed <n>` skips the prompt, making a game scriptable and exactly replayable; `--quiet` drops
-the board render for one line per action plus a turn header, which fits a whole game on a screen.
-Every decision, human or AI, is echoed either way. `--help` lists it all.
-
-**The waiting seat's hand renders as a count** (step 2.5), so a human never reads the AI's cards —
-without which "I beat the AI" measures nothing. `--reveal` restores the both-hands view, which is
-what you want when watching an AI-v-AI game or inspecting a strange board, and nothing else.
-
-**This is how you watch a game rather than just assert about one.** A green test suite says an
-agent's decisions were legal; it does not show what the agent did with its turns. Step 2.4's
-blocking-slot bug was invisible to a passing suite and only surfaced under inspection — so when an
-agent's behaviour is in question, run a game and read it before writing another test.
-`Shapes.Sim` (Phase 3, step 1) is the batch version of this for statistics across thousands of
-games; the console is the single-game, human-readable one. Both matter, and they answer different
-questions: aggregates say *whether* something changed, a watched game says *what* changed.
+**The waiting seat's hand renders as a count** (`--reveal` shows both) so a human never reads
+the AI's cards. **Watch games, don't just assert about them** — step 2.4's blocking-slot bug was
+invisible to a passing test suite and only surfaced by reading a played game. `Shapes.Sim`
+(Phase 3 step 1) is the batch/statistical version of the same idea.
 
 ## 0. Confirmed ruleset
 
-This supersedes the reference PDF where they disagree. The PDF's resource-acquisition graph
-(the `111`/`210`/`021` node blob) is **obsolete**.
+Supersedes the reference PDF where they disagree (its resource-acquisition graph is obsolete).
 
-### Resources & types
+**Resources & types** — three resources in a rock-paper-scissors cycle: △ Spike (pierce),
+▢ Anvil (reflect), ◯ Wheel (ricochet). Effectiveness: Anvil → Spike → Wheel → Anvil, 2× damage
+on a weak matchup, otherwise 1× (no resistance/halving). **Merged (multi-type) targets** take 2×
+if one of their types matches the attacker and another is weak to it — so merging can *increase*
+vulnerability (offsets the "free strictly-better action" concern under Merging below; Phase 4
+should measure if this is priced right). **Type comes from resource cost, always** — a
+move/spell's attack type is its own cost's resource type; a creature's defensive type is its
+play cost's. A zero-cost move/spell is the only "typeless" case (flat, unmultiplied damage).
+Effectiveness applies after flat modifiers and before clamping (pinned by test). Lives as
+`TypeChart` on `RuleSet` (variable in balance sweeps); the merged-target rule itself is
+hard-coded.
 
-Three resources, in a rock-paper-scissors cycle:
+**Income** — each turn, 1 of each resource, plus +1 of its type per creature controlled (a
+merged creature pays one of *each* of its types).
 
-| Symbol | Name  | Material | Flavor                    | Keyword   |
-|--------|-------|----------|---------------------------|-----------|
-| △      | Spike | metal    | sharp, attack, pierce     | pierce    |
-| ▢      | Anvil | concrete | sturdy, defense, blunt    | reflect   |
-| ◯      | Wheel | rubber   | elastic, speed, ricochet  | ricochet  |
+**Board** — 3 slots per player; slot *i* opposes enemy slot *i*.
 
-Effectiveness cycle: **Anvil → Spike → Wheel → Anvil** (each beats the next).
+**Turn structure** — score (+1/friendly creature with an empty opposing slot) → income → draw
+(burn on overdraw) → actions (play/move/merge/discard, any order, repeatable) → end turn. Win at
+score ≥ X (config, ~10). **Draw is at turn START** (Hearthstone sequencing — a drawn card is
+playable immediately), including turn one on top of the opening hand.
+`GameState.AdvanceToActions()` is the one entry point sequencing score→income→draw.
 
-### Type effectiveness
+**Drawing vs. discarding** — deliberately asymmetric: **overdraw burns the just-drawn card**
+(nobody chooses), while a card effect's "discard N" is player-chosen, one card at a time, and
+gates every other action (including `EndTurn`) as a pending debt (`GameState.PendingDiscards`)
+until paid. An unpayable debt is clamped at incursion, not carried, so it can never deadlock the
+action generator. Both halves pinned by test — collapsing them is the plausible regression. The
+hand limit lives on the shared `DrawWithBurn` path so every card-effect draw (not just the turn
+draw) burns correctly on overflow — a fuzz-caught bug the first time around.
 
-A target takes **2× damage** if it is weak to the attacker's type:
+**Creatures & moves** — top-left pips = play cost (unrelated to tiers). No auto-attack/passives;
+all damage from activated moves. No summoning sickness; each move usable once per turn.
 
-- Spike → Wheel = 2×
-- Wheel → Anvil = 2×
-- Anvil → Spike = 2×
+**Merging** — free action between two adjacent, un-merged friendly creatures: health summed,
+moves unioned, types combined, one slot, cannot merge again.
 
-All other single-type matchups are 1×. There is no resistance/halving — only neutral and double.
+**Destroyed creatures discard to their owner** (not the killer) — every card folded into them via
+`MergedFrom`, so cards stay conserved across hand/deck/discard/board (needed by Phase 2's
+determinizer, which reconstructs hidden cards by subtraction). Merging itself discards nothing;
+tokens discard nothing (never cards). Pinned by `CardConservationTests.cs`.
 
-**Merged (multi-type) targets** take 2× if **one of its types matches the attacker and another
-is weak to it**. So Spike deals 2× to a Spike/Wheel creature.
-
-> **Merging can increase vulnerability.** A pure Spike creature takes 1× from Spike, but a
-> Spike/Wheel creature takes 2×. This offsets the "free strictly-better action" concern below —
-> merging trades a defensive profile for stats and moves. Phase 3 should measure whether that
-> tradeoff is priced correctly.
-
-**Type comes from resource cost, always** — never "no creature source means typeless." A move's
-attack type is the resource type of the *move's own cost*; a spell's attack type is the resource
-type of the *spell's own cost*; a creature's defensive type is the resource type(s) of its *play
-cost* (a creature still declares `types` explicitly in card data, for readability, but it must
-match its cost — enforced at load). A move or spell with a free (zero-cost) cost has no attack
-type and deals flat, unmultiplied damage — that is the only "typeless" case, and it is a property
-of the cost being empty, not of the source being a spell.
-
-Effectiveness applies after flat modifiers (`next_attack_bonus`) and before clamping — pinned by
-test, since it changes numbers whenever both a bonus and a 2× apply.
-
-Implemented as a `TypeChart` on the `RuleSet`, so the multiplier and cycle can be varied in
-balance sweeps. The merged-target rule itself is hard-coded (an alternative, "2× on any weak
-type, match or not," was considered and rejected — nothing suggests the game wants it; an hour's
-work to add if Phase 3 finds mixed merges underpriced).
-
-### Income
-
-Each turn a player gains:
-- **1 of each resource** (flat `1/1/1`), plus
-- **+1 resource per creature controlled**, of that creature's type. A merged creature has
-  multiple types and generates one of *each*.
-
-### Board
-
-3 slots per player, arranged facing the opponent's 3 slots. Slot *i* opposes enemy slot *i*.
-
-### Turn structure
-
-1. **Score** — +1 point per friendly creature whose opposing slot is empty.
-2. **Income** — as above.
-3. **Draw** — draw `cardsDrawnPerTurn`, burning any card that arrives into a full hand.
-4. **Actions** — in any order, repeatable, until the player ends the turn:
-   - Play a card from hand (pay its top-left cost).
-   - Use a creature's move (pay the move's cost).
-   - Merge two creatures.
-   - Discard a chosen card, when a card effect owes one (see below).
-5. **End turn** — pass. Nothing else: no draw, no cleanup discard.
-
-Win at score ≥ X (currently ~10). Exact value is config.
-
-**Drawing is at turn START, not turn end** (Hearthstone's sequencing). A card drawn at the start
-of a turn is playable during it, which makes the draw a live decision rather than a deposit for
-next turn. The starting player draws on turn one too, on top of the opening `startingHandSize`
-hand — turn one is not a special case. `GameState.AdvanceToActions()` runs score → income → draw
-as one entry point, so no caller sequences the phases itself.
-
-### Drawing, discarding, and the hand limit
-
-Two rules that look similar and are deliberately **not** the same:
-
-| Situation                                  | Who decides | What happens                          |
-|--------------------------------------------|-------------|---------------------------------------|
-| Card drawn into a full hand (**overdraw**) | Nobody      | The drawn card is **burned** — straight to discard |
-| A card effect says "**discard N**"         | The player  | They choose which N, one card at a time |
-
-The asymmetry is the Hearthstone/Slay-the-Spire rule, and it is the point: a full hand is a real
-cost you cannot dodge by pitching a worse card, while a card that *asks* you to discard is asking
-a real question. Collapsing the two in either direction is the plausible regression, so both
-halves are pinned by test.
-
-**Overdraw burns the card just drawn**, not an older one — that is what makes it a burn rather
-than a hand-limit discard the player might reasonably have wanted to direct. It is logged as a
-`CardBurned` turn event so Phase 3 can measure how often the hand limit actually costs a card
-rather than inferring it from hand sizes.
-
-**The hand limit is a property of drawing, not of the turn step.** Every draw goes through
-`GameState.DrawWithBurn` — the turn draw and every card effect that draws (`draw`, `draw_scaled`,
-`draw_up_to`) — so a card reading "draw 3" into a full hand burns all three. Routing only the
-turn draw through the check was the first implementation, and the fuzz harness caught it within
-two seeds: card-effect draws pushed hands to 10 against a limit of 8.
-
-**Chosen discard is a pending state, not a prompt.** An effect cannot stop mid-resolution to ask
-a question — every choice in this engine is a distinct legal action. So the `discard` op records
-a debt on `GameState.PendingDiscards`, the effect list finishes resolving normally (a "discard 1,
-then gain 3 spike" move pays out its resources immediately), and the action generator then offers
-one `DiscardAction` per distinct card in hand until the debt clears. While a debt stands it
-suppresses **every** other action including `EndTurn` — a player who could simply end the turn
-would never pay.
-
-**One card at a time.** Hand `[A,B,C,D]` owing 3 offers 4 options, then 3, then 2, then ordinary
-play resumes. Never one action enumerating all `4-choose-3` combinations: branching stays linear
-in hand size rather than binomial, the same reasoning that makes an MCTS node one atomic action
-rather than a whole turn, and the console gets a flat numbered list instead of a combination
-picker.
-
-**An unpayable debt is clamped, not carried.** "Discard 2" with one card in hand costs one card
-and forgets the rest. A debt outliving its turn would let a card silently tax a later one, and —
-more urgently — since the generator offers *nothing but* discards while a debt stands, an
-unpayable one would return an empty legal-action list and deadlock the game. The executor clamps
-to hand size the moment the debt is incurred, which is what keeps `ActionGenerator`'s
-non-emptiness invariant true without the generator having to mutate state. Clamping happens after
-the *whole* effect list resolves, not inside the op, since a later effect in the same list may
-draw cards the player can then afford to pay with.
-
-### Creatures & moves
-
-- Card top-left pips = **play cost**. Nothing to do with tiers.
-- No auto-attack, no passive/triggered effects. **All** damage comes from activated moves.
-- No summoning sickness — a creature may act the turn it is played.
-- Each move may be used **once per turn**; a creature may use any number of different moves it
-  can afford.
-
-### Merging
-
-- **Free action** (costs no resources).
-- Legal only between two **adjacent**, **un-merged** friendly creatures.
-- Result: health summed, move lists unioned, typings combined. Occupies one slot.
-- A merged creature **cannot merge again**.
-
-### Destroyed creatures go to the discard pile
-
-A creature that dies sends **every card folded into it** (`MergedFrom`, which holds its own id
-even when unmerged) to its **owner's** discard pile — not the killer's. Merging is not death: the
-absorbed creature's card is not discarded, it lives on inside the merged creature and goes to the
-discard when *that* creature dies. **Summoned tokens discard nothing** — they were never cards.
-
-This exists so that cards are conserved: every card is always findable in exactly one zone
-(hand, deck, discard, or board). Phase 2's determinizer reconstructs the opponent's hidden cards
-by subtracting what it can see from the shared decklist, and that subtraction is only correct if
-nothing can leave the game silently. Pinned by `Shapes.Tests/Mechanics/CardConservationTests.cs`.
-
-> ⚠️ **Design flag.** Merging is free and additive in stats, but not strictly better: a
-> multi-type creature is 2×-vulnerable to any type matching one of its types, and it consumes a
-> board slot — costing both a scoring body and its per-turn income. Phase 3 must measure whether
-> that tradeoff is priced correctly (if the AI merges at nearly every opportunity, it's too
-> cheap).
->
-> The sharper concern is **income scaling**: an unopposed creature both *scores* and *pays*,
-> compounding tempo twice — the leading runaway-leader candidate. Not changing either now;
-> instrumenting both first.
+> ⚠️ **Open design questions for Phase 4:** is merge's stat-gain-vs-vulnerability-and-slot-cost
+> tradeoff priced right (if the AI merges almost every chance, no)? And does an unopposed
+> creature's double duty — scoring *and* paying income — compound into an unbeatable runaway
+> lead? Neither changed yet; both need instrumenting first.
 
 ---
 
 ## 1. Design decisions
 
-### Language & runtime: C# on .NET 8
+**Language/runtime: C# on .NET 8.** Godot 4 has first-class C# support, so Phase 5 is a client
+swap, not a rewrite, provided the engine takes no UI dependency. `Shapes.Core` is a pure class
+library (zero UI deps, enforced by test that it references only the BCL) — console, AI, tests,
+and Godot are interchangeable consumers.
 
-- **Godot 4 has first-class C# support** via .NET 6+. Phase 4 is a client swap, not a
-  rewrite — provided the engine takes no dependency on the console UI.
-- Struct types, `Span<T>`, and array pooling let the hot search loop allocate near-zero, which
-  matters when MCTS wants 10k–100k playouts per decision.
-- The engine core is a **pure class library with zero UI dependencies**. Console, AI, tests, and
-  Godot are all interchangeable consumers.
-
-### Project structure
-
+**Project structure:**
 ```
 shapes/
-├─ Shapes.Core/                 # Pure engine. No UI, no Godot, no console. The keystone.
-│  ├─ Primitives/               # ResourceType, ResourcePool, PlayerId, SlotIndex
-│  ├─ State/                    # GameState, PlayerState, Board, Slot, CreatureInstance
-│  ├─ Actions/                  # GameAction hierarchy + legal-action generation
-│  ├─ Effects/                  # Effect atoms + interpreter (see "card representation")
-│  ├─ Rules/                    # RuleSet: the config surface (income, scoring, win, draw)
-│  └─ Cards/                    # CardDefinition, CardDatabase loader
-├─ Shapes.Content/              # JSON card data + rules presets. NOT code.
-│  ├─ cards/*.json
-│  └─ rulesets/*.json
-├─ Shapes.Ai/                   # IS-MCTS, determinizer, playout policies, evaluators
-├─ Shapes.Console/              # Text client: human v human, human v AI, AI v AI
-├─ Shapes.Sim/                  # Headless batch runner → CSV/JSON stats for balancing
-├─ Shapes.Tests/                # xUnit: rules, effects, determinism, invariants
-└─ Shapes.Godot/                # Phase 4 only. References Shapes.Core.
+├─ Shapes.Core/     # Pure engine: Primitives, State, Actions, Effects, Rules, Cards
+├─ Shapes.Content/  # JSON card data + rules presets. NOT code.
+├─ Shapes.Ai/        # IS-MCTS, determinizer, playout policies, evaluators
+├─ Shapes.Console/   # Text client
+├─ Shapes.Sim/        # Headless batch runner → CSV/JSON stats
+├─ Shapes.Tests/      # xUnit
+└─ Shapes.Godot/      # Phase 5 only, references Shapes.Core
 ```
 
-The dependency rule, enforced by tests: **`Shapes.Core` references nothing but the BCL.**
-Everything else points inward. If this holds, Phase 4 is genuinely a UI project.
+**State representation** — authoritative state is plain mutable classes (console/tests/Godot);
+search state is the same data laid out for speed inside MCTS (`CreatureInstance` as a struct;
+moves not stored per-instance, derived from `MergedFrom` card ids since storing them would
+duplicate across every clone; board as fixed `CreatureInstance[6]`). **Apply/undo over clone** is
+the eventual perf path (Phase 3 step 3) — gated by an apply/undo property test (byte-identical
+round trip) written in Phase 1, before the optimization exists. **Determinism** — all randomness
+through one seeded `IRandomSource` (hand-rolled xorshift64*, `Fork()`-able so search clones don't
+advance the real RNG stream); no `Random.Shared`/`DateTime.Now` anywhere in `Shapes.Core`.
 
-### Game state representation
+**Cards are JSON data interpreted by a small effect engine, not C# subclasses** — the most
+consequential structural decision, since a subclass-per-card becomes the Phase 4 balance
+bottleneck (recompile per tweak, AI can't reason about card text). Effect vocabulary (~36 real
+cards) covers damage/health/cards/resources/board/status/modifiers/control ops with a small
+targeting-selector language (`self`, `opposing`, `chosen_enemy`, etc.); `chosen_*` selectors
+expand into distinct legal actions for MCTS. **Single-target rule**: a move/spell may need at
+most one player-chosen target — keeps branching flat (N, not N×M), cards readable, and the
+Phase 5 targeting UI a single state. Enforced at card-load validation.
 
-Two representations, one source of truth.
+**Deck model** — Phases 1–3 use fixed symmetric decks (`deckMode: "symmetric"`), deliberately, so
+varying decks doesn't confound card win-rate with deck-composition effects. Phase 5 adds
+deckbuilding (`deckMode: "custom"`, explicit card-id-plus-count lists) — this is also an AI
+change, since the determinizer currently assumes symmetric decks and throws otherwise (Phase 5
+step 9 migrates it).
 
-**Authoritative state** — plain mutable classes, readable, debuggable. Used by console, tests,
-and Godot.
+**Rules as configuration** — income, scoring, draw, hand limit, win condition, type chart all
+live in a `RuleSet` loaded from JSON, so a balance experiment is just a named ruleset file. Board
+size is the one exception (structural, not a balance knob).
 
-**Search state** — the same data laid out for speed, used only inside MCTS:
+**Is IS-MCTS the right choice? Yes, with caveats.** Genuinely imperfect-information game, no
+strong hand-authored eval function, branching factor defeats minimax. Key risks: branching factor
+(mitigated by treating each atomic action, not whole turns, as one tree node — 10-40 branching);
+strategy fusion / undervaluing info-gathering (mitigated by resampling a fresh determinization
+every iteration rather than once per search); and determinization must respect observations (a
+sampled card already in the graveyard is a correctness bug). Chose **single-observer IS-MCTS with
+per-iteration resampling** over minimax/expectimax (no eval fn) and AlphaZero-style neural (wrong
+tool for balance tooling *now*); can escalate to multi-observer later if strength demands it.
 
-- `CreatureInstance` as a struct: `{ CardId: ushort, Health: sbyte, MaxHealth: sbyte,
-  Types: TypeMask, MovesUsedThisTurn: byte (bitmask), IsMerged: bool, MergedFrom: ushort[] }`
-- **Moves are not stored on the creature** — they're static card data, so storing them
-  per-instance would duplicate the same list across every board copy and MCTS clone. A
-  creature's move list is `MergedFrom.SelectMany(id => cards[id].Moves)`, which is why
-  `MergedFrom` is an ordered list rather than a set: `MovesUsedThisTurn` indexes into that
-  concatenation, so the order is a contract two overlapping source cards' moves would otherwise
-  violate.
-- Board as a fixed `CreatureInstance[6]` (3 per player), slot *i* opposing slot *i+3*.
-- `ResourcePool` as a 3-field struct, not a dictionary; hand/deck as `List<ushort>` of card IDs.
-
-**Apply/undo over clone.** MCTS revisits states constantly; cloning a `GameState` per node is
-the usual performance killer. Instead every action should eventually produce an **undo record**
-so the search can apply/rollback on one mutable state — this requires every effect to be exactly
-invertible, so it's gated by a property test (apply then undo → byte-identical state). Build the
-naive clone path first, get it correct, optimize behind the same interface once tests pin the
-behavior (Phase 2, step 2.8).
-
-**Determinism.** All randomness flows through a single seeded `IRandomSource`. No
-`Random.Shared`, no `DateTime.Now`, anywhere in `Shapes.Core`. Makes bug reports reproducible and
-balance runs comparable.
-
-### Card representation: data, not code
-
-The most consequential structural decision. Cards are **JSON data** interpreted by a small
-effect engine, not C# subclasses — a hand-written subclass per card becomes the Phase 3
-bottleneck (every balance tweak is a recompile, and the AI can't reason about card text).
-Data-driven cards make the balance loop *edit JSON → rerun sim*, and let Phase 4 ship card
-changes without a client patch.
-
-```json
-{
-  "id": "circle_cadet",
-  "name": "Circle Cadet",
-  "kind": "creature",
-  "cost": { "wheel": 1 },
-  "health": 2,
-  "types": ["wheel"],
-  "moves": [
-    { "name": "Scout",  "cost": { "wheel": 1 },
-      "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
-      "effects": [ { "op": "draw", "amount": 1 } ] },
-    { "name": "Rebound", "cost": { "wheel": 1 },
-      "effects": [ { "op": "damage", "target": "opposing", "amount": 1 },
-                   { "op": "heal", "target": "self", "amount": 1 } ] }
-  ]
-}
-```
-
-The effect vocabulary needed to express all ~36 referenced cards:
-
-| Category   | Ops                                                                    |
-|------------|------------------------------------------------------------------------|
-| Damage     | `damage`, `damage_scaled` (×health / ×count / ×hand-size / ×hand-composition / ×resource-held / ×a second creature's health via `health_source`, each with an optional `divisor`) |
-| Health     | `heal`, `heal_scaled`, `heal_to_full`, `set_health`, `buff_max_health`, `self_damage` |
-| Cards      | `draw`, `draw_scaled` (×creatures destroyed this turn), `discard` (player-chosen — records a pending debt), `draw_up_to` |
-| Resources  | `gain_resource`, `gain_resource_scaled`, `gain_next_turn`              |
-| Board      | `destroy`, `destroy_refund_cost`, `summon`                             |
-| Status     | `grant_keyword` (taunt/reflect/ricochet, optional until-next-turn expiry), `stun`, `on_next_damage_taken`, `on_next_ricochet` (one-shot reactive triggers) |
-| Modifiers  | `attack_buff` (persistent, cumulative), `next_attack_bonus`, `next_damage_taken_bonus` |
-| Control    | `conditional` (predicate: `creature_state(target, check)`), `for_each` (over creatures/hand, optional filter) |
-
-Targeting is a small selector language: `self`, `opposing`, `left_friendly`, `right_friendly`,
-`all_enemies`, `all_friendlies`, `chosen_enemy`, `chosen_friendly`. Selectors requiring a player
-choice (`chosen_*`) expand into distinct legal actions — exactly what MCTS needs to enumerate.
-`damage_scaled`/`heal_scaled` take an optional second, independent selector (`health_source`)
-when the amount's source and the target are different creatures — needed to express "damage an
-enemy equal to a *third* creature's health."
-
-#### Single-target rule (design constraint)
-
-**A move or spell may require at most one chosen target.** No card asks for a friendly target
-*and then* an enemy target. Deliberate:
-
-- Cards read cleanly — one decision, not a chain of prompts.
-- **Branching stays flat.** One choice per move expands to *N* legal actions; two chained
-  choices would expand to *N×M*, compounding across a turn. Cheap win for search cost.
-- The Phase 4 UI is a single target-selection state, no multi-step targeting flow.
-
-Non-chosen selectors are unaffected and may freely combine with one `chosen_*` selector — the
-restriction is only on player choices. **Enforced at card-load validation**: a card declaring
-more than one `chosen_*` selector fails to load, so it can't silently creep back in during
-Phase 3 balance edits.
-
-### Deck model
-
-**Phases 1–3 — fixed symmetric decks.** Both players use the same deck (1–2 copies of every
-card, via `RuleSet`). Deliberate for balance work: varying decks while cards are being tuned
-confounds card win-rate with deck-composition effects.
-
-```json
-{ "deckMode": "symmetric", "copiesPerCard": 2 }
-```
-
-**Phase 4 — deckbuilding.** The engine models a deck as a **list of card ids with counts** from
-day one, never an implicit "all cards" set, so deckbuilder constraints (size, max copies) live in
-`RuleSet` and validate against the same rules the engine enforces:
-
-```json
-{ "deckMode": "custom", "deckSize": 30, "maxCopiesPerCard": 2 }
-```
-
-Phase 3 gains archetype sweeps (mono-type vs. mixed, aggro vs. control) once this exists — only
-after per-card balance has settled.
-
-> ⚠️ **Custom decks are also an AI change, not just a UI one.** Step 2.3's determinizer assumes
-> symmetric decks and throws otherwise. Shipping the deckbuilder without addressing that would
-> leave the AI assuming its opponent's deck is identical to its own. See Phase 4 step 9 for what
-> the migration involves.
-
-### Rules as configuration
-
-Income, scoring, draw, hand limit, and win condition are volatile, so they live in a **`RuleSet`
-object loaded from JSON**, never as constants:
-
-```json
-{
-  "name": "default",
-  "startingHandSize": 4, "cardsDrawnPerTurn": 1, "handLimit": 8,
-  "baseIncome": { "spike": 1, "anvil": 1, "wheel": 1 },
-  "incomePerCreatureType": 1,
-  "pointsPerUnopposedCreature": 1,
-  "scoreToWin": 10,
-  "mergeEnabled": true, "mergeRequiresAdjacent": true, "mergeCostsAction": false,
-  "maxMergeDepth": 2,
-  "deckMode": "symmetric", "copiesPerCard": 2,
-  "typeChart": {
-    "weaknessMultiplier": 2.0,
-    "cycle": { "spike": "wheel", "wheel": "anvil", "anvil": "spike" }
-  }
-}
-```
-
-A balance experiment becomes a named ruleset file; Phase 3 can sweep them programmatically.
-
-**Board size is deliberately not a ruleset field** — it's structural, not a balance knob (scoring
-is defined in terms of facing slots, and the board array is sized from it at compile time). Lives
-once, as `SlotIndex.SlotsPerPlayer`.
-
-### Is IS-MCTS the right choice?
-
-**Yes — with caveats.** The game is genuinely imperfect-information (hidden hands, unknown deck
-order), has no strong hand-authored evaluation function, and a branching factor that defeats
-minimax. Information Set MCTS handles hidden state by *determinizing* — sampling a concrete
-possible world consistent with what the player can observe — and searching that.
-
-1. **Branching factor is the real risk.** Multiple moves per creature, choice targets, merges,
-   and several cards per turn means a turn is a *sequence* of many actions. Treat each atomic
-   action as one tree node — never enumerate whole turns as single moves. Expect a per-node
-   branching factor of 10–40, which is tractable.
-2. **Strategy fusion** — determinized search implicitly assumes hidden information gets
-   revealed, undervaluing information-gathering. Mitigated by **multi-observer determinization**
-   (resample per iteration, not per search) and, if needed, shared information-set nodes.
-3. **Determinization must respect observations** — sampling a deck containing a card already in
-   the graveyard is a correctness bug that silently degrades play. Needs its own test suite.
-
-**Recommendation:** build **single-observer IS-MCTS with per-iteration resampling** first —
-simple, strong enough for balance work, a known quantity. Escalate to multi-observer only if
-measured play strength justifies it; the `IAgent` interface stays swappable either way.
-
-Rejected alternatives: minimax/expectimax (no eval function, hidden state); AlphaZero-style
-neural approaches (right answer for *superhuman*, wrong answer for *balance tooling now*).
-
-### Testing strategy
-
-xUnit in `Shapes.Tests`, written **alongside** each Phase 1 component, not bolted on after — a
-rules bug found in Phase 3 invalidates every balance number gathered before it.
-
-Two properties keep testing cheap: seeded determinism means any game is reproducible from its
-seed, and data-driven cards mean tests can define **synthetic cards** instead of depending on
-real ones.
-
-#### Test fixtures
-
-- **`StateBuilder`** — fluent helper to construct exact board positions without playing toward
-  them, so tests don't degenerate into long action sequences that break on unrelated rule changes.
-  ```csharp
-  var s = new StateBuilder()
-      .WithRuleSet(RuleSet.Default)
-      .P1(p => p.Slot(0, "circle_cadet", health: 2).Resources(spike: 3).Hand("siphon"))
-      .P2(p => p.Slot(1, "monk").Score(4))
-      .ActivePlayer(1)
-      .Build();
-  ```
-- **Synthetic test cards** (`test_deal_2`, `test_heal_1`, …) — a fixture-only set so op tests
-  never break when a real card is rebalanced. Real cards get their own separate suite.
-
-#### Coverage areas
-
-- **Resources** — exact income (base + per-creature, including merged multi-type), exact cost
-  deduction, unaffordable actions excluded from legal-action list, no negative resources.
-- **Scoring** — opposition is per-slot-index (not mirrored), scoring happens at start-of-turn
-  before income/actions, win triggers immediately at `scoreToWin`.
-- **Turn structure** — phase order score→income→draw→actions→end, once-per-turn move usage, no
-  summoning sickness, deck exhaustion handled without a crash.
-- **Drawing & discarding** (`Shapes.Tests/Mechanics/DiscardTests.cs`) — draw lands at turn start
-  and is playable that turn; overdraw burns the *drawn* card and asks nothing; a card effect's
-  `discard N` gates every other action until paid, narrows one card at a time, and is clamped
-  when unpayable. Two fuzz invariants back these at scale: no hand ever exceeds the limit, and a
-  standing debt is always payable (an unpayable one would deadlock the generator). A third fuzz
-  test asserts the pending-discard path is actually *reached*, so the invariants can't pass
-  vacuously.
-- **Board & merging** — slot/range legality, adjacency + un-merged-only + depth cap, merge is
-  free and doesn't consume the turn, death frees the slot and changes opposition.
-- **Card conservation** (`Shapes.Tests/Mechanics/CardConservationTests.cs`) — every card is
-  always in exactly one zone: a destroyed creature discards all of its `MergedFrom` cards to its
-  owner's pile, merging discards nothing, tokens discard nothing. Backed at scale by a 2,000-game
-  invariant that hand + deck + discard + board equals the starting deck as a multiset, plus a
-  non-vacuity test that creatures actually die during it.
-- **Type effectiveness** — every cycle edge and reverse edge, merged-target match+weak vs.
-  match-only vs. weak-only (the last is the case most likely misread), spell damage always 1×,
-  bonus-then-multiplier ordering pinned, `weaknessMultiplier: 1.0` disables the system.
-- **Effect ops** — every op in the vocabulary table gets a focused test: exact amounts, edge
-  cases (lethal, overkill, empty deck/hand, zero counts), each status keyword actually altering
-  resolution (not just a flag nothing reads), multi-effect moves applying in order even when an
-  earlier effect kills the target of a later one.
-- **Card data validation** — every shipped card loads without error; unknown op/selector/resource
-  fails loudly at load; single-target rule enforced across the whole set; a generated smoke test
-  per real card asserts it's playable and every move usable.
-- **Invariants & properties** (random legal play) — apply/undo symmetry (byte-identical state,
-  written in Phase 1 even while still cloning — gates the Phase 2 optimization), determinism
-  (same seed replays identically), legal-action soundness (every generated action applies without
-  throwing), termination, no illegal state at scale. Observation leakage (`ObservedState` never
-  exposes the opponent's hand/deck order) is specified now but implemented in Phase 2.
-
-**Coverage target:** effect interpreter and rules engine are the priority; console rendering
-isn't worth testing. Bar: every op exercised at least once and every mechanic above covered,
-rather than a blanket line-coverage percentage.
+**Testing strategy** — xUnit, written alongside each component, not bolted on after. Seeded
+determinism and data-driven (synthetic) test cards keep tests cheap and stable under rebalancing.
+`StateBuilder` is the fluent fixture for exact board positions without playing toward them.
+Coverage priorities: effect interpreter and rules engine (console rendering isn't worth testing).
+Bar is "every op and mechanic exercised," not a line-coverage percentage.
 
 ---
 
 ## 2. Phase plan
 
-### Phase 1 — Playable engine (foundation; do not rush)
+### Phase 1 — Playable engine ✅ complete (13/13)
 
-**Goal:** a complete, correct, rules-configurable game with a text interface. Tests are written
-**with** each step, per the testing strategy above.
+**Goal:** complete, correct, rules-configurable game with a text interface, tests written
+alongside each piece.
 
-- [x] **1. Prerequisite:** install .NET 8 SDK (x64).
-- [x] **2. Solution + project skeleton**, including `Shapes.Tests`; `Shapes.Core` references
-  nothing but the BCL, enforced by a test that reads the `.csproj` as XML (a compiled-assembly
-  check would miss an unused-but-declared dependency).
-- [x] **3. Primitives:** `ResourceType`, `ResourcePool`, `TypeMask`, `PlayerId`, `SlotIndex`. All
-  immutable structs. `ResourcePool.Subtract` throws rather than clamps — an unaffordable payment
-  means legal-action generation let through something unpayable, and clamping would hide that
-  bug. Slot-opposition and merge-adjacency rules live on `SlotIndex` rather than as scattered
-  index arithmetic.
-- [x] **4. `RuleSet` + JSON loading.** Validates in its constructor (fails at load, not hours
-  into a sim run). Source-generated `JsonSerializerContext` (AOT-safe). Unknown properties are
-  **rejected** — a typo like `scoreToWinn` would otherwise silently fall back to the default.
-- [x] **5. State model:** `GameState`/`PlayerState`/`Board`/`CreatureInstance` as mutable classes
-  with `Clone()` (struct-in-flat-array layout deferred to Phase 2's apply/undo work). Seeded
-  `IRandomSource` is a hand-rolled xorshift64* (not `System.Random`) for cross-platform
-  stability, with `Fork()` so cloning a state for search never advances the real game's RNG
-  stream.
-- [x] **6. Effect interpreter** + op vocabulary — built before card data so the vocabulary is
-  validated against real cards. `EffectRegistry` is the single source of truth for "what ops
-  exist," read by both the interpreter's dispatch and the schema validator. Status keywords:
-  **taunt** restricts `chosen_enemy` to taunted creatures for move-sourced effects only; **reflect**
-  is one-shot (redirects the next creature-sourced hit back to the attacker, then clears);
-  **ricochet** is standing and directional. Damage resolution order is pinned:
+- [x] **1.** Installed .NET 8 SDK.
+- [x] **2.** Solution skeleton incl. `Shapes.Tests`; `Shapes.Core`-only-references-BCL enforced
+  by test.
+- [x] **3. Primitives** — immutable structs. `ResourcePool.Subtract` throws rather than clamps,
+  so a bad payment fails loudly instead of hiding a legality bug.
+- [x] **4. `RuleSet` + JSON loading** — validates at load; unknown properties rejected (catches
+  typos like `scoreToWinn`).
+- [x] **5. State model** — mutable `GameState`/`Board`/`CreatureInstance` with `Clone()`; seeded
+  RNG with `Fork()` so search clones never advance the real stream.
+- [x] **6. Effect interpreter + op vocabulary**, built before card data so it was validated
+  against real cards. Damage order pinned:
   `(base + next_attack_bonus + next_damage_taken_bonus) × typeMultiplier`.
-- [x] **7. Card JSON schema + loader + validation.** Validation lives in a separate
-  `CardValidator` (not the constructor) since the single-target rule spans every effect of every
-  move. Effect *args* can't use "reject unknown properties" (the schema is op-defined, not
-  fixed) — a misspelled argument is caught by the op at use, not at load, which is what makes the
-  step 1.10 smoke test load-bearing. Validation walks the whole effect tree including
-  `conditional`/`for_each` branches. Decided here: a move's cost must be single-type (attack type
-  derives from it); creatures may not declare top-level `effects` (no passive triggers exist).
-- [x] **8. Action model:** `PlayCard`, `UseMove`, `Merge`, `Discard`, `EndTurn` + legal-action
-  generation —
-  the single most important API in the codebase (console, AI, and UI all consume it). Actions
-  are immutable with value equality (MCTS dedupes them; reference equality would split a node's
-  stats across identical children). Generator/executor is a one-way contract: the generator
-  decides legality, the executor assumes it and re-checks nothing. Decided here: an unmet move
-  condition makes the move illegal outright (not a legal no-op), and a targeted move with no
-  valid target isn't generated at all. Merge is generated in both directions per eligible pair,
-  since the result occupies the *target* slot and that changes scoring. `DiscardAction` was added
-  later (during Phase 2) when chosen discard replaced the front-of-hand placeholder — it is the
-  one action kind that *suppresses* the others rather than adding to them.
-- [x] **9. Turn loop:** score → income → draw → actions → end, folded into one entry point
-  (`GameState.AdvanceToActions()`) so callers can't forget to run scoring/income/draw before
-  acting — previously every `EndTurn()` caller had to remember that itself. The win check sits
-  between scoring and income, so a scoring play that wins the game skips that turn's income *and*
-  its draw. (Draw moved from turn end to turn start during Phase 2 — see "Drawing, discarding,
-  and the hand limit" above.)
-- [x] **10. Enter all ~36 cards** from `references/oldcardsdata.txt`. About a third of the set
-  needed new mechanics: `PlayCost`/`AttackBuff`/taunt-expiry/reactive-trigger fields on
-  `CreatureInstance`; a turn-scoped `GameState.TurnEvents` log (feeds "draw per creature
-  destroyed this turn"); the bespoke `self_at_full_health` condition generalized into
-  `creature_state(target, check)`; `EffectContext.HandComposition` (precomputed by the caller,
-  not fetched by the op, to keep `Effects` free of a `Cards` reference) for "gain resources per
-  matching card in hand"; and a `health_source` selector argument for "damage an enemy equal to a
-  *third* creature's health," which needs three independent slots (attacker/source/victim) that
-  `target` alone can't express. The generated per-card smoke test (`CardSmokeTests`) is what
-  catches misspelled effect *arguments*, which `CardValidator` structurally cannot.
-- [x] **11. Console client:** render board/hands/resources, numbered legal actions, hotseat play.
-  `Shapes.Console/Program.cs` + `BoardView.cs`; `GameAction.Describe()` already provides
-  human-readable action text. Named the renderer `BoardView` rather than `Board` (collides with
-  `Shapes.Core.State.Board`), and calls `System.Console` explicitly (the project's own namespace
-  shadows it). No new engine surface needed. Verified with a scripted game to a real win.
-- [x] **12. Fuzz harness:** thousands of seeded random-play games asserting termination and no
-  illegal state. `Shapes.Tests/Fuzz/FuzzHarnessTests.cs` — 10,000 games total, against the
-  **real** shipped card set (not synthetic test cards, so real cross-card rule interactions are
-  exercised), asserting `GameState.IsOver` is actually reached rather than just capping the loop.
-  Runs in ~7s.
-- [x] **13. Mobile toolchain spike** (Godot 4 hello-world → Android export). Confirmed working
-  end-to-end on a physical device (Godot 4.5.1, Vulkan/Forward Mobile). Two things worth
-  remembering for Phase 4:
-  Godot's Android export **templates** for this version require the **.NET 9 SDK** even though
-  the project itself can target `net8.0` — install .NET 9 alongside .NET 8 (confirmed
-  side-effect-free for the rest of the repo, which stays pinned to `net8.0` via
-  `Directory.Build.props`); and Editor Settings → Export → Android needs its **Java SDK Path**
-  and **Android SDK Path** set explicitly (Android Studio's bundled JBR, not an older standalone
-  JDK, satisfies the JDK 17+ requirement). One debugging trap: an apparent "blank screen" bug was
-  actually a stale APK — `adb shell monkey` relaunches whatever's already installed, so a rebuild
-  needs `adb install -r` before relaunching, not just a re-export. The spike lived in its own
-  standalone Godot project, never touching `Shapes.Core` or anything else in this repo.
+- [x] **7. Card JSON schema + loader + validation** — single-target rule enforced across every
+  effect in `CardValidator`.
+- [x] **8. Action model** — `PlayCard`/`UseMove`/`Merge`/`Discard`/`EndTurn` + legal-action
+  generation, the most important API in the codebase. Value-equal actions so MCTS dedupes
+  correctly; generator decides legality, executor trusts it.
+- [x] **9. Turn loop** — score→income→draw→actions→end folded into one
+  `AdvanceToActions()` entry point so no caller can forget to sequence it.
+- [x] **10. Entered all ~36 real cards** — about a third needed new engine mechanics (attack
+  buffs, taunt expiry, reactive triggers, hand-composition scoring, a `health_source` selector).
+- [x] **11. Console client** — `BoardView` + `Program.cs`, verified to a real scripted win.
+- [x] **12. Fuzz harness** — 10,000 games on the real card set, asserts games actually terminate
+  (~7s).
+- [x] **13. Mobile toolchain spike** — confirmed Godot 4 C#/.NET Android export on a physical
+  device. Notes for Phase 5: export *templates* need the .NET 9 SDK alongside .NET 8; Editor
+  Settings needs explicit Java/Android SDK paths; a stale-APK trap means rebuilds need
+  `adb install -r`, not just re-export.
 
-**Exit criteria:**
-- [x] Two humans can play a full game to a win at the console.
-- [x] All ~36 cards implemented.
-- [x] A scripted game replays identically from a seed.
-- [x] Apply/undo property tests pass.
-- [x] Every effect op has a passing test.
-- [x] Fuzz harness runs clean over 10k games.
+**Exit criteria:** all met — two humans play to a win at console; all ~36 cards implemented;
+scripted games replay identically from seed; apply/undo property tests pass; every effect op
+tested; fuzz harness clean over 10k games.
 
-### Phase 2 — IS-MCTS AI
+### Phase 2 — IS-MCTS AI (naive but correct) ✅ complete (6/6)
 
-- [x] **1. `IAgent` interface:** `GameAction Choose(AgentContext ctx, CancellationToken ct)`.
-  Signature changed from the plan's original `Choose(ObservedState s, ...)`: an agent also needs
-  the legal-action list and the card database, and having each agent call `ActionGenerator`
-  itself would be a second definition of legality drifting from the engine's. `AgentContext`
-  bundles observation + legal actions + cards, so step 2.2 narrows *one property* to
-  `ObservedState` rather than changing `IAgent` and every call site. `AgentContext.State` is the
-  full `GameState` until then — deliberate and temporary, since building the interface against a
-  type that doesn't exist yet leaves neither it nor its first implementation compilable.
-  `RandomAgent` (formally step 2.4) landed here as the reference implementation, so the seam is
-  exercised rather than a dead file. The contract is pinned by
-  `Shapes.Tests/Agents/AgentContractTests.cs` as three clauses tested against `IAgent`, not
-  against one implementation — chosen action is legal and applicable, choosing never mutates the
-  caller's state, and same seed → same decisions (with a different-seeds test guarding the
-  degenerate "always return `LegalActions[0]`" way that could pass).
-- [x] **2. `ObservedState`** — a strict projection of `GameState` to one player's knowledge.
-  If the AI can read the opponent's hand, everything downstream is invalid; enforce by test.
-  Narrows `AgentContext.State` (see step 2.1); **engine-side only** — no client changes. The
-  console keeps rendering from `GameState`, so this step cannot alter what a human sees; that is
-  step 2.5's separate decision.
+**Goal:** a working search and the seams around it — deliberately not fast, tuned, or measured
+(needs a batch runner Phase 3 builds).
 
-  Lives in `Shapes.Ai/Agents/ObservedState.cs`, not `Shapes.Core` — the dependency-direction
-  tests (`CorePurityTests`) would fail a new public type under an unlisted namespace, and the
-  point of the projection is to sit on the AI side of the seam anyway. Three types: `ObservedState`
-  (board, phase/turn bookkeeping, pending-discard count — all public information), `ObservedSelf`
-  (own hand and discard in full, own deck as `DeckComposition` + `DeckSize`), and
-  `ObservedOpponent` (hand and deck reduced to **counts** only, everything else — discard,
-  resources, score — visible in full, matching what's physically visible across a table). Hand
-  size stays knowable on both sides because step 2.3's determinizer needs it to sample a
-  correctly-sized hand.
+- [x] **1. `IAgent` interface** — `Choose(AgentContext, CancellationToken)`, plus `RandomAgent` as
+  reference implementation. Contract pinned at the interface level: legal choice, no state
+  mutation, seed-determinism.
+- [x] **2. `ObservedState`** — strict per-player projection of `GameState`, structurally unable to
+  expose the opponent's hand contents or either player's deck order (pinned by a reflection
+  check, not just value checks).
+- [x] **3. Determinizer** — samples a real `GameState` consistent with observations via multiset
+  subtraction from the (symmetric-only) shared decklist.
+- [x] **4. Baseline agents** — `RandomAgent` + a non-simulating `GreedyAgent` that scores from
+  static card data. It can't simulate: an `ObservedState` has no path to a `GameState` without
+  determinizing first, which would make it a 1-iteration IS-MCTS and ruin it as an independent
+  yardstick.
+- [x] **5. Console hidden-hand mode** — `--reveal` off by default, including in hotseat; no
+  exceptions, since an exception is what people forget.
+- [x] **6. IS-MCTS** — selection/expansion/playout/backprop, availability-corrected UCB1, fresh
+  determinization every iteration.
 
-  **Deck order is hidden even from its own owner.** The first pass exposed `Self.Deck` as the
-  real ordered list on the theory that a player can see their own deck; that's wrong for this
-  game — nothing in the ruleset lets a player see their own next draw, so leaking it would let a
-  search built on `ObservedState` quietly read its own future draws. `Self.DeckComposition` is
-  the real deck's contents re-sorted into a fixed, draw-order-independent order (alphabetical by
-  card id) — composition is legitimately knowable (a player can count their own remaining deck),
-  order is not, for either side. Deliberately carries no `GameState` or `IRandomSource` reference
-  anywhere in its public surface, so there's no path from an `ObservedState` back to the hidden
-  data or the live RNG stream — a determinizer builds its own fresh source rather than reading
-  the real one.
+**Notable bugs found and fixed along the way:** the determinizer's conservation-identity
+requirement exposed a real rules bug — destroyed creatures vanished instead of discarding, which
+would have let the sampler deal cards that were physically dead. Fixed via
+`GameState.DestroyCreature`, the one path all destruction now goes through. `GreedyAgent`'s first
+cut only scored *taking* an open slot, not *blocking* an opponent's — a bug a win-rate barely
+moved but a blocking-opportunity count exposed sharply (the recurring lesson of this phase: an
+aggregate win rate against a weak opponent partly measures the opponent, not the change).
+IS-MCTS's availability-corrected UCB1 (Cowling/Powley/Whitehouse 2012) exists because plain UCB1
+undercounts actions that aren't legal in every sampled world; the correction's failure mode is
+silent (search still runs, just explores the wrong things), which is why it's pinned by a test
+verified to fail when sabotaged. A subtler sabotage — determinizing once and cloning thereafter —
+does *not* fail a naive draw-count assertion (playouts still consume randomness), so the real
+test asserts on `IsMctsAgent.LastDistinctWorldCount` (distinct sampled hands) directly.
 
-  `AgentContext`'s constructor now takes either a `GameState` (the common path — it builds the
-  `ObservedState` internally) or an `ObservedState` directly (for tests constructing one side of
-  a hidden-information position without a full game). `RandomAgent` needed no changes: it only
-  ever reads `context.LegalActions`, never `context.State`.
+**Watched, not just asserted:** `--p1 ismcts --p2 greedy --seed 7 --iterations 300` wins 11–2 in
+9 turns, developing the board and spending resources before passing — including one correct-but-
+suspicious-looking `EndTurn` that was checked by hand rather than assumed to be the classic
+passing bug.
 
-  Pinned by `Shapes.Tests/Agents/ObservedStateTests.cs`: opponent hand/deck are counts, not
-  content, on both an instance-value basis and a "no member of the wrong type exists" reflection
-  check (so a future accidental leak has to add the leaking property visibly, not fall through an
-  existing one); own hand/deck/discard visible in full; the board is the identical object
-  regardless of observer; observing from the other side flips which hand is hidden; no public
-  member anywhere in the three types returns `GameState` or `IRandomSource`.
-- [x] **3. Determinizer:** sample a hidden state consistent with all observations (deck
-  composition minus known cards, opponent hand size, revealed/discarded cards). Lives in
-  `Shapes.Ai/Search/Determinizer.cs` — a new folder, since this is search machinery rather than
-  part of the `IAgent` seam. `Determinize(ObservedState, IRandomSource) → GameState` returns a
-  **real `GameState`**, so `ActionGenerator`/`ActionExecutor`/`AdvanceToActions` all run on a
-  sampled world unchanged; a bespoke search-only state would have meant a second copy of every
-  rule. The `IRandomSource` is a parameter rather than constructor state because per-iteration
-  resampling calls this thousands of times per decision and the search owns the stream.
+**Exit criteria:** all met — search implemented end to end; satisfies the `IAgent` contract as a
+theory case, not a parallel suite; mechanisms pinned by sabotage-verified tests; a full game
+watched and read; `ObservedState` provably leaks nothing; console hides the AI's hand by default.
+No win rate is asserted anywhere in this phase — see the note below.
 
-  **The opponent's cards are reconstructed from the decklist**, since `ObservedState` gives their
-  hand and deck as bare counts: in symmetric mode both players play the same publicly-known list,
-  so their unseen cards are `BuildSymmetricDeck − their discard − their board (expanded through
-  MergedFrom)`, shuffled and dealt into a hand and deck of the observed sizes. **Multiset
-  subtraction, not set** — with `copiesPerCard: 2`, seeing one copy discarded means one remains,
-  and treating it as a set would make every card they ever discarded impossible for them to hold.
-  The observer's own deck is **re-shuffled, not copied** in `DeckComposition` order: that order is
-  alphabetical precisely so it carries no draw-order information, and using it verbatim would let
-  a search read its own future draws.
+> **On strength numbers in Phase 2.** Any figure quoted during this phase is an ad-hoc dev
+> observation, not a result — a rate against a weak opponent partly measures the opponent, and
+> every number is relative to card balance, which Phase 4 will change.
 
-  **This step exposed a real rules bug, fixed here.** A destroyed creature was removed from the
-  board and logged as a turn event, but its card went *nowhere* — not to a hand, deck, discard, or
-  the board. Invisible in ordinary play (almost nothing reads a discard pile), but it breaks the
-  conservation identity the determinizer's subtraction depends on:
+### Phase 3 — Agent measurement & optimization
 
-  ```
-  hand + deck + discard + (board, expanded through MergedFrom) == the starting deck
-  ```
+**Goal:** make the AI strong and *prove* each change helped. Cards/rules **frozen** all phase —
+that's the whole reason this is a separate phase from Phase 4. Everything is gated on step 1: an
+unmeasured optimization is a guess, and a bad heuristic can make search weaker while still
+looking reasonable in a watched game.
 
-  Without it the subtraction over-counts and the determinizer deals the opponent cards that are
-  physically dead — exactly the "sampling a deck containing a card already in the graveyard"
-  failure this plan flags as silently degrading play. `GameState.DestroyCreature` is now the one
-  place a creature dies, called by all three destruction paths (the post-action `RemoveDead`
-  sweep, `destroy`, and `destroy_refund_cost`), and it discards **every** card in `MergedFrom` —
-  a merged creature is several physical cards in one slot and they all die together. Merging
-  itself discards nothing: the absorbed creature's card lives on inside `MergedFrom`.
+- [ ] **1. `Shapes.Sim`** — headless batch runner (N games, parallel, seeded → CSV/JSON),
+  currently a placeholder. Establish the agent-vs-agent baseline matrix first (all pairings, both
+  seats reported separately — never pooled, since that hides first-player advantage — with
+  behaviour/opportunity counts alongside win rate, per Phase 2's blocking-slot lesson).
+- [ ] **2. Playout policy** — replace uniform-random rollout with a lightly heuristic one (favor
+  damage/scoring, avoid idle passing). Keep the uniform policy switchable as a control; evaluate
+  against `GreedyAgent`, not `RandomAgent`, per Phase 2's lesson about weak-opponent measurement.
+- [ ] **3. Performance** — apply/undo instead of clone, node pooling; success is a stopwatch
+  before/after, gated by Phase 1's apply/undo property test.
+- [ ] **4. Determinizations per search** — measure whether reusing a sampled world across several
+  iterations trades acceptable sampling breadth for speed.
+- [ ] **5. Tuning** — exploration constant, playout depth cap; pure measurement, no
+  first-principles shortcut.
+- [ ] **6. Re-verify correctness tests still pass at tuned settings.**
+- [ ] **7. Record the final agent matrix** as Phase 4's frozen reference instrument.
 
-  Summoned creatures needed a new `CreatureInstance.IsToken` flag: a token's id need not name a
-  real card and it came from no deck, so discarding it would inflate a player's apparent pool —
-  the same accounting error in the opposite direction. Token-ness is contagious through a merge,
-  since `MergedFrom` then mixes card ids with non-card ids and nothing carries per-id provenance.
+**Exit criteria:** IS-MCTS decisively beats both baselines, and beats `RandomAgent` by a wider
+margin than `GreedyAgent` does (the *ordering* is what proves search adds value); a decision
+completes in target wall-clock (~≤2s desktop); every optimization has a same-seed before/after;
+agent configuration is frozen and recorded.
 
-  **Symmetric decks only.** The whole reconstruction rests on the opponent's decklist being
-  public, which `deckMode: "custom"` is not — that would need a belief distribution over possible
-  decklists. `Determinize` throws on a non-symmetric ruleset rather than sampling nonsense,
-  mirroring `BuildSymmetricDeck`'s own guard. Sampling is **uniform** over consistent worlds;
-  weighting by opponent behaviour is a play-strength question for step 2.9, not a correctness one.
-  Lifting the symmetric assumption is scoped at **Phase 4 step 9**, alongside the deckbuilder that
-  makes it necessary — see there for what the migration touches and what it leaves alone.
+### Phase 4 — AI-driven balance
 
-  Pinned by two suites. `Shapes.Tests/Mechanics/CardConservationTests.cs` states the discard rule
-  directly (damage, `destroy`, `destroy_refund_cost`, merged creatures, tokens, and merge-is-not-
-  destruction) and asserts the conservation identity across 2,000 random games, with a
-  non-vacuity test proving creatures actually die in them.
-  `Shapes.Tests/Ai/DeterminizerTests.cs` covers consistency (every observation reproduced, board
-  cloned not aliased), soundness (no card sampled that is visibly elsewhere; both copies
-  discarded ⇒ never dealt back), **non-degeneracy** (different seeds give different opponent
-  hands and deck orders — these are what stop an implementation that deals in sorted order and
-  passes every consistency test while collapsing IS-MCTS into searching one arbitrary world),
-  determinism, and the round-trip property (re-observing a sample reproduces the original
-  observation), plus a fuzz pass determinizing every position of 300 real games from both seats.
-  All three failure modes were verified to fail the suite before the fix.
-- [x] **4. Baseline agents:** `RandomAgent` (landed with step 2.1) and `GreedyAgent`
-  (`Shapes.Ai/Agents/GreedyAgent.cs`). These are the yardstick — an MCTS that cannot beat both
-  clearly has a bug.
+**Agents frozen** this phase — the mirror image of Phase 3. Cards/rules untouched since Phase 1
+step 10, so every number here reflects genuinely stable content.
 
-  **This step delivers the agents, not a measurement of them.** Deciding how strong they are means
-  running batches across seeds and rulesets, which is Phase 3 step 1's job (`Shapes.Sim`) — so no
-  strength figure is recorded here and none is asserted by a test. What step 2.4 owes is a
-  baseline that is *well-defined*: deterministic given a position, independent of the search it
-  will be used to evaluate, and stable under Phase 3's card edits. Those are properties of the
-  agent, checkable directly, and they are what the tests cover.
+- [ ] **1. Metrics** — win rate by seat, game length, score curves, per-card play/win-rate
+  correlation, move usage, merge frequency, resource flow, ending type.
+- [ ] **2. Answer the two flagged design questions directly as behaviour measurements** (not win
+  rate, per Phase 2's lesson, and only meaningful with Phase 3's frozen competent agent): does the
+  AI ever decline a legal merge, and how strongly does unopposed-creature income compound?
+- [ ] **3. Sweep** rulesets/card variants; rank outliers.
+- [ ] **4. Iterate** — edit JSON, rerun, compare; keep a `balance/` experiment log.
+- [ ] **5. Watch for** never-played/auto-include cards, degenerate loops, first-player advantage
+  beyond ~55%, non-terminating games.
+- [ ] **6. Archetype sweeps** (mono vs. mixed, aggro vs. control) once `deckMode: "custom"`
+  exists — only after per-card balance has settled.
 
-  **`GreedyAgent` scores actions from static card data — it does not simulate.** The obvious
-  one-ply implementation (apply each action to a clone, evaluate the result) is unavailable by
-  construction: an agent sees an `ObservedState`, which carries no `GameState` and no path to one,
-  so simulating would require determinizing first — and determinize-then-simulate *is* a
-  one-iteration IS-MCTS. That would ruin it as a yardstick twice over. A comparison against
-  search would largely measure iteration count rather than whether search works, and a bug in
-  selection or backprop shared by both sides would cancel instead of showing. The baseline's
-  strength would also vary with whichever world it happened to sample, putting noise into the
-  very comparison it exists to make clean. So it reads what a move *will* do instead of doing it —
-  weaker in principle, but independent of the search, deterministic given the position, and cheap
-  enough that hundreds of full games run in well under a second.
+**Exit criteria:** no extreme play-rate outliers; first-player advantage near even; game length
+in target band; merge tradeoff and income-compounding both confirmed as real, non-degenerate
+decisions.
 
-  It prices flat `damage` (through the type chart, including the merged-target rule and
-  `attack_buff`/`next_attack_bonus`), lethal as a bonus, `heal` against actual missing health,
-  board presence, and **both halves of the scoring race** (below). Damage is **capped at the
-  target's remaining health** so overkill isn't counted as value.
+### Phase 5 — Godot client (desktop + mobile)
 
-  **The scoring race has two halves, and the first version of the heuristic only priced one.**
-  Taking a slot whose facing enemy slot is empty scores a point per turn *for you*; taking a slot
-  that faces a currently-**unopposed enemy creature** denies a point per turn *to them*. The
-  original only rewarded the former, rating a blocking placement at exactly zero — so at a
-  position where blocking would stop an enemy creature scoring every turn, it instead tie-broke
-  randomly between two indistinguishable open slots. Found by inspection prompted by a question
-  about turn sequencing, then confirmed by probe, not by any test.
+Target Windows/macOS/Linux desktop and Android from one codebase — achievable for a turn-based
+card game, but constrains layout/input from the first scene.
 
-  Blocking is now weighted *slightly above* taking an open slot, and the ordering is deliberate:
-  both are worth a point per turn, but blocking pays **sooner and surer**. It denies the point at
-  the opponent's very next scoring step — which happens the instant the turn ends, since
-  `ActionExecutor.ApplyEndTurn` runs the opponent's `AdvanceToActions`, whose first step is
-  `ApplyScoring`. An unopposed placement pays its first point a full turn later, and only if it
-  survives the opponent's turn unopposed.
+- [ ] **1.** Add `Shapes.Godot`, referencing `Shapes.Core` unchanged.
+- [ ] **2.** Adapter layer: engine events → visuals; UI only ever submits actions, never mutates
+  state.
+- [ ] **3.** Responsive layout (anchors/containers, portrait+landscape) from scene one.
+- [ ] **4.** Touch-first input with mouse as a superset; ~44px hit targets; no hover-dependent
+  info.
+- [ ] **5.** Scenes: board, slots, hand, resources, score, card detail.
+- [ ] **6.** Real card art and play/move/merge/score/destroy animation.
+- [ ] **7.** Target-selection UI over the existing `chosen_*` actions — one state, no chaining,
+  thanks to the single-target rule.
+- [ ] **8.** AI opponent via `IAgent` (difficulty = search budget), run off the main thread and
+  capped on mobile.
+- [ ] **9. Deckbuilder** (`deckMode: "custom"`) — also owns migrating the determinizer off its
+  symmetric-deck assumption, since custom decks make the opponent's decklist itself hidden (a
+  belief-distribution problem, not just a partition problem). Most of `Determinizer` and its test
+  suite are unaffected (phrased against observations, not deck provenance); only `UnseenCardsOf`
+  changes, to sample from a belief model instead of reading `BuildSymmetricDeck`. First belief
+  model: constrain to cards demonstrably played, fill the rest uniformly within deck-size/copy
+  limits — crude but sound, same justification as Phase 2's uniform sampling.
+- [ ] **10.** Persistence (`user://`): decks, settings, progress.
+- [ ] **11.** Polish: sound, transitions, menus.
+- [ ] **12.** Export pipeline (desktop + signed Android `.aab`), reusing/re-verifying the step
+  1.13 toolchain rather than rediscovering it.
 
-  **Win rate was the wrong instrument for judging this fix, and nearly hid it.** Against
-  `RandomAgent` the rate barely moved — a random opponent rarely builds the scoring board that
-  makes blocking matter, so the situation the fix addresses seldom arises. What showed the fix was
-  real is an *opportunity* count: how often a blocking play is even available. That is markedly
-  higher against another `GreedyAgent` than against `RandomAgent`, and it will be higher still
-  against search. The lesson generalizes — an aggregate rate against a weak opponent measures the
-  opponent as much as the agent, which is another reason strength numbers belong to Phase 3's
-  batch runner rather than to a step that is building the agent.
-
-  Everything the heuristic has no rule for — every scaled op, draws, resource gains, keywords,
-  control flow — scores a small flat positive: enough that an unread card beats passing, not
-  enough to beat a visible kill. Modelling those properly would mean re-implementing the effect
-  interpreter against a state it cannot see, which is how a baseline becomes a second, drifting
-  definition of the rules.
-
-  Two deliberate weight choices. **`EndTurn` scores negative**, since passing with resources
-  unspent is the main way a weak agent throws a game away — confirmed by inspecting the action
-  mix of full games, where it never passed while a play or move was available. **Merging is scored
-  barely positive**, deliberately unenthusiastic: step 3.3a asks whether the AI ever *declines* a
-  merge, and a baseline that merged eagerly would bias the measurement meant to answer that
-  question.
-
-  **Ties break randomly**, via the injected `IRandomSource` (reservoir sampling, one pass). Always
-  taking the first-scoring action would bias play toward low slot indices and toward the
-  generator's emission order — a systematic bias that would surface in Phase 3's per-card
-  statistics as an artifact of card list ordering.
-
-  `AgentContractTests` became theories over an agent factory, so both agents are held to the same
-  three clauses rather than `GreedyAgent` getting a parallel suite that checks less; step 2.6 adds
-  one line. The non-mutation clause is a live risk for this agent rather than a formality — it
-  reads `AttackBuff`/`NextAttackBonus`, which the real damage path *consumes*, so a scoring pass
-  written against the engine's own consume-methods would silently spend a bonus. One clause
-  splits: "different seeds → different decisions" is `RandomAgent`-only, and its counterpart pins
-  that Greedy **ignores** its seed when one action scores highest (randomness must reach ties
-  only, or the baseline would play differently run-to-run at the same position).
-  `Shapes.Tests/Agents/GreedyAgentTests.cs` covers each priority in the weight table at a position
-  where one action is unambiguously correct.
-
-  **What the tests do and don't assert.** They pin *decisions* (given this position, this action)
-  and *robustness* (full games on the real card set complete without faulting) — never a win rate.
-  An earlier draft asserted a win-rate threshold over a batch of games, and that was the wrong
-  test in the right place. Two things are wrong with it. A win rate is a **balance measurement**,
-  belonging to Phase 3 step 1, which runs batches properly — parallel, seeded, across rulesets —
-  rather than as a side effect of a unit test. And any threshold would have been unprincipled:
-  picked by rounding down whatever the agent currently scored, it would pass until an unrelated
-  Phase 3 rebalance moved the number, then fail while indicating no defect. A test that fails for
-  reasons unconnected to the code it names is worse than no test.
-
-  What that test *was* uniquely providing is worth keeping, and is now what it asserts: it is the
-  only place `GreedyAgent` meets the **real ~36-card set** (everything else uses synthetic
-  `TestCards`, which cover rule shapes but not the actual effect vocabulary). Verified to have
-  teeth by making the heuristic's unknown-op branch throw — it failed immediately, naming
-  `buff_max_health`, a real card effect no synthetic card exercises. Robustness is a property of
-  the agent alone, so unlike a win rate it cannot drift when cards are repriced.
-- [x] **5. Console hidden-hand mode** (`--reveal` flag, default **off**). Today `BoardView`
-  renders both hands in full every turn — fine for hotseat, but the moment step 2.4 makes
-  human-vs-AI real it means the human sees the AI's hand while the AI cannot see theirs, so
-  "I beat the AI" stops meaning anything.
-
-  Deliberately **not** part of step 2.2, and deliberately not solved by handing the console an
-  `ObservedState`. Two independent switches: *what an agent may see* is a correctness property
-  enforced by test, while *what the screen shows* is a UI preference. The console renders from
-  `GameState` and continues to; this step only decides which parts it prints. Wiring the console
-  through `ObservedState` instead would couple a display choice to an engine invariant and make
-  full-visibility debugging impossible.
-
-  Default hidden, with the flag restoring today's behaviour — full visibility is genuinely
-  useful for debugging a strange board state or watching an AI-vs-AI game, so it stays available
-  rather than being deleted. When hidden, the non-active player's hand renders as a **count**
-  (hand size is public information — the determinizer in step 2.3 depends on it being knowable).
-
-  Note this changes **hotseat** too: hiding the inactive player's hand is what hotseat should
-  have done all along (two humans sharing a screen genuinely shouldn't see each other's cards),
-  but it means the current both-hands-visible view becomes `--reveal` rather than the default.
-  Worth confirming that trade is wanted before implementing, since it costs a little convenience
-  on every hotseat game to gain correctness on all of them.
-
-  Also needs a one-line event log for actions whose result would otherwise be invisible: an
-  opponent's discard currently reads off their visible hand, and with hands hidden it would
-  happen silently.
-
-  **Decision confirmed: hidden by default everywhere, hotseat included.** The alternative
-  considered was hiding only when a seat is an agent, which would have kept hotseat's convenience
-  at the cost of leaving it the one mode that shows a player their opponent's cards. Rejected —
-  a rule with an exception is the one people forget, and the exception would sit exactly where
-  two humans share a screen.
-
-  **What landed.** `BoardView.Render` takes a `reveal` flag, and the hiding happens in one place,
-  `BoardView.DescribeHand`: the **active** player always sees their own hand (they are being asked
-  to choose from it), everyone else gets `(N cards, hidden)`. A count, not a blank — hand size is
-  public information, and blanking it would show the human *less* than the AI is entitled to,
-  overshooting the fairness this step exists to establish. The final post-game board renders with
-  `reveal: true` unconditionally: the game is over, there is no one left to hide from, and seeing
-  what the loser held is the whole value of a post-mortem.
-
-  **The event log now echoes human actions too, not just AI ones.** Only AI decisions were printed
-  before, which was fine when both hands were visible — an opponent's discard could be read off
-  their shrinking hand. With hands hidden that inference is gone, so the log replaces it, printing
-  only what is public: which action was taken, never the hand it came from.
-
-  Pinned by `Shapes.Tests/Console/HiddenHandTests.cs`, which required `Shapes.Tests` to reference
-  `Shapes.Console` for the first time (harmless — `CorePurityTests` constrains `Shapes.Core`, not
-  the test project's own graph). PLAN.md's coverage target says console rendering isn't worth
-  testing, and that still stands: nothing here asserts layout or spacing. *Which hand is hidden*
-  is not rendering — it is the property that makes a human-v-AI result mean anything. **Both seats
-  are tested**, since the plausible regression is hiding by active-player index in a way that
-  inverts when player two acts, which would look perfect in a screenshot taken on player one's
-  turn. Verified to have teeth: inverting the seat comparison fails 6 of the 10 tests.
-- [x] **6. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
-  Three files in `Shapes.Ai/Search/`: `IsMctsAgent.cs` (the loop), `SearchNode.cs` (the tree), and
-  `SearchBudget.cs` (when to stop).
-
-  **A node is an information set, not a state, and that is not a technicality.** The searcher does
-  not know the position — it knows the actions taken so far and its own cards. So a node stands for
-  an action *sequence*, and its statistics are pooled across every sampled world that reached it.
-  This is what makes `GameAction`'s value equality (step 1.8) load-bearing rather than tidy: the
-  same action generated in two different determinized worlds must map to **one** child, or the
-  statistics split across duplicates and the search learns half as much from each.
-
-  **Different worlds offer different actions, which breaks plain UCB1.** A child in the tree may be
-  illegal in the world this iteration sampled — an opponent card they do not hold this time, a move
-  whose condition fails on a different board. UCB1's `sqrt(ln(N)/n)` assumes every child was
-  available on all *N* parent visits. Here an action offered in a tenth of worlds gets a tenth of
-  the chances, so measuring it against the parent's visits makes it look permanently
-  under-explored and the search pours its budget into rare actions regardless of value. The fix
-  (Cowling, Powley & Whitehouse 2012) is an **availability count** per child — how many times it
-  was among the legal options — and exploration becomes `sqrt(ln(availability)/visits)`. Every
-  legal child is incremented at each selection step, *including the ones not chosen*. That
-  bookkeeping is the whole correction and its failure is silent: the search still runs, still
-  returns legal moves, and simply explores the wrong things.
-
-  **One node is one atomic action**, per the plan's branching-factor note. `EndTurn` is an ordinary
-  edge and the tree simply gets deeper; a node's depth is therefore an action count, not a turn
-  count, which is what the playout cap is denominated in.
-
-  **A truncated playout is scored by score margin, not discarded and not called a draw.** Uniform
-  random play can pass turns indefinitely without either score reaching the threshold, so a depth
-  cap is mandatory. But discarding capped playouts would bias the statistics toward lines that
-  finish fast — the aggressive ones — for a reason having nothing to do with the game, and scoring
-  them all a flat 0.5 would make "two points from winning" indistinguishable from "losing badly."
-  The margin is divided by `scoreToWin` so the scale survives Phase 3 sweeping that value, and
-  clamped to [0,1] so a truncated playout can never outrank a real win.
-
-  **The budget is iterations *or* wall-clock, and the distinction is not cosmetic.** Phase 3
-  compares rulesets at equal search *effort*, which a clock cannot express; Phase 4 needs a turn
-  back before the player gets bored, which an iteration count cannot promise. A time budget makes a
-  search **non-reproducible** — the same seed does a different number of iterations on a busy
-  machine — so iterations is the default, the console's only option, and what every test uses.
-  `SearchBudget.IsDeterministic` states which kind you hold rather than leaving a caller to hope.
-
-  **What the tests assert, and the one that could not be written naively.** Most of the suite aims
-  at mechanisms directly, because a search's failure mode is not a crash — it is playing badly
-  while satisfying every clause of `AgentContractTests` (which this agent is now a theory case of).
-  Three sabotages were run to confirm the tests have teeth: inverting backprop's sign fails
-  `It_takes_an_available_lethal_move`; incrementing availability only for the *selected* child fails
-  the availability test; determinizing once per search and cloning fails the resampling test.
-
-  That last one is the interesting one. **A draw-count assertion does not catch determinize-once**
-  — the sabotaged version still consumes randomness in its playouts, so the total stays high while
-  the search stares at one imagined opponent hand throughout. Counting determinizer *calls* fails
-  the same way, since the sabotage calls it once and clones thereafter. The property is that the
-  worlds **differ**, so `IsMctsAgent.LastDistinctWorldCount` records distinct sampled opponent
-  hands and the test asserts on that. Writing the weak version first, watching the sabotage walk
-  through it, and only then finding the real property is what the step actually cost.
-
-  **A fixture problem surfaced here, and the determinizer was right.** `StateBuilder` positions
-  leave both decks empty, which contradicts the hands and board — and `Determinize` throws on a
-  position whose cards do not add up rather than sampling a world it knows is impossible (step
-  2.3's guard, working as designed). Fixed in the fixture, not the engine: `StateBuilder`
-  `.ConservingDecks(cards)` fills each deck with the decklist remainder. **Opt-in**, since
-  defaulting it would silently hand every position a 20-card deck and change draw behaviour, deck
-  exhaustion, and hand limits underneath suites that pin them. A second fixture trap followed:
-  the shared `Position()` gives the opponent an *empty hand*, making the empty hand the only
-  consistent world — so a search there resamples perfectly and still yields one distinct world.
-  The resampling test needs a position where hidden information actually exists.
-
-  **No win rate is asserted**, for the reasons step 2.4 records at length. The exit criterion
-  ("beats both baselines decisively") belongs to Phase 3 step 1, which owns batch measurement;
-  fixing a threshold here would mean picking it before the tool that measures it exists.
-
-  **Watched, not just asserted.** Per this plan's own standard, a game was run and read:
-  `--p1 ismcts --p2 greedy --seed 7 --iterations 300` wins 11–2 in 9 turns, developing the board,
-  using several moves per turn, and spending resources before passing. One `End turn` looked like
-  the classic passing bug and was checked rather than assumed — it came at a position holding all
-  three slots against an empty enemy board while scoring 3/turn, where passing is simply correct.
-  `GreedyAgent`, whose `EndTurnScore` is negative, would have played a card there.
-- [ ] **7. Playout policy:** start uniform-random, then lightly heuristic (prefer damage/score
-  moves) — usually a large strength gain for modest cost.
-- [ ] **8. Performance:** apply/undo, node pooling, budget by time *or* iteration count.
-- [ ] **9. Tuning:** exploration constant, playout depth cap, determinizations per search.
-
-**Exit criteria:**
-- [ ] IS-MCTS beats both baselines decisively, and beats `RandomAgent` by a wider margin than
-  `GreedyAgent` does. The ordering is the real test — it is what distinguishes "search works"
-  from "search runs." **Thresholds and sample sizes are set in Phase 3 step 1**, which owns batch
-  measurement; fixing a number here would mean picking it before the tool that measures it exists.
-- [ ] A decision at a realistic budget completes in target wall-clock (suggest ≤2s desktop).
-  Development observation, not a result: a full 53-action game at 1,000 iterations/decision runs in
-  ~11s wall-clock end to end, so a decision averages well under the 2s target with the naive
-  cloning path and before step 2.8 touches performance. Left unchecked deliberately — "realistic
-  budget" is not defined until step 2.9 tunes it against Phase 3's measurements, and a criterion
-  ticked against a number nobody has justified is not evidence.
-- [ ] `ObservedState` provably leaks no hidden information.
-- [x] A human-vs-AI console game hides the AI's hand by default, and `--reveal` restores full
-  visibility for debugging.
-
-> **On strength numbers in Phase 2.** Phase 2 builds agents; Phase 3 measures them. Any figure
-> quoted during Phase 2 is a development observation from an ad-hoc run — useful for spotting that
-> something regressed, not a result. Two reasons to keep it that way: a rate measured against a
-> weak opponent partly measures the opponent (see step 2.4's blocking-slot fix, which a win rate
-> against `RandomAgent` almost concealed), and every such number is relative to the current card
-> balance, which Phase 3 exists to change.
-
-### Phase 3 — AI-driven balance
-
-- [ ] **1. `Shapes.Sim`:** headless batch runner, N games, parallel, seeded, → CSV/JSON.
-
-  **This step owns agent-strength measurement**, which Phase 2 deliberately defers to it (see the
-  note under Phase 2's exit criteria). First job once it runs: establish the agent-vs-agent
-  baseline matrix — `RandomAgent`, `GreedyAgent`, and IS-MCTS at a few budgets, every pairing,
-  both seats, enough seeds for the confidence interval to be reported rather than assumed. Set the
-  Phase 2 strength thresholds from that matrix rather than in advance, and record it as a
-  `balance/` entry so later runs are comparable against a stated baseline instead of a
-  remembered one.
-
-  Report **both seats separately**, never pooled: pooling hides first-player advantage inside the
-  agent comparison, and first-player advantage is itself a metric this phase must track (step 2).
-  Prefer opportunity/behaviour counts alongside win rate where a mechanic is in question — step
-  2.4's blocking-slot bug moved a win rate barely at all while moving an availability count
-  sharply, and step 3.3's two flagged questions are of exactly that shape.
-- [ ] **2. Metrics:** win rate by player-1/2 (first-player advantage), average game length,
-  score curves, per-card play/win-rate correlation, per-move usage frequency, merge frequency,
-  resource starvation/flooding, and how often games end by score-out vs. board wipe.
-- [ ] **3. Answer the two flagged questions first:**
-  - [ ] (a) Does the AI ever *decline* a legal merge? If it merges at nearly every opportunity,
-    the multi-type 2× vulnerability is priced too cheaply to make merging a real decision.
-  - [ ] (b) How strongly does unopposed-creature income compound into a runaway lead? An
-    unopposed creature both scores *and* pays, so tempo advantage compounds twice.
-- [ ] **4. Sweep:** parameterize over rulesets and card stat variants; run the matrix; rank
-  outliers.
-- [ ] **5. Iterate:** adjust JSON, rerun, compare. Keep a `balance/` log of each experiment and
-  result so changes are traceable.
-- [ ] **6. Watch for:** never-played cards, auto-include cards, degenerate loops, first-player
-  advantage beyond ~55%, games that never terminate.
-- [ ] **7. Archetype sweeps** (once `deckMode: "custom"` exists): mono-type vs. mixed, aggro vs.
-  control. Do this only after per-card balance has settled.
-
-**Exit criteria:**
-- [ ] No card with an extreme play-rate outlier (never-played or auto-include).
-- [ ] First-player advantage within a few points of even.
-- [ ] Game length in a target band.
-- [ ] Merge tradeoff confirmed as a real decision.
-- [ ] Income compounding confirmed not to produce runaway leads.
-
-### Phase 4 — Godot client (desktop + mobile)
-
-**Target platforms: Windows/macOS/Linux desktop and Android mobile.** Shipping to both from one
-codebase is very achievable for a turn-based card game — there is no realtime input or
-performance pressure — but it constrains layout and input from the first scene, so design for it
-up front rather than retrofitting.
-
-- [ ] **1. Godot 4.x with .NET;** add `Shapes.Godot` referencing `Shapes.Core` **unchanged**.
-- [ ] **2. Adapter layer:** engine events → visual updates. Engine stays authoritative and
-  UI-agnostic; the UI *never* mutates state directly, only submits actions.
-- [ ] **3. Responsive layout from scene one.** A 3v3 board, two hands, and resource counters
-  must fit both a wide desktop window and a tall phone screen. Use Godot's anchor/container
-  system with distinct portrait and landscape arrangements; never hard-code pixel positions.
-- [ ] **4. Touch-first input**, with mouse as the superset. Tap-to-select-then-tap-to-target
-  works identically with a mouse; drag-and-drop needs separate handling on both. Hit targets
-  sized for fingers (~44px minimum). No hover-dependent information.
-- [ ] **5. Scenes:** board, slots, hand, resource counters, score track, card detail.
-- [ ] **6. Art + animation:** real card art replacing placeholders; animation for
-  play/move/merge/score/destroy.
-- [ ] **7. Target selection UI** over the same `chosen_*` legal actions — single-target only
-  (see the single-target rule), so this is one selection state with no chaining.
-- [ ] **8. AI opponent** via the existing `IAgent` — difficulty = search budget. **Run search
-  off the main thread** and cap the budget on mobile; a 2s desktop budget will drain battery and
-  stutter the UI on a phone if run inline.
-- [ ] **9. Deckbuilder** (`deckMode: "custom"`): browse the card set, build and save decks,
-  validate against `RuleSet` limits.
-
-  **This step also owns migrating the determinizer off its symmetric-deck assumption**, which is
-  AI work, not UI work — budget for it separately from the deckbuilder screen.
-
-  *What the assumption is.* `ObservedState` gives the opponent's hand and deck as bare counts, so
-  their *contents* must come from somewhere else. In symmetric mode that somewhere is
-  `BuildSymmetricDeck` — and that is not a guess, it is certain knowledge: both players are dealt
-  the same list, derived from public data. The opponent's decklist simply isn't hidden. The only
-  hidden thing is how that known list splits between hand and deck, which makes determinization a
-  shuffle-and-deal and is why `Determinizer` is short.
-
-  *What breaks.* Under `deckMode: "custom"` the decklist itself becomes hidden. The question
-  changes from "how is this known multiset partitioned" to "which cards did they even bring, and
-  then how is *that* partitioned" — a distribution over possible decklists rather than a
-  partition of one. Worse, the failure mode changes character: today a mistake produces an
-  *impossible* world, which the conservation identity and the size guard catch loudly. A weak
-  belief model produces perfectly possible but improbable worlds, which nothing structural
-  detects. Correctness stops being assertable and becomes something you can only measure.
-
-  *What actually has to change.* Less than the above suggests, because the seam is already in the
-  right place:
-
-  - **Unchanged:** the `Determinize(ObservedState, IRandomSource) → GameState` signature and
-    everything downstream of it (the whole search), the conservation rule and
-    `GameState.DestroyCreature`, and the multiset arithmetic. Nearly every consistency, soundness,
-    determinism, and round-trip test in `DeterminizerTests.cs` stays valid verbatim — they are
-    phrased against observations, not against how the card pool was derived.
-  - **Changed:** one method. `UnseenCardsOf` starts from `BuildSymmetricDeck` and subtracts; it
-    would instead start from a *sampled* decklist. `RuleSet.DeckMode` is already the discriminator,
-    so dispatch needs no new flag, and the guard in `Determinize` throws today rather than
-    degrading precisely so this is a compile-and-fix rather than a silent behaviour change.
-  - **New:** the belief model. A sound first version is small — constrain to cards the opponent
-    has demonstrably played (those are known to be in their deck), fill the rest uniformly from
-    the legal pool subject to `DeckSize`/`MaxCopiesPerCard`, reject samples violating the
-    constraints. Crude (it will sample decks no human would build) but sound, which is the right
-    first version for the same reason uniform sampling was right for the symmetric case.
-    Archetype-aware weighting is open-ended; do it only if measured play strength demands it.
-
-  *No abstraction seam exists today, deliberately.* An `IDeckBeliefModel` designed against one
-  implementation and one hypothetical would likely be the wrong shape. The natural extraction
-  point is the first few lines of `UnseenCardsOf` when a second implementation actually exists.
-- [ ] **10. Persistence:** saved decks, settings, progress — Godot `user://`.
-- [ ] **11. Polish:** sound, transitions, menus.
-- [ ] **12. Export pipeline:** desktop builds, plus Android (release signing, `.aab` for Play
-  Store). The debug-keystore path and JDK/SDK toolchain were established in step 1.13 — this
-  step productionizes and re-verifies that, on whatever Godot version Phase 4 ships with, rather
-  than discovering the toolchain from scratch.
-
-**Before starting:** re-read step 1.13's notes for the exact Android toolchain gotchas (the .NET
-9 SDK requirement for export templates, and the Editor Settings Java/Android SDK paths).
-
-**Exit criteria:**
-- [ ] Full game playable with visuals against the Phase 2 AI on a desktop build.
-- [ ] The same, on a **physical Android device**.
-- [ ] Deckbuilder functional and validating against the engine's own rules.
-- [ ] The AI plays custom decks without assuming its opponent's decklist matches its own — the
-  determinizer samples a decklist rather than reading it from the ruleset (step 9).
-- [ ] `Shapes.Core` unmodified from Phase 3.
+**Exit criteria:** full game playable with visuals on desktop and on a physical Android device;
+deckbuilder validates against engine rules; AI plays custom decks without assuming a mirrored
+opponent decklist; `Shapes.Core` unmodified from Phase 4.
 
 ---
 
 ## 3. Cross-cutting principles
 
-- **Core stays pure.** No UI, no engine-specific types, no I/O in `Shapes.Core`. Test-enforced.
-  Also **AOT-safe** — no reflection-heavy binding, favoring source-generated JSON
-  (de)serialization instead.
-- **One target maximum.** No card requires more than a single player-chosen target. Keeps
-  branching flat for the AI, cards readable, and the targeting UI a single state.
-- **Data over code.** Cards and rules are JSON. Balance changes must never require a recompile.
+- **Core stays pure.** No UI/Godot/I-O in `Shapes.Core`; AOT-safe (source-generated JSON, no
+  reflection-heavy binding). Test-enforced.
+- **One target maximum** per card, for flat branching and a simple targeting UI.
+- **Data over code.** Cards and rules are JSON; balance changes never need a recompile.
 - **Determinism everywhere.** One seeded RNG source; any game reproducible from its seed.
-- **Legal-action generation is the contract.** Console, AI, and Godot all consume one API.
-- **Test the invariants, not just the paths.** Apply/undo symmetry, resource conservation,
-  no negative health, observation never leaks hidden state.
+- **Legal-action generation is the contract** all consumers (console/AI/Godot) share.
+- **Test the invariants, not just the paths** — apply/undo symmetry, resource conservation, no
+  negative health, no observation leakage.
 - **Build the naive version first.** Correct, then fast, behind a stable interface.

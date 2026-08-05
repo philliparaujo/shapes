@@ -302,7 +302,7 @@ public class IsMctsAgentTests
     [Fact]
     public void It_honours_a_time_budget()
     {
-        // The interactive half: Phase 4's exit criterion is a decision inside a wall-clock target,
+        // The interactive half: Phase 5's exit criterion is a decision inside a wall-clock target,
         // and a search that overran it would stutter the client. Generous bounds -- this asserts
         // the clock is consulted at all, not a precise deadline, since a CI machine's scheduler
         // is not something to assert against.
@@ -367,7 +367,7 @@ public class IsMctsAgentTests
     [Fact]
     public void A_cancelled_search_still_returns_a_legal_action()
     {
-        // IAgent's cancellation clause: best-effort, and the agent must stay usable. Phase 4 runs
+        // IAgent's cancellation clause: best-effort, and the agent must stay usable. Phase 5 runs
         // the search off the main thread and abandons it when the player quits or concedes, and
         // the game still needs a legal move to continue. Cancelled before the first iteration is
         // the worst case -- there is no tree at all, so this exercises the fallback path.

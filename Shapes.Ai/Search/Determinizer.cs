@@ -54,7 +54,7 @@ namespace Shapes.Ai.Search;
 // nonsense, Determinize throws on a non-symmetric ruleset, mirroring BuildSymmetricDeck's own
 // guard. Phases 1-3 are symmetric by design (PLAN.md, "Deck model").
 //
-// Lifting that assumption is scoped at PLAN.md Phase 4 step 9, alongside the deckbuilder that
+// Lifting that assumption is scoped at PLAN.md Phase 5 step 9, alongside the deckbuilder that
 // makes it necessary. The short version: this class's public surface does not change, and
 // neither does anything downstream of it -- only UnseenCardsOf changes, from "start with the
 // known decklist" to "start with a sampled one." The throw above is what makes that a

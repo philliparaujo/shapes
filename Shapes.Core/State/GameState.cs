@@ -22,7 +22,7 @@ public enum TurnEventKind
     CreaturePlayed = 0,
     CreatureDestroyed = 1,
 
-    // A card drawn into an already-full hand and burned. Logged so the Phase 3 balance run can
+    // A card drawn into an already-full hand and burned. Logged so the Phase 4 balance run can
     // measure how often the hand limit actually costs a player a card -- "resource flooding" in
     // the plan's metrics list -- rather than inferring it from hand sizes.
     CardBurned = 2,

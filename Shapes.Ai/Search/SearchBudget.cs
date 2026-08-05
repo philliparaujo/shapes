@@ -7,9 +7,9 @@ namespace Shapes.Ai.Search;
 // Two limits rather than one because the two callers want different things and neither is
 // expressible in the other's terms. Phase 3's batch runner wants ITERATIONS -- a reproducible
 // number of samples, so that two rulesets are compared at equal search effort rather than at
-// equal CPU time on whatever machine happened to run them. Phase 4's client wants MILLISECONDS --
+// equal CPU time on whatever machine happened to run them. Phase 5's client wants MILLISECONDS --
 // a turn that comes back before the player gets bored, whatever the device manages in that time.
-// PLAN.md step 2.8 names both ("budget by time *or* iteration count"); step 2.6 puts the seam in
+// PLAN.md Phase 3 step 3 names both ("budget by time *or* iteration count"); step 2.6 puts it in
 // now so neither caller has to be rewritten when tuning arrives.
 //
 // A time budget makes a search NON-REPRODUCIBLE: the same seed will do a different number of
@@ -57,7 +57,7 @@ public readonly struct SearchBudget
 
     // The default for a search built without a stated budget. Small enough that a full game runs
     // in seconds in a test, large enough that the search is visibly better than one iteration.
-    // Tuning the real number is PLAN.md step 2.9's job, against measurements this cannot make.
+    // Tuning the real number is PLAN.md Phase 3 step 5's job, against measurements this cannot make.
     public static SearchBudget Default => OfIterations(1000);
 
     // Whether the same seed at the same position must produce the same decision. False the moment

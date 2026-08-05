@@ -38,7 +38,7 @@ public class RuleSetLoaderTests
     public void Explicit_zero_is_honoured_rather_than_treated_as_missing()
     {
         // The DTO uses nullable fields precisely so "0" and "absent" are distinguishable.
-        // Getting this wrong would silently ignore a deliberate Phase 3 sweep value.
+        // Getting this wrong would silently ignore a deliberate Phase 4 sweep value.
         var rules = RuleSetLoader.FromJson("""{ "incomePerCreatureType": 0 }""");
 
         Assert.Equal(0, rules.IncomePerCreatureType);

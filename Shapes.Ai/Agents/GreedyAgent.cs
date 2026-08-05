@@ -19,7 +19,7 @@ namespace Shapes.Ai.Agents;
 // belongs to Phase 3's Shapes.Sim, which runs it properly (parallel, seeded, both seats, across
 // rulesets). What this class owes the comparison is not a score but a set of properties that make
 // the comparison meaningful at all: deterministic given a position, independent of the search it
-// will be measured against, and stable when Phase 3 reprices cards. Those are the things the
+// will be measured against, and stable when Phase 4 reprices cards. Those are the things the
 // tests check.
 //
 // == Why this does NOT simulate ==
@@ -62,7 +62,7 @@ namespace Shapes.Ai.Agents;
 // TIE-BREAKING IS RANDOM, through the injected IRandomSource, not first-past-the-post. Two
 // actions scoring identically are genuinely indistinguishable to this heuristic, and always
 // taking the earliest would bias play toward low slot indices and toward whatever order the
-// generator happens to emit -- a systematic bias that would show up in Phase 3's per-card
+// generator happens to emit -- a systematic bias that would show up in Phase 4's per-card
 // statistics as a property of the card list's ordering. Reservoir sampling over the ties keeps
 // the choice uniform in one pass.
 public sealed class GreedyAgent : IAgent
@@ -75,7 +75,7 @@ public sealed class GreedyAgent : IAgent
     // priorities in order -- kill something > damage something > develop the board > do
     // something unread > pass. Constants rather than a config object because this is a fixed
     // yardstick; a baseline whose strength drifts with a settings file cannot be compared across
-    // Phase 3 runs.
+    // Phase 4 runs.
 
     // Per point of damage actually landed (after type effectiveness, capped at the target's
     // remaining health -- overkill is not value).
@@ -124,8 +124,8 @@ public sealed class GreedyAgent : IAgent
     private const double UnknownEffectWeight = 0.4;
 
     // Merging: mildly positive as a tiebreak, deliberately NOT enthusiastic. The plan flags
-    // merge pricing as an open Phase 3 question, and a baseline that merged eagerly would bias
-    // the very measurement meant to answer it (PLAN.md step 3.3a asks whether the AI ever
+    // merge pricing as an open Phase 4 question, and a baseline that merged eagerly would bias
+    // the very measurement meant to answer it (PLAN.md step 4.2a asks whether the AI ever
     // DECLINES a merge). Scored below playing a creature, since merging costs a board slot --
     // and with it a scoring body and its income.
     private const double MergeWeight = 0.2;

@@ -8,7 +8,7 @@ namespace Shapes.Core.Actions;
 // Enumerates every legal action for the active player.
 //
 // The single most important API in the codebase: the console renders this as a numbered menu,
-// MCTS expands it into tree children, and the Phase 4 UI derives every affordance from it.
+// MCTS expands it into tree children, and the Phase 5 UI derives every affordance from it.
 // Because all three consume the same list, a rule enforced here is enforced everywhere, and a
 // rule enforced ONLY in a consumer is a rule the AI will happily break.
 //

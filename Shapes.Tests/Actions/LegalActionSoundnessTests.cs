@@ -152,7 +152,7 @@ public class LegalActionSoundnessTests
     public void The_same_seed_and_actions_produce_the_same_game_twice()
     {
         // Determinism. Everything downstream -- reproducible bug reports, comparable balance
-        // runs, seed replay on a phone in Phase 4 -- rests on this. Needs its own driver by
+        // runs, seed replay on a phone in Phase 5 -- rests on this. Needs its own driver by
         // definition: the property IS that two independent runs agree.
         for (ulong seed = 1; seed <= DeterminismGames; seed++)
         {

@@ -81,7 +81,7 @@ internal sealed class DrawUpToOp : EffectOp
         {
             // Same burn path as every other draw. It can only actually burn if a card names a
             // target above the hand limit, which no shipped card does -- routed through anyway
-            // so the rule holds for whatever Phase 3 balance work adds.
+            // so the rule holds for whatever Phase 4 balance work adds.
             ctx.State.DrawWithBurn(ctx.ControllingPlayer, needed);
         }
     }

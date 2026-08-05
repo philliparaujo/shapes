@@ -6,7 +6,7 @@ using Shapes.Tests.Fixtures;
 namespace Shapes.Tests.Mechanics;
 
 // Scoring and income -- the two rules that drive the whole game, and the two the design notes
-// flagged for Phase 3 measurement.
+// flagged for Phase 4 measurement.
 public class GameStateTests
 {
     [Fact]
@@ -121,7 +121,7 @@ public class GameStateTests
     [Fact]
     public void Income_per_creature_can_be_switched_off()
     {
-        // A legitimate Phase 3 sweep: isolates how much of the runaway-leader effect comes
+        // A legitimate Phase 4 sweep: isolates how much of the runaway-leader effect comes
         // from creature income rather than scoring.
         var rules = new RuleSet(
             "flat", 4, 1, 8, new ResourcePool(1, 1, 1),

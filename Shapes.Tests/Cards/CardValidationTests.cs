@@ -4,7 +4,7 @@ using Shapes.Core.Effects;
 namespace Shapes.Tests.Cards;
 
 // The card schema's guard rails. A typo in card data must fail at load, not become a silent
-// gameplay bug -- an op that quietly does nothing would let a whole Phase 3 balance run
+// gameplay bug -- an op that quietly does nothing would let a whole Phase 4 balance run
 // complete while measuring something nobody intended.
 public class CardValidationTests
 {
@@ -123,8 +123,8 @@ public class CardValidationTests
     // --- The single-target rule ------------------------------------------------------------
     //
     // At most one player-chosen target per card. This is a schema error rather than a
-    // convention so it cannot creep back in during Phase 3 balance edits: it is what keeps
-    // MCTS branching at N actions per move rather than N x M, and the Phase 4 targeting UI a
+    // convention so it cannot creep back in during Phase 4 balance edits: it is what keeps
+    // MCTS branching at N actions per move rather than N x M, and the Phase 5 targeting UI a
     // single state.
 
     [Fact]

@@ -245,7 +245,7 @@ public sealed class SearchNode
 
         // Total order over ties. Dictionary enumeration order is not contractually stable, and an
         // unstable tie-break would make the same seed produce different decisions across runs --
-        // quietly destroying the reproducibility Phase 3's balance numbers depend on. Same
+        // quietly destroying the reproducibility Phase 4's balance numbers depend on. Same
         // reasoning as Determinizer.UnseenCardsOf's sort.
         return string.CompareOrdinal(
             candidate.IncomingAction?.Describe(), incumbent.IncomingAction?.Describe()) < 0;

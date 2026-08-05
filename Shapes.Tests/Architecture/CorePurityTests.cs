@@ -7,7 +7,7 @@ namespace Shapes.Tests.Architecture;
 // Enforces the keystone architectural rule from PLAN.md: Shapes.Core references nothing
 // but the BCL.
 //
-// Everything downstream depends on this. If Core stays pure, Phase 4 is a client swap
+// Everything downstream depends on this. If Core stays pure, Phase 5 is a client swap
 // rather than a rewrite, and the console, AI, sim, and Godot clients are interchangeable
 // consumers. The rule is easy to break accidentally with a single convenient using
 // directive, so it is a test rather than a convention.

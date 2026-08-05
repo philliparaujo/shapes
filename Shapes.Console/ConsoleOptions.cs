@@ -4,7 +4,7 @@ namespace Shapes.Console;
 //
 // Kept deliberately small and hand-parsed: adding a CLI package to get four flags would be the
 // first NuGet dependency in the repo, and the console is a debugging tool rather than a shipped
-// product (Phase 4's Godot client is the real one). If this grows past a handful of flags, that
+// product (Phase 5's Godot client is the real one). If this grows past a handful of flags, that
 // trade changes.
 //
 // Unknown arguments FAIL rather than being ignored -- a typo'd `--p1 gredy` that silently fell

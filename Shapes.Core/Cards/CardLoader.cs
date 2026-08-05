@@ -6,7 +6,7 @@ namespace Shapes.Core.Cards;
 
 // Raised when card JSON cannot be turned into a valid CardDefinition. Always names the source
 // file and, where it can, the card, move, and effect at fault -- a card set is edited by hand
-// throughout Phase 3, so the message is the whole value of failing at load.
+// throughout Phase 4, so the message is the whole value of failing at load.
 public sealed class CardLoadException : Exception
 {
     public CardLoadException(string message, Exception? inner = null)
