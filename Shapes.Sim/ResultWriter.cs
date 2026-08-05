@@ -31,9 +31,15 @@ public static class ResultWriter
         File.WriteAllText(path, sb.ToString());
     }
 
-    public static void WriteJson(string path, BatchResult result)
+    public static void WriteJson(string path, BatchResult result, MetricsReport metrics)
     {
-        var json = JsonSerializer.Serialize(result, JsonOptions);
+        var json = JsonSerializer.Serialize(new { result.Pairings, result.AllGames, Metrics = metrics }, JsonOptions);
+        File.WriteAllText(path, json);
+    }
+
+    public static void WriteMetricsJson(string path, MetricsReport metrics)
+    {
+        var json = JsonSerializer.Serialize(metrics, JsonOptions);
         File.WriteAllText(path, json);
     }
 

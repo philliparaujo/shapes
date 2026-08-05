@@ -25,6 +25,7 @@ coverage*.xml
 # Balance run outputs (experiment logs are committed; raw data is not)
 balance/**/*.csv
 balance/**/raw/
+metrics.json
 
 # Godot (Phase 4)
 .godot/

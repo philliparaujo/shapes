@@ -10,20 +10,20 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 0 / 7      |
+| 4 — AI-driven balance                    | 1 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
-733 tests passing. **Phases 1, 2, and 3 are complete.**
+747 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4** — AI-driven balance, starting at step 1 (metrics: win rate by seat, game
-length, score curves, per-card play/win-rate correlation, move usage, merge frequency, resource
-flow, ending type). Agents are now frozen at Phase 3's final tuned configuration (step 7's
-matrix); cards/rules vary from here instead.
+**Next up: Phase 4 step 2** — answer the two flagged design questions (merge tradeoff,
+unopposed-income compounding) as direct behaviour measurements now that step 1's metrics exist.
+Agents are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules vary from
+here instead.
 
 ### Common commands
 
@@ -39,11 +39,26 @@ Run from repo root (`shapes/`, where `Shapes.sln` lives).
 | **Watch a full AI game**      | `dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet` |
 | Watch the search play         | `dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet` |
 | **Run the agent matrix**      | `dotnet run -c Release --project Shapes.Sim -- --agents random,greedy,ismcts,ismcts-heuristic --games 30` |
+| **See stats from played games** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --metrics-json metrics.json` |
 
 `--p1`/`--p2` each take `human` (default), `random`, `greedy`, `ismcts`, or `ismcts-heuristic`
 (step 3.2's heuristic playout, same search otherwise). `--iterations <n>` sets the `ismcts`/
 `ismcts-heuristic` search budget (default 200, in iterations so seeded games replay exactly).
 `--seed <n>` skips the prompt; `--quiet` gives one line per action. `--help` lists it all.
+
+**Stats are `Shapes.Sim`'s job, not the console's** — the console client only renders the board
+live; it has no stats output of its own. Every `Shapes.Sim` run already prints a metrics summary
+(seat win rate, avg game length, move usage, merge frequency both raw and per-creature-played,
+unspent resources, ending types, top cards by play/draw win-rate, top moves by use/win-rate) after
+the pairing table. `--json PATH` writes full per-game detail plus the metrics report;
+`--metrics-json PATH` writes just the aggregated `MetricsReport` (Phase 4 step 1). Point
+`--agents` at a single pairing and lower `--games` for a quick look at "how did that kind of game
+usually go" rather than the full matrix.
+
+**A big matrix shows live progress, not silence until the end** — `Shapes.Sim` redraws a single
+`completed/total games  rate  elapsed` line in place as games finish (only when stdout is a real
+terminal; piping to a file or CI log skips it, so logs stay clean). Nothing to opt into — every
+run gets it.
 
 **The waiting seat's hand renders as a count** (`--reveal` shows both) so a human never reads
 the AI's cards. **Watch games, don't just assert about them** — step 2.4's blocking-slot bug was
@@ -295,8 +310,25 @@ agent configuration is frozen and recorded.
 **Agents frozen** this phase — the mirror image of Phase 3. Cards/rules untouched since Phase 1
 step 10, so every number here reflects genuinely stable content.
 
-- [ ] **1. Metrics** — win rate by seat, game length, score curves, per-card play/win-rate
-  correlation, move usage, merge frequency, resource flow, ending type.
+- [x] **1. Metrics** — `MetricsReport.From` aggregates a whole `BatchResult` (never per-pairing,
+  same "don't pool seats" rule as `PairingSummary`): win rate by seat, avg game length, per-card
+  play-count/win-rate-when-played **and** win-rate-when-drawn, per-move use-count/win-rate,
+  merge frequency (both raw and normalized as merges-per-creature-played, so a bare count can't
+  hide whether merging is common or rare relative to opportunity), average unspent resources at
+  game end, and ending-type counts. Card draws are tracked via a new `TurnEventKind.CardDrawn`
+  logged at the one choke point every draw already goes through (`GameState.DrawWithBurn`); a
+  card counts as "drawn" from the opening hand onward, and multiple copies drawn in one game
+  count that game once toward the win-rate denominator (matches how play win-rate already
+  worked). Moves are keyed by `(CardId, MoveName)`, not by `UseMoveAction.MoveIndex` (only
+  meaningful relative to one creature's merge-concatenated move list) or bare `MoveDefinition.Name`
+  alone (two cards can share a move name; `GameRunner.ResolveMove` walks `MergedFrom` to find which
+  source card actually declared the move at that index, since a merged creature's move can belong
+  to either half of the merge). `GameRunner` caps a
+  game at 500 turns so a stalled game reports as `EndingType.NonTerminating` (a countable batch
+  outcome) instead of hanging the run — step 4.5's "non-terminating games" watch item, now
+  enforced rather than assumed. Score curves were tried and dropped: a flattened per-turn score
+  series added size and noise to the JSON output without pulling its weight next to the other
+  metrics. `Shapes.Sim`'s console output, `--json`, and `--metrics-json` all surface the report.
 - [ ] **2. Answer the two flagged design questions directly as behaviour measurements** (not win
   rate, per Phase 2's lesson, and only meaningful with Phase 3's frozen competent agent): does the
   AI ever decline a legal merge, and how strongly does unopposed-creature income compound?

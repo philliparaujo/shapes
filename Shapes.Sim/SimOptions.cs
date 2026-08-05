@@ -19,6 +19,8 @@ public sealed record SimOptions
 
     public string? OutputJson { get; private init; }
 
+    public string? MetricsJson { get; private init; }
+
     public bool ShowHelp { get; private init; }
 
     public static SimOptions Parse(string[] args)
@@ -55,6 +57,12 @@ public sealed record SimOptions
                 case "--json":
                     options = options with { OutputJson = RequireValue(args, ref i, "--json") };
                     break;
+                case "--metrics-json":
+                    options = options with
+                    {
+                        MetricsJson = RequireValue(args, ref i, "--metrics-json"),
+                    };
+                    break;
                 case "--help" or "-h":
                     options = options with { ShowHelp = true };
                     break;
@@ -88,6 +96,7 @@ public sealed record SimOptions
         Console.WriteLine("  --parallelism N    Max concurrent games (default: Environment.ProcessorCount)");
         Console.WriteLine("  --csv PATH         Write per-pairing summary rows to a CSV file");
         Console.WriteLine("  --json PATH        Write the full result set (summary + per-game rows) as JSON");
+        Console.WriteLine("  --metrics-json PATH  Write just the aggregated metrics report (PLAN.md step 4.1) as JSON");
         Console.WriteLine("  --help             Show this message");
     }
 

@@ -39,7 +39,13 @@ public sealed class BatchResult
 // assembles it.
 public static class BatchRunner
 {
-    public static BatchResult Run(SimOptions options, CardDatabase cards, RuleSet rules)
+    // onGameCompleted, if given, is invoked (completed, total) after each game finishes -- from
+    // whichever worker thread finished it, so callers must be thread-safe (Program.cs's use just
+    // rewrites a console line under a lock). Optional and last so it doesn't disturb existing
+    // callers/tests that only care about the result.
+    public static BatchResult Run(
+        SimOptions options, CardDatabase cards, RuleSet rules,
+        Action<int, int>? onGameCompleted = null)
     {
         var pairingSpecs = new List<(string One, string Two)>();
         foreach (var one in options.Agents)
@@ -73,11 +79,14 @@ public static class BatchRunner
             parallelOptions.MaxDegreeOfParallelism = max;
         }
 
+        var completed = 0;
         Parallel.ForEach(jobs, parallelOptions, job =>
         {
             var result = GameRunner.Play(job.One, job.Two, job.Seed, cards, rules, options.Iterations);
             allGames.Add(result);
             gamesByPairing[(job.One, job.Two)].Add(result);
+
+            onGameCompleted?.Invoke(Interlocked.Increment(ref completed), jobs.Count);
         });
 
         var pairings = pairingSpecs

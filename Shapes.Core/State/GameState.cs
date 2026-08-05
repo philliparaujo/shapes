@@ -26,6 +26,11 @@ public enum TurnEventKind
     // measure how often the hand limit actually costs a player a card -- "resource flooding" in
     // the plan's metrics list -- rather than inferring it from hand sizes.
     CardBurned = 2,
+
+    // A card drawn and actually kept (the CardBurned counterpart). Lets a batch runner build a
+    // per-card "drawn this game" signal -- e.g. draw win-rate correlation -- without re-deriving
+    // it from hand/deck diffs.
+    CardDrawn = 3,
 }
 
 // One notable thing that happened this turn: a creature entering or leaving the board. Exists
@@ -302,6 +307,7 @@ public sealed class GameState
             }
 
             kept.Add(drawn);
+            RecordTurnEvent(TurnEventKind.CardDrawn, player, default, drawn);
         }
 
         return kept;

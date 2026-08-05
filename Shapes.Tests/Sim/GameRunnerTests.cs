@@ -1,3 +1,4 @@
+using Shapes.Core.Primitives;
 using Shapes.Core.Rules;
 using Shapes.Sim;
 using Shapes.Tests.Fixtures;
@@ -17,7 +18,10 @@ public class GameRunnerTests
     {
         var result = GameRunner.Play("random", "random", seed: 1, TestCards.Database, Rules, iterations: 10);
 
-        Assert.True(result.WinnerScore >= Rules.ScoreToWin);
+        Assert.Equal(EndingType.ScoreThreshold, result.Ending);
+        Assert.NotNull(result.Winner);
+        var winnerScore = result.Winner == PlayerId.One ? result.ScoreOne : result.ScoreTwo;
+        Assert.True(winnerScore >= Rules.ScoreToWin);
     }
 
     [Fact]
@@ -32,8 +36,8 @@ public class GameRunnerTests
         Assert.Equal(first.Winner, second.Winner);
         Assert.Equal(first.TurnCount, second.TurnCount);
         Assert.Equal(first.ActionCount, second.ActionCount);
-        Assert.Equal(first.WinnerScore, second.WinnerScore);
-        Assert.Equal(first.LoserScore, second.LoserScore);
+        Assert.Equal(first.ScoreOne, second.ScoreOne);
+        Assert.Equal(first.ScoreTwo, second.ScoreTwo);
     }
 
     [Fact]
@@ -64,8 +68,8 @@ public class GameRunnerTests
         // precise action sequences legitimately diverge once P2's differing choices change the
         // board P1 reacts to -- this test only pins that the source game boots and completes for
         // both, exercising the same seed across agent kinds without mixing streams.
-        Assert.True(baseline.WinnerScore >= Rules.ScoreToWin);
-        Assert.True(otherOpponent.WinnerScore >= Rules.ScoreToWin);
+        Assert.True(Math.Max(baseline.ScoreOne, baseline.ScoreTwo) >= Rules.ScoreToWin);
+        Assert.True(Math.Max(otherOpponent.ScoreOne, otherOpponent.ScoreTwo) >= Rules.ScoreToWin);
     }
 
     [Fact]

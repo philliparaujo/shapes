@@ -92,4 +92,18 @@ public class BatchRunnerTests
         Assert.All(result.Pairings, p =>
             Assert.Equal((double)p.AgentOneWins / p.GameCount, p.AgentOneWinRate, precision: 10));
     }
+
+    [Fact]
+    public void Progress_callback_fires_once_per_game_and_ends_at_the_total()
+    {
+        var options = Options(games: 4, agents: ["random", "greedy"]);
+        var totalJobs = options.Games * 4; // every ordered pairing, including self-pairings
+
+        var calls = new System.Collections.Concurrent.ConcurrentBag<(int Completed, int Total)>();
+        BatchRunner.Run(options, TestCards.Database, Rules, (completed, total) => calls.Add((completed, total)));
+
+        Assert.Equal(totalJobs, calls.Count);
+        Assert.All(calls, c => Assert.Equal(totalJobs, c.Total));
+        Assert.Equal(Enumerable.Range(1, totalJobs), calls.Select(c => c.Completed).OrderBy(c => c));
+    }
 }

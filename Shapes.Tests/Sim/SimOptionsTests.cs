@@ -34,10 +34,12 @@ public class SimOptionsTests
     [Fact]
     public void Csv_and_json_paths_are_parsed()
     {
-        var options = SimOptions.Parse(["--csv", "out.csv", "--json", "out.json"]);
+        var options = SimOptions.Parse(
+            ["--csv", "out.csv", "--json", "out.json", "--metrics-json", "metrics.json"]);
 
         Assert.Equal("out.csv", options.OutputCsv);
         Assert.Equal("out.json", options.OutputJson);
+        Assert.Equal("metrics.json", options.MetricsJson);
     }
 
     [Fact]
