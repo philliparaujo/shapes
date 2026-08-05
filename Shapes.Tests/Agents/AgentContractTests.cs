@@ -1,4 +1,5 @@
 using Shapes.Ai.Agents;
+using Shapes.Ai.Search;
 using Shapes.Core.Actions;
 using Shapes.Core.Primitives;
 using Shapes.Core.Rules;
@@ -25,12 +26,20 @@ public class AgentContractTests
     // agent that violates the contract fails these without anyone remembering to test it.
     //
     // Named rather than bare factories so a failure message says which agent broke the clause.
-    public static TheoryData<string> Agents => new() { "Random", "Greedy" };
+    public static TheoryData<string> Agents => new() { "Random", "Greedy", "IsMcts" };
 
     private static IAgent Agent(string name, ulong seed) => name switch
     {
         "Random" => new RandomAgent(new SeededRandom(seed)),
         "Greedy" => new GreedyAgent(new SeededRandom(seed)),
+
+        // A small budget deliberately: these clauses are about the CONTRACT, not about strength,
+        // and several of them re-decide the same position dozens of times. A realistic budget
+        // would make this suite slow while asserting nothing extra. IsMctsAgentTests covers the
+        // search itself.
+        "IsMcts" => new IsMctsAgent(
+            TestCards.Database, new SeededRandom(seed), SearchBudget.OfIterations(25)),
+
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Unknown agent."),
     };
     private static AgentContext Context(GameState state) =>
@@ -39,8 +48,13 @@ public class AgentContractTests
     // A mid-game position with several genuinely different options available -- creatures to
     // play, a move to use, and a merge -- so "picked something legal" is a real assertion
     // rather than a test that EndTurn is the only choice.
+    // ConservingDecks because one of the agents under test DETERMINIZES. A hand-built position
+    // ordinarily leaves both decks empty, which contradicts the board and the hands -- and
+    // Determinizer throws on a position whose cards do not add up rather than sampling a world it
+    // knows is impossible. Harmless to the other two agents, neither of which reads a deck.
     private static GameState Position() =>
         new StateBuilder()
+            .ConservingDecks(TestCards.Database)
             .P1(p => p
                 .Slot(0, TestCards.Striker, TypeMask.Wheel, maxHealth: 2)
                 .Slot(1, TestCards.TwoMove, TypeMask.Spike, maxHealth: 3)

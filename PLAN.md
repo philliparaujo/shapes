@@ -8,11 +8,11 @@ AI-driven balance → Godot client.
 | Phase                          | Progress   |
 |--------------------------------|------------|
 | 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 5 / 9      |
+| 2 — IS-MCTS AI                 | 6 / 9      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-671 tests passing.
+689 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
@@ -28,10 +28,13 @@ actions from static card data rather than simulating, so it stays independent of
 exists to measure. How strong the baselines actually are is Phase 3 step 1's measurement, not a
 Phase 2 claim. Step 2.5 landed console hidden-hand mode: the waiting seat's hand renders as a
 count, with `--reveal` restoring the old both-hands view. The decision the step asked for was
-confirmed — hiding applies to **hotseat** too, not only when a seat is an agent.
+confirmed — hiding applies to **hotseat** too, not only when a seat is an agent. Step 2.6 landed
+IS-MCTS itself (`Shapes.Ai/Search/IsMctsAgent.cs`) — selection with the availability-corrected
+UCB1, expansion, uniform playout, backprop, and a fresh determinization every iteration. It is
+playable at the console as `--p1 ismcts`.
 
-**Next up: step 2.6** — IS-MCTS itself: selection (UCB1), expansion, playout, backprop, with
-per-iteration resampling over step 2.3's determinizer.
+**Next up: step 2.7** — the playout policy: replace uniform-random rollouts with a lightly
+heuristic one (prefer damage/score moves), which is usually a large strength gain for modest cost.
 
 ### Common commands
 
@@ -45,6 +48,7 @@ Run these from the repo root (`shapes/`, where `Shapes.sln` lives).
 | Play the game (console)       | `dotnet run --project Shapes.Console`                |
 | Play against the AI           | `dotnet run --project Shapes.Console -- --p2 greedy` |
 | **Watch a full AI game**      | `dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet` |
+| Watch the search play         | `dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet` |
 
 `dotnet build` compiles every project in the solution and reports errors/warnings — run it after
 any code change to check nothing broke, before bothering with tests. `dotnet test` builds first
@@ -58,7 +62,9 @@ argument to run everything.
 random seed, then two players take turns picking numbered actions in the same terminal.
 
 **Any seat can be an agent** (added with step 2.4): `--p1` and `--p2` each take `human`
-(default), `random`, or `greedy`, so the same client covers hotseat, human-v-AI, and AI-v-AI.
+(default), `random`, `greedy`, or `ismcts`, so the same client covers hotseat, human-v-AI, and
+AI-v-AI. `--iterations <n>` sets the search budget per `ismcts` decision (default 200) — in
+iterations rather than milliseconds, so a seeded game still replays exactly.
 `--seed <n>` skips the prompt, making a game scriptable and exactly replayable; `--quiet` drops
 the board render for one line per action plus a turn header, which fits a whole game on a screen.
 Every decision, human or AI, is echoed either way. `--help` lists it all.
@@ -881,7 +887,84 @@ rather than a blanket line-coverage percentage.
   are tested**, since the plausible regression is hiding by active-player index in a way that
   inverts when player two acts, which would look perfect in a screenshot taken on player one's
   turn. Verified to have teeth: inverting the seat comparison fails 6 of the 10 tests.
-- [ ] **6. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
+- [x] **6. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
+  Three files in `Shapes.Ai/Search/`: `IsMctsAgent.cs` (the loop), `SearchNode.cs` (the tree), and
+  `SearchBudget.cs` (when to stop).
+
+  **A node is an information set, not a state, and that is not a technicality.** The searcher does
+  not know the position — it knows the actions taken so far and its own cards. So a node stands for
+  an action *sequence*, and its statistics are pooled across every sampled world that reached it.
+  This is what makes `GameAction`'s value equality (step 1.8) load-bearing rather than tidy: the
+  same action generated in two different determinized worlds must map to **one** child, or the
+  statistics split across duplicates and the search learns half as much from each.
+
+  **Different worlds offer different actions, which breaks plain UCB1.** A child in the tree may be
+  illegal in the world this iteration sampled — an opponent card they do not hold this time, a move
+  whose condition fails on a different board. UCB1's `sqrt(ln(N)/n)` assumes every child was
+  available on all *N* parent visits. Here an action offered in a tenth of worlds gets a tenth of
+  the chances, so measuring it against the parent's visits makes it look permanently
+  under-explored and the search pours its budget into rare actions regardless of value. The fix
+  (Cowling, Powley & Whitehouse 2012) is an **availability count** per child — how many times it
+  was among the legal options — and exploration becomes `sqrt(ln(availability)/visits)`. Every
+  legal child is incremented at each selection step, *including the ones not chosen*. That
+  bookkeeping is the whole correction and its failure is silent: the search still runs, still
+  returns legal moves, and simply explores the wrong things.
+
+  **One node is one atomic action**, per the plan's branching-factor note. `EndTurn` is an ordinary
+  edge and the tree simply gets deeper; a node's depth is therefore an action count, not a turn
+  count, which is what the playout cap is denominated in.
+
+  **A truncated playout is scored by score margin, not discarded and not called a draw.** Uniform
+  random play can pass turns indefinitely without either score reaching the threshold, so a depth
+  cap is mandatory. But discarding capped playouts would bias the statistics toward lines that
+  finish fast — the aggressive ones — for a reason having nothing to do with the game, and scoring
+  them all a flat 0.5 would make "two points from winning" indistinguishable from "losing badly."
+  The margin is divided by `scoreToWin` so the scale survives Phase 3 sweeping that value, and
+  clamped to [0,1] so a truncated playout can never outrank a real win.
+
+  **The budget is iterations *or* wall-clock, and the distinction is not cosmetic.** Phase 3
+  compares rulesets at equal search *effort*, which a clock cannot express; Phase 4 needs a turn
+  back before the player gets bored, which an iteration count cannot promise. A time budget makes a
+  search **non-reproducible** — the same seed does a different number of iterations on a busy
+  machine — so iterations is the default, the console's only option, and what every test uses.
+  `SearchBudget.IsDeterministic` states which kind you hold rather than leaving a caller to hope.
+
+  **What the tests assert, and the one that could not be written naively.** Most of the suite aims
+  at mechanisms directly, because a search's failure mode is not a crash — it is playing badly
+  while satisfying every clause of `AgentContractTests` (which this agent is now a theory case of).
+  Three sabotages were run to confirm the tests have teeth: inverting backprop's sign fails
+  `It_takes_an_available_lethal_move`; incrementing availability only for the *selected* child fails
+  the availability test; determinizing once per search and cloning fails the resampling test.
+
+  That last one is the interesting one. **A draw-count assertion does not catch determinize-once**
+  — the sabotaged version still consumes randomness in its playouts, so the total stays high while
+  the search stares at one imagined opponent hand throughout. Counting determinizer *calls* fails
+  the same way, since the sabotage calls it once and clones thereafter. The property is that the
+  worlds **differ**, so `IsMctsAgent.LastDistinctWorldCount` records distinct sampled opponent
+  hands and the test asserts on that. Writing the weak version first, watching the sabotage walk
+  through it, and only then finding the real property is what the step actually cost.
+
+  **A fixture problem surfaced here, and the determinizer was right.** `StateBuilder` positions
+  leave both decks empty, which contradicts the hands and board — and `Determinize` throws on a
+  position whose cards do not add up rather than sampling a world it knows is impossible (step
+  2.3's guard, working as designed). Fixed in the fixture, not the engine: `StateBuilder`
+  `.ConservingDecks(cards)` fills each deck with the decklist remainder. **Opt-in**, since
+  defaulting it would silently hand every position a 20-card deck and change draw behaviour, deck
+  exhaustion, and hand limits underneath suites that pin them. A second fixture trap followed:
+  the shared `Position()` gives the opponent an *empty hand*, making the empty hand the only
+  consistent world — so a search there resamples perfectly and still yields one distinct world.
+  The resampling test needs a position where hidden information actually exists.
+
+  **No win rate is asserted**, for the reasons step 2.4 records at length. The exit criterion
+  ("beats both baselines decisively") belongs to Phase 3 step 1, which owns batch measurement;
+  fixing a threshold here would mean picking it before the tool that measures it exists.
+
+  **Watched, not just asserted.** Per this plan's own standard, a game was run and read:
+  `--p1 ismcts --p2 greedy --seed 7 --iterations 300` wins 11–2 in 9 turns, developing the board,
+  using several moves per turn, and spending resources before passing. One `End turn` looked like
+  the classic passing bug and was checked rather than assumed — it came at a position holding all
+  three slots against an empty enemy board while scoring 3/turn, where passing is simply correct.
+  `GreedyAgent`, whose `EndTurnScore` is negative, would have played a card there.
 - [ ] **7. Playout policy:** start uniform-random, then lightly heuristic (prefer damage/score
   moves) — usually a large strength gain for modest cost.
 - [ ] **8. Performance:** apply/undo, node pooling, budget by time *or* iteration count.
@@ -893,6 +976,11 @@ rather than a blanket line-coverage percentage.
   from "search runs." **Thresholds and sample sizes are set in Phase 3 step 1**, which owns batch
   measurement; fixing a number here would mean picking it before the tool that measures it exists.
 - [ ] A decision at a realistic budget completes in target wall-clock (suggest ≤2s desktop).
+  Development observation, not a result: a full 53-action game at 1,000 iterations/decision runs in
+  ~11s wall-clock end to end, so a decision averages well under the 2s target with the naive
+  cloning path and before step 2.8 touches performance. Left unchecked deliberately — "realistic
+  budget" is not defined until step 2.9 tunes it against Phase 3's measurements, and a criterion
+  ticked against a number nobody has justified is not evidence.
 - [ ] `ObservedState` provably leaks no hidden information.
 - [x] A human-vs-AI console game hides the AI's hand by default, and `--reveal` restores full
   visibility for debugging.

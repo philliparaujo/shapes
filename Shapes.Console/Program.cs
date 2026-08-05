@@ -6,6 +6,7 @@
 //   dotnet run --project Shapes.Console                         hotseat (default)
 //   dotnet run --project Shapes.Console -- --p1 greedy           human v Greedy
 //   dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet
+//   dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet
 //
 // The AI-v-AI mode is how a full game gets WATCHED rather than merely asserted about. A passing
 // test tells you the agent's decisions were legal; it does not tell you what it did with its
@@ -14,6 +15,7 @@
 // fits on a screen and a hundred fit in a pipe.
 
 using Shapes.Ai.Agents;
+using Shapes.Ai.Search;
 using Shapes.Console;
 using Shapes.Core.Actions;
 using Shapes.Core.Cards;
@@ -63,8 +65,8 @@ try
 {
     agents = new Dictionary<PlayerId, IAgent?>
     {
-        [PlayerId.One] = BuildAgent(options.PlayerOne, seed * 7919),
-        [PlayerId.Two] = BuildAgent(options.PlayerTwo, seed * 104729),
+        [PlayerId.One] = BuildAgent(options.PlayerOne, seed * 7919, cards, options.Iterations),
+        [PlayerId.Two] = BuildAgent(options.PlayerTwo, seed * 104729, cards, options.Iterations),
     };
 }
 catch (ArgumentException ex)
@@ -160,14 +162,22 @@ System.Console.WriteLine(
 return 0;
 
 // Null means a human plays this seat -- the console prompts instead of asking an agent.
-static IAgent? BuildAgent(string kind, ulong seed) => kind.ToLowerInvariant() switch
-{
-    "human" => null,
-    "random" => new RandomAgent(new SeededRandom(seed)),
-    "greedy" => new GreedyAgent(new SeededRandom(seed)),
-    _ => throw new ArgumentException(
-        $"Unknown agent '{kind}'. Expected human, random, or greedy."),
-};
+//
+// The search takes an ITERATION budget rather than a time one, even here: a console game is the
+// tool for watching what an agent does with its turns (see this file's header), and a wall-clock
+// budget would make the same seed produce a different game on a busy machine -- destroying
+// exactly the replayability that makes a watched game worth watching.
+static IAgent? BuildAgent(string kind, ulong seed, CardDatabase cards, int iterations) =>
+    kind.ToLowerInvariant() switch
+    {
+        "human" => null,
+        "random" => new RandomAgent(new SeededRandom(seed)),
+        "greedy" => new GreedyAgent(new SeededRandom(seed)),
+        "ismcts" => new IsMctsAgent(
+            cards, new SeededRandom(seed), SearchBudget.OfIterations(iterations)),
+        _ => throw new ArgumentException(
+            $"Unknown agent '{kind}'. Expected human, random, greedy, or ismcts."),
+    };
 
 static ulong PromptSeed()
 {

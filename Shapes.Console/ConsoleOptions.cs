@@ -12,11 +12,21 @@ namespace Shapes.Console;
 // would silently produce an unreproducible game.
 public sealed class ConsoleOptions
 {
-    // "human", "random", or "greedy" per seat. Both default to human, so running with no
-    // arguments is exactly the hotseat client that existed before agents did.
+    // "human", "random", "greedy", or "ismcts" per seat. Both default to human, so running with
+    // no arguments is exactly the hotseat client that existed before agents did.
     public string PlayerOne { get; private set; } = "human";
 
     public string PlayerTwo { get; private set; } = "human";
+
+    // Search budget for an `ismcts` seat, in iterations. Applies to both seats: two searches at
+    // different budgets are a strength comparison, which is Phase 3's job to run properly rather
+    // than something to eyeball from one console game.
+    //
+    // Iterations rather than milliseconds so a seeded game replays exactly -- a wall-clock budget
+    // fits a different number of iterations on a busy machine and reaches a different decision.
+    // Defaults low enough that a full AI-v-AI game finishes while you watch it; raise it to see
+    // the search play better.
+    public int Iterations { get; private set; } = 200;
 
     // Null prompts for a seed interactively. Supplying one non-interactively is what makes an
     // AI-v-AI game scriptable and exactly replayable.
@@ -72,6 +82,17 @@ public sealed class ConsoleOptions
                     options.Seed = seed;
                     break;
 
+                case "--iterations":
+                    var rawIterations = RequireValue(args, ref i);
+                    if (!int.TryParse(rawIterations, out var iterations) || iterations < 1)
+                    {
+                        throw new ArgumentException(
+                            $"--iterations expects a positive number, got '{rawIterations}'.");
+                    }
+
+                    options.Iterations = iterations;
+                    break;
+
                 case "--quiet":
                     options.Quiet = true;
                     break;
@@ -108,9 +129,13 @@ public sealed class ConsoleOptions
     {
         System.Console.WriteLine("Shapes — console client");
         System.Console.WriteLine();
-        System.Console.WriteLine("  --p1 <agent>   Player one: human (default), random, greedy");
-        System.Console.WriteLine("  --p2 <agent>   Player two: human (default), random, greedy");
+        System.Console.WriteLine(
+            "  --p1 <agent>   Player one: human (default), random, greedy, ismcts");
+        System.Console.WriteLine(
+            "  --p2 <agent>   Player two: human (default), random, greedy, ismcts");
         System.Console.WriteLine("  --seed <n>     Seed the game instead of prompting");
+        System.Console.WriteLine(
+            "  --iterations <n>  Search budget per ismcts decision (default 200)");
         System.Console.WriteLine("  --quiet        One line per action; no board render");
         System.Console.WriteLine(
             "  --reveal       Show both hands in full (default: the waiting seat's is a count)");
@@ -129,5 +154,9 @@ public sealed class ConsoleOptions
         System.Console.WriteLine();
         System.Console.WriteLine("  dotnet run --project Shapes.Console -- --p2 greedy --reveal");
         System.Console.WriteLine("      Same, but with the AI's hand visible — for debugging only.");
+        System.Console.WriteLine();
+        System.Console.WriteLine(
+            "  dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet");
+        System.Console.WriteLine("      Watch the search play the greedy baseline.");
     }
 }
