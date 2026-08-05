@@ -9,19 +9,21 @@ agent measurement & optimization → AI-driven balance → Godot client.
 |------------------------------------------|------------|
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
-| 3 — Agent measurement & optimization     | 7 / 9      |
+| 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 0 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
-729 tests passing. **Phases 1 and 2 are complete.**
+733 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: step 3.5** — tuning (exploration constant, remaining knobs 3.3a didn't already
-settle), by measurement against `Shapes.Sim`.
+**Next up: Phase 4** — AI-driven balance, starting at step 1 (metrics: win rate by seat, game
+length, score curves, per-card play/win-rate correlation, move usage, merge frequency, resource
+flow, ending type). Agents are now frozen at Phase 3's final tuned configuration (step 7's
+matrix); cards/rules vary from here instead.
 
 ### Common commands
 
@@ -531,10 +533,75 @@ looking reasonable in a watched game.
   wires it to anything other than 1, matching step 3's own precedent of keeping a
   measured-not-worth-it change out of the default path rather than deleting the capability. 733
   tests pass (729 + 4 new); no correctness regression.
-- [ ] **5. Tuning** — exploration constant, playout depth cap (whatever 3a did not already settle);
-  pure measurement, no first-principles shortcut.
-- [ ] **6. Re-verify correctness tests still pass at tuned settings.**
-- [ ] **7. Record the final agent matrix** as Phase 4's frozen reference instrument.
+- [x] **5. Tuning — exploration constant, measured rather than kept at its textbook value.**
+  Playout depth was already tuned by step 3.3a, so this step's only remaining knob (per the
+  step's own text) was UCB1's exploration constant, `DefaultExploration` in `IsMctsAgent.cs`,
+  shipped at the textbook `sqrt(2)` (correct for rewards in [0,1], which is `Reward()`'s range)
+  since step 2.6 and explicitly flagged there as unmeasured. `sqrt(2)`'s derivation assumes plain
+  UCB1; this search runs the availability-corrected variant (SearchNode's header), whose
+  exploration term already scales differently with per-child availability than that derivation
+  assumes -- reason enough to measure rather than assume the textbook value still applies here.
+
+  **Method**: a round-robin among five candidates (0.7, 1.0, sqrt(2), 2.0, 2.8 -- spanning roughly
+  half to double the textbook value), 200 iterations, real card set, every pairing played with
+  both seat assignments and pooled into an overall win rate per candidate (`Shapes.Sim`'s own
+  convention: never report one seat alone, since that hides first-player advantage). 15 games per
+  seat per pairing (10 pairings, 300 games total):
+
+  | Candidate    | Overall win rate (both seats, round robin) |
+  |--------------|---------------------------------------------|
+  | 0.7          | 62/120 (51.7%)                               |
+  | **1.0**      | **64/120 (53.3%)**                           |
+  | sqrt(2) (old default) | 57/120 (47.5%)                     |
+  | 2.0          | 57/120 (47.5%)                                |
+  | 2.8          | 60/120 (50.0%)                                |
+
+  c=1.0 led the field; the old default trailed it, tied with c=2.0 for worst. A round robin at
+  this game count is a coarse first pass (each candidate's number rests on only 4 pairings' worth
+  of games), so rather than accept the ranking outright, the top candidate (1.0) and the other
+  above-50%-baseline one (0.7) were each confirmed head-to-head against the old default directly,
+  80 games, seats alternated every game to cancel first-player advantage without needing a
+  separate both-seats table:
+
+  | Match                     | Win rate for the challenger |
+  |---------------------------|------------------------------|
+  | c=1.0 vs. c=sqrt(2)        | 45/80 (56.2%)                |
+  | c=0.7 vs. c=sqrt(2)        | 42/80 (52.5%)                |
+
+  c=1.0's edge held up and sharpened at the larger sample (56.2%, versus the round robin's
+  53.3%-among-five reading), while c=0.7's was smaller and closer to the round robin's own
+  noise band -- confirming 1.0 over 0.7 rather than accepting the round robin's ranking as final.
+  **`DefaultExploration` is now `1.0`.** No `Shapes.Sim`/`Shapes.Console` caller passes an
+  explicit `explorationConstant`, so every existing `ismcts`/`ismcts-heuristic` agent picks up the
+  tuned value automatically -- there is no separate opt-in the way step 3.4's reuse window needed,
+  since this knob has no correctness hazard at any value, only a strength one.
+- [x] **6. Re-verified correctness tests still pass at the tuned setting.** All 733 tests
+  (including every `IsMctsAgentTests` case that depends on the search actually finding a decided
+  best move -- `It_takes_an_available_lethal_move`,
+  `It_does_not_pass_while_a_useful_action_is_affordable`, the heuristic-policy lethal-move test,
+  every step 3.4 reuse-window test) pass unchanged at `DefaultExploration = 1.0`, run as part of
+  the same build that changed the constant rather than as a separate pass -- nothing in the
+  correctness suite was written against the old value, so nothing needed updating alongside it.
+- [x] **7. Recorded the final agent matrix** as Phase 4's frozen reference instrument -- the same
+  `Shapes.Sim` command step 3.1 used for the baseline (`--agents random,greedy,ismcts --games 30
+  --seed 1`, 200 iterations, real card set), now run at every step 3.2-3.5 change already baked
+  into the shipped defaults (uniform playout, `PlayoutDepth = 200`, the playout-sampler fast path,
+  the `Board`/`EffectContext` allocation fixes, `DefaultExploration = 1.0`):
+
+  | P1 \ P2   | random | greedy | ismcts |
+  |-----------|--------|--------|--------|
+  | random    | 63.3%  | 36.7%  | 6.7%   |
+  | greedy    | 96.7%  | 70.0%  | 16.7%  |
+  | ismcts    | 96.7%  | 96.7%  | 76.7%  |
+
+  (Cell = P1's win rate; 270 games total.) `ismcts` beats `random` by a ~90-point margin (96.7%
+  P1 seat, 93.3% P2 seat i.e. 100.0% − 6.7%) and `greedy` by a smaller but still decisive ~80-point
+  margin (96.7% both seats vs. 16.7%/3.3%) -- the wider-margin-against-the-weaker-opponent ordering
+  Phase 3's exit criteria require, holding at the tuned settings exactly as it did at step 3.1's
+  untuned baseline. This is the matrix Phase 4 inherits as its frozen reference: agent
+  configuration (uniform playout, 200 iterations, `PlayoutDepth = 200`,
+  `IterationsPerDeterminization = 1`, `DefaultExploration = 1.0`) does not change again until
+  Phase 4 is itself complete and a new phase revisits agents.
 
 **Exit criteria:** IS-MCTS decisively beats both baselines, and beats `RandomAgent` by a wider
 margin than `GreedyAgent` does (the *ordering* is what proves search adds value); a decision

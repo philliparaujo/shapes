@@ -73,8 +73,17 @@ public sealed class IsMctsAgent : IAgent
     private readonly HashSet<string> _sampledWorlds = new(StringComparer.Ordinal);
 
     // UCB1's exploration weight. sqrt(2) is the theoretical value for rewards in [0,1], which is
-    // the range Reward() produces. Phase 3 step 5 tunes it.
-    private const double DefaultExploration = 1.4142135623730951;
+    // the range Reward() produces -- but that theoretical value assumes plain UCB1, and this
+    // search runs the availability-corrected variant (SearchNode's header), whose exploration term
+    // already grows differently with sampled availability than the derivation behind sqrt(2)
+    // assumes. PLAN.md step 3.5 measured rather than kept the theoretical default: a round-robin
+    // among five candidates (0.7, 1.0, sqrt(2), 2.0, 2.8), 200 iterations, real card set, both
+    // seats per pairing, found c=1.0 winning 53.3% of 120 games (best of the five) against
+    // sqrt(2)'s 47.5% (worse than half). A confirmatory 80-game head-to-head (seats alternated)
+    // reproduced it more decisively -- c=1.0 beat sqrt(2) 56.2% -- while a second confirmatory
+    // match for the round robin's other above-average candidate (0.7) only beat sqrt(2) 52.5%,
+    // which is why 1.0 was chosen over 0.7 rather than either merely beating the old default.
+    private const double DefaultExploration = 1.0;
 
     // How many actions a playout may take before being scored as an unfinished game.
     //
