@@ -11,7 +11,7 @@
       "cost": { "anvil": 1 },
       "condition": { "op": "creature_state", "target": "self", "check": "damaged" },
       "effects": [
-        { "op": "heal", "target": "self", "amount": 4 }
+        { "op": "buff_max_health", "target": "self", "amount": 4 }
       ]
     },
     {

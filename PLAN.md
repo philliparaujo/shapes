@@ -10,20 +10,40 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 2 / 7      |
+| 4 — AI-driven balance                    | 4 / 11     |
 | 5 — Godot client                         | 0 / 12     |
 
-747 tests passing. **Phases 1, 2, and 3 are complete.**
+795 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 3** — sweep rulesets/card variants and rank outliers, now that step 2 has
-confirmed both flagged design questions (merge tradeoff, unopposed-income compounding) are real,
-non-degenerate behaviours worth balancing against. Agents are frozen at Phase 3's final tuned
-configuration (step 7's matrix); cards/rules vary from here instead.
+**Next up: Phase 4 steps 2d and 2e** — build the metrics explorer, then validate the detectors
+against deliberately mispriced calibration spells, before step 3's sweep relies on them. Steps
+2b/2c gave the metrics the denominators, intervals, and diagnostic splits a sweep needs to rank
+on; 2d makes that output readable and diffable, and 2e checks it registers a known-wrong card at
+all. Agents are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules vary
+from here instead.
+
+**Order matters here:** 2e's calibration run is read through 2d's explorer, and step 3 should not
+start until an instrument that has never been checked against a known answer is checked against
+one.
+
+**What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
+A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
+situational answer card — the number is identical and the correct action is opposite. Nothing in
+the report knows what a card costs or is meant to do, so the loop is: metrics narrow 36 cards to
+the handful worth arguing about, you read those, you change one, and the metrics tell you whether
+the change did what you intended. That last step is the rigorous one. A standing caveat underneath
+all of it: every number is relative to the agent, so a card whose payoff lands outside IS-MCTS's
+horizon reads as weak, and "buffing" it would be balancing for the AI's blind spot.
+
+**Sweeps need hundreds of games per configuration, not tens.** Every rate now reports its own
+interval, and `Shapes.Sim` closes with a one-line resolution check ("N of M cards have a win-rate
+interval still straddling 50%"). At 20 games that reads 36 of 36 — the honest answer to "do I have
+enough data yet," and the number to drive up before believing any ranking.
 
 ### Common commands
 
@@ -47,13 +67,21 @@ Run from repo root (`shapes/`, where `Shapes.sln` lives).
 `--seed <n>` skips the prompt; `--quiet` gives one line per action. `--help` lists it all.
 
 **Stats are `Shapes.Sim`'s job, not the console's** — the console client only renders the board
-live; it has no stats output of its own. Every `Shapes.Sim` run already prints a metrics summary
-(seat win rate, avg game length, move usage, merge frequency both raw and per-creature-played,
-unspent resources, ending types, top cards by play/draw win-rate, top moves by use/win-rate) after
-the pairing table. `--json PATH` writes full per-game detail plus the metrics report;
-`--metrics-json PATH` writes just the aggregated `MetricsReport` (Phase 4 step 1). Point
-`--agents` at a single pairing and lower `--games` for a quick look at "how did that kind of game
-usually go" rather than the full matrix.
+live; it has no stats output of its own. Every `Shapes.Sim` run prints a metrics summary after the
+pairing table: seat win rate and score margin (both with 95% intervals), game length, move usage,
+merge frequency and merge take rate, unopposed-slot occupancy and streaks, cost pressure and
+per-turn resource levels split winner/loser, creature survival, ending types, cards and moves
+ranked **by take rate** (chosen ÷ times the play was legal), and a closing resolution line saying
+how many cards the run still cannot rank. `--json PATH` writes full
+per-game detail plus the metrics report; `--metrics-json PATH` writes just the aggregated
+`MetricsReport`, stamped with `RunProvenance` so two reports can be diffed. Point `--agents` at a
+single pairing and lower `--games` for a quick look at "how did that kind of game usually go"
+rather than the full matrix.
+
+**Read take rate before win rate.** Win rate compresses toward 50% under symmetric decks (both
+seats hold every card, so most cards contribute a win *and* a loss in most games) and is a
+correlation regardless. Take rate is a direct measure of what a strong agent chose when it had the
+option, and is the metric a card-level balance change should move.
 
 **A big matrix shows live progress, not silence until the end** — `Shapes.Sim` redraws a single
 `completed/total games  rate  elapsed` line in place as games finish (only when stdout is a real
@@ -323,16 +351,21 @@ step 10, so every number here reflects genuinely stable content.
   logged at the one choke point every draw already goes through (`GameState.DrawWithBurn`); a
   card counts as "drawn" from the opening hand onward, and multiple copies drawn in one game
   count that game once toward the win-rate denominator (matches how play win-rate already
-  worked). Moves are keyed by `(CardId, MoveName)`, not by `UseMoveAction.MoveIndex` (only
+  worked). Rates here were bare doubles; step 2b replaced them with interval-carrying types and
+  added the opportunity denominators this step's counts turned out to need. Moves are keyed by
+  `(CardId, MoveName)`, not by `UseMoveAction.MoveIndex` (only
   meaningful relative to one creature's merge-concatenated move list) or bare `MoveDefinition.Name`
   alone (two cards can share a move name; `GameRunner.ResolveMove` walks `MergedFrom` to find which
   source card actually declared the move at that index, since a merged creature's move can belong
   to either half of the merge). `GameRunner` caps a
   game at 500 turns so a stalled game reports as `EndingType.NonTerminating` (a countable batch
   outcome) instead of hanging the run — step 4.5's "non-terminating games" watch item, now
-  enforced rather than assumed. Score curves were tried and dropped: a flattened per-turn score
-  series added size and noise to the JSON output without pulling its weight next to the other
-  metrics. `Shapes.Sim`'s console output, `--json`, and `--metrics-json` all surface the report.
+  enforced rather than assumed. Score curves were tried and dropped here: a flattened per-turn
+  score series added size and noise to the JSON output without pulling its weight next to the
+  other metrics. Step 2b brought back the form that does pull its weight — a per-turn *margin*
+  (one int per turn, aggregated into means rather than stored per game), which is what the
+  income-compounding question actually needs. `Shapes.Sim`'s console output, `--json`, and
+  `--metrics-json` all surface the report.
 - [x] **2. Answered the two flagged design questions directly as behaviour measurements** (24
   self-play games each, 200 iterations, both `ismcts` and `ismcts-heuristic` since the heuristic
   playout is stronger and closer to optimal play): **merge is declined, not auto-taken** —
@@ -345,16 +378,113 @@ step 10, so every number here reflects genuinely stable content.
   non-degenerate design issues for step 3/4 to address, not null results — though the sample is
   smaller than Phase 3's 30-game convention and shows correlation, not causal isolation, so a
   larger confirmatory run is worth doing before it drives a specific ruleset change.
-- [ ] **3. Sweep** rulesets/card variants; rank outliers.
+- [x] **2b. Made the metrics able to carry step 3** — a review of the step 1 report against what
+  a sweep actually needs found four gaps, all now closed. **(a) Confidence intervals on every
+  rate** (`Interval`, Wilson score — not the normal approximation, which reports a 0/4 card as
+  "0% ± 0", the most confident-looking and least justified number available; `MeanEstimate`, the
+  continuous counterpart, for margins and lengths). A rate without its sample size cannot be
+  ranked, which is step 3's entire job. **(b) Opportunity denominators** — `CardStat.PlayTakeRate`
+  and `MoveStat.UseTakeRate` divide plays/uses by the decision points where that play was *legal*,
+  counted from the same `ActionGenerator.Generate` list the agent chose from, deduped per
+  (decision, card) so targeting-flexible cards don't get inflated denominators. This is the
+  card-level analogue of `MergesPerCreaturePlayed` and is **the primary balance signal**, because
+  raw `PlayCount` conflates draw luck, affordability, and preference — only the third is about
+  the card. It also separates step 5's two watch items directly: near-zero take rate = dead card,
+  near-one = auto-include. `MergeTakeRate` makes step 2's bespoke merge measurement a standing
+  metric. **(c) Score margin** (`FinalScoreMargin`, `AbsoluteScoreMargin`, `ScoreMarginByTurn`)
+  plus per-turn resource sampling split winner/loser and by seat — game-end resource levels
+  averaged both seats together, mixing the winner (just spent everything to close) with the loser
+  (starved for turns) and reporting a midpoint describing neither. Margin matters because it is a
+  far lower-variance estimator than binary win rate: pinned by test, 100 games at a 56% seat win
+  rate give a win-rate interval of [46%, 65%] (cannot call it) and a margin interval of
+  [0.31, 1.29] (excludes zero) — same games, one metric resolves and the other doesn't.
+  **(d) `RunProvenance`** (ruleset name, card-set content hash, agent config, seed, timestamp) —
+  step 4's compare loop is undoable across a `balance/` directory of otherwise anonymous reports.
+  Bug found on the way: `MoveOffers*` keyed by the `(CardId, MoveName)` tuple threw at `--json`
+  write time (`System.Text.Json` refuses tuple object keys) — now `MoveKey`'s delimited string,
+  with a named regression test, since "just use the tuple, it's the same identity" is the natural
+  edit that reintroduces it.
+- [x] **2c. Closed the three remaining detect-but-not-diagnose gaps.** Step 2b made outliers
+  *visible*; these make three of them *actionable*. **(a) Unopposed-slot occupancy** —
+  `UnopposedSlotRate`, `UnopposedCreaturesPerStep`, `LongestUnopposedStreak`,
+  `GamesWithNoSustainedUnopposed`. Separates the two opposite fixes for a runaway score that the
+  score itself conflates: a *low* rate means unopposed slots are hard to get and each is worth a
+  lot (tune `PointsPerUnopposedCreature`), a *high* rate means they come easily and the points
+  follow (tune board size, removal, durability). Also makes step 2's streak finding a standing
+  metric instead of bespoke instrumentation. **(b) Creature survival** —
+  `CardStat.SurvivalSteps` (scoring steps held before dying) plus `ScoredWhileAliveRate`. Take
+  rate reports "played constantly and dies instantly" identically to "played constantly and
+  sticks"; these are opposite problems. `ScoredWhileAliveRate` then splits a blocker (holds a
+  contested lane) from a scorer (converts presence into points). Censored samples (alive at game
+  end) are dropped rather than counted short — counting them would drag the mean down for
+  precisely the creatures that survive best — so read it as a floor, not an estimate.
+  **(c) Affordability pressure** — `CostPressure`, batch-level and per-card. Makes the resource
+  numbers diagnosable: high unspent resources with *low* pressure means income exceeds what there
+  is to buy (an income-level problem), high unspent with *high* pressure means players hold the
+  wrong resource *types* (a type-chart/cost-distribution problem). Same two numbers today, and
+  they would have been indistinguishable before this.
+  **Deliberately not built: effect-magnitude tracking** (damage/healing per pip). Collecting it
+  is easy — `CombatResolver.DealDamage` is a single funnel — but the resulting number is not a
+  balance signal here: damage is instrumental to holding a slot rather than being the win
+  condition, overkill inflates it, type effectiveness doubles it for free, and damage/cards/
+  resources share no exchange rate without asserting a cost curve. Time-on-board is the honest
+  version of "did this creature do its job" in a game won by occupying slots.
+  **Bug caught by cross-check, not by inspection:** the first version observed the seat that
+  *ended* its turn rather than the one *receiving* it, reading the board before the opponent
+  could contest those slots — over-counting unopposed slot-turns ~40% while looking entirely
+  plausible in aggregate. Now pinned by the exact identity `score == slot-turns x
+  PointsPerUnopposedCreature`, which reconciles with zero slack on every game.
+- [ ] **2d. Metrics explorer** (`--report PATH.html`) — a self-contained, dependency-free HTML
+  page written alongside `--metrics-json`, because the report has outgrown reading. One run is
+  ~3,700 lines of JSON and ~1,600 numbers for cards alone, and the console output is a fixed
+  slice chosen in advance; neither answers "which cards are outliers on take rate *and* have
+  intervals tight enough to act on." Sortable card and move tables, a minimum-n filter that greys
+  out rows too noisy to rank, and the batch-level scoring/economy panel.
+  **The diff view is the point, not the sorting** — step 4 iterates edit → rerun → compare, and
+  comparison is exactly what static text cannot do. Load a baseline plus a variant, show Δ per
+  card with the intervals overlaid so "moved" and "moved beyond noise" are visually distinct
+  (interval overlap is illegible as text: ±9pt and ±1.3pt read identically in a table and are
+  completely different as bars). Default view is **cards whose interval excludes the field
+  median**, so the page opens on the handful worth arguing about rather than on all 36 —
+  `Interval.Excludes` already answers that question.
+  Lives in `Shapes.Sim` next to `ResultWriter` (a reporting concern, no engine coupling —
+  `Shapes.Core` stays pure). Data inlined, no server, no install. A flat `--cards-csv` /
+  `--moves-csv` export ships alongside it as the escape hatch for questions the page did not
+  anticipate; it is nearly free given `ResultWriter.WriteCsv` already exists, and spreadsheets
+  are good at exactly this.
+- [ ] **2e. Calibration spells** — six deliberately mispriced spells (one over- and one
+  underpowered per resource) whose *correct* verdict is known in advance, so the detectors can be
+  checked against a right answer instead of only against each other. Per resource type:
+  **(i) overpowered** — cost 1, gain 2 of that resource and draw a card (net resource-positive
+  and card-positive: should show a take rate at or near the top of the field, near-zero cost
+  pressure, and a win rate above the pack); **(ii) underpowered** — cost 3, deal 1 damage (three
+  pips for the weakest effect in the vocabulary: should show a take rate at the floor alongside
+  high cost pressure). If a metric cannot separate these twelve from the real set, that metric
+  cannot rank real cards either, and step 3 would be building on an unvalidated instrument.
+  **They must NOT go in `Shapes.Content/cards/`.** `CardDatabase.BuildSymmetricDeck` uses every
+  card in the database, so adding twelve files silently grows the deck 72 → 96 and shifts draw
+  probability for all 36 existing cards — invalidating the very baseline they are meant to be
+  measured against. They belong in a separate content set (e.g. `Shapes.Content/cards-calibration/`)
+  loaded only for calibration runs, which also keeps `CardSetHash` on real runs unchanged.
+  Deliberately blunt rather than subtly mistuned: the question is "does the instrument register a
+  known-wrong card at all," and a borderline case answers it ambiguously. Reading the calibration
+  run is also the first real test of 2d's explorer.
+- [ ] **3. Sweep** rulesets/card variants; rank outliers. **Delta-based, not rank-in-isolation:**
+  under `deckMode: "symmetric"` both seats hold every card, so most cards are played by both in
+  most games — contributing one win and one loss and compressing win rate mechanically toward 0.5
+  (the step 1 test run's cards sat 0.41–0.60 almost entirely because of this, not because the set
+  is balanced). Per-card win rate therefore cannot rank cards no matter how many games are run.
+  Rank on take rate, and establish causation by changing one thing and diffing two reports.
 - [ ] **4. Iterate** — edit JSON, rerun, compare; keep a `balance/` experiment log.
 - [ ] **5. Watch for** never-played/auto-include cards, degenerate loops, first-player advantage
   beyond ~55%, non-terminating games.
 - [ ] **6. Archetype sweeps** (mono vs. mixed, aggro vs. control) once `deckMode: "custom"`
   exists — only after per-card balance has settled.
 
-**Exit criteria:** no extreme play-rate outliers; first-player advantage near even; game length
-in target band; merge tradeoff and income-compounding both confirmed as real, non-degenerate
-decisions.
+**Exit criteria:** no extreme take-rate outliers (no dead cards, no auto-includes) at a sample
+size where the intervals actually separate them; first-player advantage near even **by score
+margin**, not just by a win rate too wide to call; game length in target band; merge tradeoff and
+income-compounding both confirmed as real, non-degenerate decisions.
 
 ### Phase 5 — Godot client (desktop + mobile)
 

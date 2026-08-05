@@ -23,6 +23,7 @@ public static class EffectRegistry
         new HealScaledOp(),
         new SetHealthOp(),
         new BuffMaxHealthOp(),
+        new BuffMaxHealthScaledOp(),
         new SelfDamageOp(),
 
         new DrawOp(),

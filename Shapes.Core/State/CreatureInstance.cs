@@ -338,6 +338,14 @@ public sealed class CreatureInstance
     // Folds `other` into this creature: health and max health sum, typings union, and the
     // merged-from lists concatenate. The caller is responsible for checking legality
     // (adjacency, merge depth) and for removing `other` from the board.
+    //
+    // Status/buff state carries over too, not just health/typing -- a creature merging away its
+    // Reflect (or Taunt, Ricochet, stun, attack buff, one-shot pending bonuses/triggers) would be
+    // a silent nerf a player has no way to see coming. Keywords union (either half having Taunt/
+    // Reflect/Ricochet means the merged creature does); AttackBuff and the one-shot bonuses sum,
+    // matching their existing "stacks on repeated grants" semantics; IsStunned ORs; the pending
+    // triggers keep this creature's own if it has one (only one can fire per event) and otherwise
+    // adopt other's rather than dropping it.
     public void AbsorbMerge(CreatureInstance other)
     {
         ArgumentNullException.ThrowIfNull(other);
@@ -346,6 +354,20 @@ public sealed class CreatureInstance
         MaxHealth += other.MaxHealth;
         Types = Types.Union(other.Types);
         _mergedFrom.AddRange(other._mergedFrom);
+
+        if (other.Keywords.HasFlag(KeywordFlags.Ricochet) && !Keywords.HasFlag(KeywordFlags.Ricochet))
+        {
+            RicochetDirection = other.RicochetDirection;
+        }
+
+        Keywords |= other.Keywords;
+        _tauntExpiresNextTurn = _tauntExpiresNextTurn || other._tauntExpiresNextTurn;
+        IsStunned = IsStunned || other.IsStunned;
+        AttackBuff += other.AttackBuff;
+        NextAttackBonus += other.NextAttackBonus;
+        NextDamageTakenBonus += other.NextDamageTakenBonus;
+        PendingOnNextDamageTaken ??= other.PendingOnNextDamageTaken;
+        PendingOnNextRicochet ??= other.PendingOnNextRicochet;
 
         // Token-ness is contagious: MergedFrom now holds at least one id that names no card, so
         // the stack can no longer be discarded as a set of cards on death. Tainting the whole

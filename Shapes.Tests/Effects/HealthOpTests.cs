@@ -85,7 +85,6 @@ public class HealthOpTests
     [Fact]
     public void Heal_scaled_by_hand_size_targets_a_chosen_friendly()
     {
-        // Anchor: "+1 health to a friendly for each card in hand".
         var state = new StateBuilder()
             .P1(p => p.Slot(0, "caster", TypeMask.Anvil)
                       .Slot(1, "hurt", TypeMask.Anvil, maxHealth: 10, health: 2)
@@ -117,5 +116,28 @@ public class HealthOpTests
             ctx);
 
         Assert.Equal(6, state.Board[new SlotIndex(PlayerId.One, 2)]!.Health); // 2 + source's health (4)
+    }
+
+    [Fact]
+    public void Buff_max_health_scaled_by_hand_size_raises_both_current_and_max()
+    {
+        // Anchor: "+1 max health to a friendly for each card in hand".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "caster", TypeMask.Anvil)
+                      .Slot(1, "target", TypeMask.Anvil, maxHealth: 3, health: 3)
+                      .Hand("a", "b", "c"))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null)
+            .WithChosenTarget(new SlotIndex(PlayerId.One, 1));
+
+        EffectInterpreter.Apply(
+            Eff.Node(
+                "buff_max_health_scaled", ("target", "chosen_friendly"), ("scale", "hand_size"),
+                ("multiplier", 1)),
+            ctx);
+
+        var creature = state.Board[new SlotIndex(PlayerId.One, 1)]!;
+        Assert.Equal(6, creature.Health);
+        Assert.Equal(6, creature.MaxHealth);
     }
 }

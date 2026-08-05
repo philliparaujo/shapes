@@ -203,6 +203,53 @@ public class CreatureInstanceTests
     }
 
     [Fact]
+    public void Merging_carries_over_the_sources_keywords_instead_of_dropping_them()
+    {
+        // Regression: AbsorbMerge used to only touch health/typing/MergedFrom, so a Reflect (or
+        // Taunt/Ricochet) held by the SOURCE creature vanished into the merge instead of
+        // surviving on the result -- a silent nerf a player has no way to see coming.
+        var target = new CreatureInstance("cadet", 3, TypeMask.Wheel);
+        var source = new CreatureInstance("medic", 2, TypeMask.Spike);
+        source.GrantKeyword(KeywordFlags.Reflect);
+
+        target.AbsorbMerge(source);
+
+        Assert.True(target.HasKeyword(KeywordFlags.Reflect));
+    }
+
+    [Fact]
+    public void Merging_unions_keywords_from_both_halves()
+    {
+        var target = new CreatureInstance("cadet", 3, TypeMask.Wheel);
+        target.GrantKeyword(KeywordFlags.Taunt);
+        var source = new CreatureInstance("medic", 2, TypeMask.Spike);
+        source.GrantRicochet(RicochetDirection.Right);
+
+        target.AbsorbMerge(source);
+
+        Assert.True(target.HasKeyword(KeywordFlags.Taunt));
+        Assert.True(target.HasKeyword(KeywordFlags.Ricochet));
+        Assert.Equal(RicochetDirection.Right, target.RicochetDirection);
+    }
+
+    [Fact]
+    public void Merging_sums_attack_buff_and_one_shot_bonuses_instead_of_dropping_the_sources()
+    {
+        var target = new CreatureInstance("cadet", 3, TypeMask.Wheel);
+        target.AddAttackBuff(1);
+        target.SetNextAttackBonus(2);
+        var source = new CreatureInstance("medic", 2, TypeMask.Spike);
+        source.AddAttackBuff(3);
+        source.SetNextDamageTakenBonus(4);
+
+        target.AbsorbMerge(source);
+
+        Assert.Equal(4, target.AttackBuff);
+        Assert.Equal(2, target.ConsumeNextAttackBonus());
+        Assert.Equal(4, target.ConsumeNextDamageTakenBonus());
+    }
+
+    [Fact]
     public void Clone_is_independent()
     {
         var original = Cadet(maxHealth: 5);

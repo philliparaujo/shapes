@@ -11,7 +11,7 @@
       "cost": { "spike": 1 },
       "effects": [
         { "op": "self_damage", "amount": 1 },
-        { "op": "heal", "target": "right_friendly", "amount": 3 }
+        { "op": "buff_max_health", "target": "right_friendly", "amount": 3 }
       ]
     },
     {

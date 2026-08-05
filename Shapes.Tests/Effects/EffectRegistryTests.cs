@@ -15,6 +15,7 @@ public class EffectRegistryTests
     [InlineData("heal_scaled")]
     [InlineData("set_health")]
     [InlineData("buff_max_health")]
+    [InlineData("buff_max_health_scaled")]
     [InlineData("self_damage")]
     [InlineData("draw")]
     [InlineData("draw_scaled")]
