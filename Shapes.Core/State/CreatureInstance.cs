@@ -91,9 +91,24 @@ public sealed class CreatureInstance
 
     public object? PendingOnNextRicochet { get; private set; }
 
+    // True for a creature conjured onto the board by `summon` rather than played from a hand.
+    //
+    // The distinction exists because a token is not a CARD: its id ("token_spike") need not name
+    // anything in the CardDatabase, it was never in anyone's deck, and it must not enter a
+    // discard pile when it dies. Every other creature came from a physical card that has to go
+    // somewhere -- see PlayerState.SendToDiscard's call sites and the card-conservation invariant
+    // in Shapes.Tests/Mechanics/CardConservationTests.cs, which the determinizer's accounting
+    // depends on: a token in a discard pile would inflate a player's apparent card pool and let
+    // the determinizer sample cards that never existed.
+    //
+    // A merge involving a token taints the whole result (see AbsorbMerge): the merged creature's
+    // MergedFrom then contains an id that is not a card, so the safe reading is "this stack
+    // cannot be fully accounted for as cards," and none of it is discarded.
+    public bool IsToken { get; private set; }
+
     public CreatureInstance(
         string cardId, int maxHealth, TypeMask types, int? health = null,
-        ResourcePool? playCost = null)
+        ResourcePool? playCost = null, bool isToken = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardId);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxHealth, 1);
@@ -108,6 +123,7 @@ public sealed class CreatureInstance
         Health = health ?? maxHealth;
         Types = types;
         PlayCost = playCost ?? ResourcePool.Empty;
+        IsToken = isToken;
         _mergedFrom = [cardId];
 
         ArgumentOutOfRangeException.ThrowIfGreaterThan(Health, MaxHealth);
@@ -120,8 +136,9 @@ public sealed class CreatureInstance
         RicochetDirection ricochetDirection, bool isStunned, int nextAttackBonus,
         int nextDamageTakenBonus, int attackBuff, ResourcePool playCost,
         bool tauntExpiresNextTurn, object? pendingOnNextDamageTaken,
-        object? pendingOnNextRicochet)
+        object? pendingOnNextRicochet, bool isToken)
     {
+        IsToken = isToken;
         CardId = cardId;
         Health = health;
         MaxHealth = maxHealth;
@@ -329,12 +346,20 @@ public sealed class CreatureInstance
         MaxHealth += other.MaxHealth;
         Types = Types.Union(other.Types);
         _mergedFrom.AddRange(other._mergedFrom);
+
+        // Token-ness is contagious: MergedFrom now holds at least one id that names no card, so
+        // the stack can no longer be discarded as a set of cards on death. Tainting the whole
+        // creature is the conservative reading -- discarding only the non-token half would need
+        // per-id provenance that nothing else wants, and letting the token half through would put
+        // a non-card id in a discard pile. See IsToken.
+        IsToken |= other.IsToken;
     }
 
     public CreatureInstance Clone() =>
         new(CardId, Health, MaxHealth, Types, [.. _mergedFrom], _movesUsedThisTurn, Keywords,
             RicochetDirection, IsStunned, NextAttackBonus, NextDamageTakenBonus, AttackBuff,
-            PlayCost, _tauntExpiresNextTurn, PendingOnNextDamageTaken, PendingOnNextRicochet);
+            PlayCost, _tauntExpiresNextTurn, PendingOnNextDamageTaken, PendingOnNextRicochet,
+            IsToken);
 
     public override string ToString() =>
         $"{CardId} [{Types}] {Health}/{MaxHealth}{(IsMerged ? $" (merged x{MergeDepth})" : string.Empty)}";

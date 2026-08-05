@@ -63,6 +63,47 @@ public sealed class GameState
     public void RecordTurnEvent(TurnEventKind kind, PlayerId player, SlotIndex slot, string cardId) =>
         _turnEvents.Add(new TurnEvent(kind, player, slot, cardId));
 
+    // Sends a destroyed creature's card(s) to its owner's discard pile and logs the destruction.
+    //
+    // THE one place a creature leaves the board by dying, called by every destruction path (the
+    // post-action RemoveDead sweep and the `destroy`/`destroy_refund_cost` ops). Both halves --
+    // discard and turn event -- belong together: a caller that logged the event but skipped the
+    // discard would make the card physically vanish, which is the bug this method exists to
+    // prevent.
+    //
+    // A card that was played has to BE somewhere. Before this existed, a destroyed creature was
+    // simply dropped: not on the board, not in a hand, not in a deck, not in a discard. That is
+    // invisible in ordinary play -- nothing reads a discard pile except the odd effect -- but it
+    // breaks the card-conservation identity the determinizer's accounting rests on
+    // (hand + deck + discard + board == the starting deck). Without it, subtracting a player's
+    // visible cards from their known decklist over-counts what remains, and the determinizer
+    // samples opponent hands containing cards that are actually dead. See
+    // Shapes.Ai/Search/Determinizer.cs and Shapes.Tests/Mechanics/CardConservationTests.cs.
+    //
+    // MERGED creatures discard EVERY card folded into them, not just the surviving instance's
+    // CardId: a merge of two cards is two physical cards occupying one slot, and both die at
+    // once. MergedFrom is exactly that list (it holds the creature's own id even unmerged), which
+    // is why this iterates it rather than discarding CardId.
+    //
+    // TOKENS discard nothing -- they were never cards. See CreatureInstance.IsToken.
+    public void DestroyCreature(SlotIndex slot, CreatureInstance creature)
+    {
+        ArgumentNullException.ThrowIfNull(creature);
+
+        RecordTurnEvent(TurnEventKind.CreatureDestroyed, slot.Owner, slot, creature.CardId);
+
+        if (creature.IsToken)
+        {
+            return;
+        }
+
+        var owner = this[slot.Owner];
+        foreach (var cardId in creature.MergedFrom)
+        {
+            owner.SendToDiscard(cardId);
+        }
+    }
+
     // Counts full rounds, incrementing when play returns to player one. Starts at 1.
     public int TurnNumber { get; private set; }
 
@@ -328,6 +369,18 @@ public sealed class GameState
     }
 
     public void SetPhase(TurnPhase phase) => Phase = phase;
+
+    // Restores the turn counter when a state is reconstructed rather than played -- the step 2.3
+    // determinizer building a sampled world, and tests positioning a game mid-match.
+    //
+    // A direct setter rather than replaying EndTurn to advance the count: EndTurn also flips the
+    // active player and calls ResetMovesForNewTurn on the board, which would erase the
+    // once-per-turn move usage a reconstructed state is trying to reproduce.
+    public void SetTurnNumber(int turnNumber)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(turnNumber, 1);
+        TurnNumber = turnNumber;
+    }
 
     // Debug affordance for the console client's POV swap.
     public void SetActivePlayer(PlayerId player) => ActivePlayer = player;

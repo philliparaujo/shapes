@@ -8,11 +8,11 @@ AI-driven balance → Godot client.
 | Phase                          | Progress   |
 |--------------------------------|------------|
 | 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 2 / 9      |
+| 2 — IS-MCTS AI                 | 3 / 9      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-615 tests passing.
+642 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
@@ -20,10 +20,12 @@ physical Android device.
 **Phase 2 is underway.** Step 2.1 landed the `IAgent` seam (`Shapes.Ai/Agents/`). Step 2.2 landed
 `ObservedState`, narrowing `AgentContext.State` from the full `GameState` to a projection that
 structurally cannot leak the opponent's hand contents or deck order — pinned by
-`Shapes.Tests/Agents/ObservedStateTests.cs`.
+`Shapes.Tests/Agents/ObservedStateTests.cs`. Step 2.3 landed the determinizer
+(`Shapes.Ai/Search/Determinizer.cs`), along with a **rules fix it exposed**: destroyed creatures
+now go to their owner's discard pile (`GameState.DestroyCreature`) instead of vanishing.
 
-**Next up: step 2.3** — the determinizer: sample a hidden state consistent with all observations
-(deck composition minus known cards, opponent hand size, revealed/discarded cards).
+**Next up: step 2.4** — baseline agents: `RandomAgent` already exists (it landed with step 2.1),
+so this is `GreedyAgent`, the one-ply heuristic yardstick.
 
 ### Common commands
 
@@ -192,6 +194,18 @@ draw cards the player can then afford to pay with.
 - Result: health summed, move lists unioned, typings combined. Occupies one slot.
 - A merged creature **cannot merge again**.
 
+### Destroyed creatures go to the discard pile
+
+A creature that dies sends **every card folded into it** (`MergedFrom`, which holds its own id
+even when unmerged) to its **owner's** discard pile — not the killer's. Merging is not death: the
+absorbed creature's card is not discarded, it lives on inside the merged creature and goes to the
+discard when *that* creature dies. **Summoned tokens discard nothing** — they were never cards.
+
+This exists so that cards are conserved: every card is always findable in exactly one zone
+(hand, deck, discard, or board). Phase 2's determinizer reconstructs the opponent's hidden cards
+by subtracting what it can see from the shared decklist, and that subtraction is only correct if
+nothing can leave the game silently. Pinned by `Shapes.Tests/Mechanics/CardConservationTests.cs`.
+
 > ⚠️ **Design flag.** Merging is free and additive in stats, but not strictly better: a
 > multi-type creature is 2×-vulnerable to any type matching one of its types, and it consumes a
 > board slot — costing both a scoring body and its per-turn income. Phase 3 must measure whether
@@ -353,6 +367,11 @@ day one, never an implicit "all cards" set, so deckbuilder constraints (size, ma
 Phase 3 gains archetype sweeps (mono-type vs. mixed, aggro vs. control) once this exists — only
 after per-card balance has settled.
 
+> ⚠️ **Custom decks are also an AI change, not just a UI one.** Step 2.3's determinizer assumes
+> symmetric decks and throws otherwise. Shipping the deckbuilder without addressing that would
+> leave the AI assuming its opponent's deck is identical to its own. See Phase 4 step 9 for what
+> the migration involves.
+
 ### Rules as configuration
 
 Income, scoring, draw, hand limit, and win condition are volatile, so they live in a **`RuleSet`
@@ -447,6 +466,11 @@ real ones.
   vacuously.
 - **Board & merging** — slot/range legality, adjacency + un-merged-only + depth cap, merge is
   free and doesn't consume the turn, death frees the slot and changes opposition.
+- **Card conservation** (`Shapes.Tests/Mechanics/CardConservationTests.cs`) — every card is
+  always in exactly one zone: a destroyed creature discards all of its `MergedFrom` cards to its
+  owner's pile, merging discards nothing, tokens discard nothing. Backed at scale by a 2,000-game
+  invariant that hand + deck + discard + board equals the starting deck as a multiset, plus a
+  non-vacuity test that creatures actually die during it.
 - **Type effectiveness** — every cycle edge and reverse edge, merged-target match+weak vs.
   match-only vs. weak-only (the last is the case most likely misread), spell damage always 1×,
   bonus-then-multiplier ordering pinned, `weaknessMultiplier: 1.0` disables the system.
@@ -619,8 +643,67 @@ rather than a blanket line-coverage percentage.
   existing one); own hand/deck/discard visible in full; the board is the identical object
   regardless of observer; observing from the other side flips which hand is hidden; no public
   member anywhere in the three types returns `GameState` or `IRandomSource`.
-- [ ] **3. Determinizer:** sample a hidden state consistent with all observations (deck
-  composition minus known cards, opponent hand size, revealed/discarded cards).
+- [x] **3. Determinizer:** sample a hidden state consistent with all observations (deck
+  composition minus known cards, opponent hand size, revealed/discarded cards). Lives in
+  `Shapes.Ai/Search/Determinizer.cs` — a new folder, since this is search machinery rather than
+  part of the `IAgent` seam. `Determinize(ObservedState, IRandomSource) → GameState` returns a
+  **real `GameState`**, so `ActionGenerator`/`ActionExecutor`/`AdvanceToActions` all run on a
+  sampled world unchanged; a bespoke search-only state would have meant a second copy of every
+  rule. The `IRandomSource` is a parameter rather than constructor state because per-iteration
+  resampling calls this thousands of times per decision and the search owns the stream.
+
+  **The opponent's cards are reconstructed from the decklist**, since `ObservedState` gives their
+  hand and deck as bare counts: in symmetric mode both players play the same publicly-known list,
+  so their unseen cards are `BuildSymmetricDeck − their discard − their board (expanded through
+  MergedFrom)`, shuffled and dealt into a hand and deck of the observed sizes. **Multiset
+  subtraction, not set** — with `copiesPerCard: 2`, seeing one copy discarded means one remains,
+  and treating it as a set would make every card they ever discarded impossible for them to hold.
+  The observer's own deck is **re-shuffled, not copied** in `DeckComposition` order: that order is
+  alphabetical precisely so it carries no draw-order information, and using it verbatim would let
+  a search read its own future draws.
+
+  **This step exposed a real rules bug, fixed here.** A destroyed creature was removed from the
+  board and logged as a turn event, but its card went *nowhere* — not to a hand, deck, discard, or
+  the board. Invisible in ordinary play (almost nothing reads a discard pile), but it breaks the
+  conservation identity the determinizer's subtraction depends on:
+
+  ```
+  hand + deck + discard + (board, expanded through MergedFrom) == the starting deck
+  ```
+
+  Without it the subtraction over-counts and the determinizer deals the opponent cards that are
+  physically dead — exactly the "sampling a deck containing a card already in the graveyard"
+  failure this plan flags as silently degrading play. `GameState.DestroyCreature` is now the one
+  place a creature dies, called by all three destruction paths (the post-action `RemoveDead`
+  sweep, `destroy`, and `destroy_refund_cost`), and it discards **every** card in `MergedFrom` —
+  a merged creature is several physical cards in one slot and they all die together. Merging
+  itself discards nothing: the absorbed creature's card lives on inside `MergedFrom`.
+
+  Summoned creatures needed a new `CreatureInstance.IsToken` flag: a token's id need not name a
+  real card and it came from no deck, so discarding it would inflate a player's apparent pool —
+  the same accounting error in the opposite direction. Token-ness is contagious through a merge,
+  since `MergedFrom` then mixes card ids with non-card ids and nothing carries per-id provenance.
+
+  **Symmetric decks only.** The whole reconstruction rests on the opponent's decklist being
+  public, which `deckMode: "custom"` is not — that would need a belief distribution over possible
+  decklists. `Determinize` throws on a non-symmetric ruleset rather than sampling nonsense,
+  mirroring `BuildSymmetricDeck`'s own guard. Sampling is **uniform** over consistent worlds;
+  weighting by opponent behaviour is a play-strength question for step 2.9, not a correctness one.
+  Lifting the symmetric assumption is scoped at **Phase 4 step 9**, alongside the deckbuilder that
+  makes it necessary — see there for what the migration touches and what it leaves alone.
+
+  Pinned by two suites. `Shapes.Tests/Mechanics/CardConservationTests.cs` states the discard rule
+  directly (damage, `destroy`, `destroy_refund_cost`, merged creatures, tokens, and merge-is-not-
+  destruction) and asserts the conservation identity across 2,000 random games, with a
+  non-vacuity test proving creatures actually die in them.
+  `Shapes.Tests/Ai/DeterminizerTests.cs` covers consistency (every observation reproduced, board
+  cloned not aliased), soundness (no card sampled that is visibly elsewhere; both copies
+  discarded ⇒ never dealt back), **non-degeneracy** (different seeds give different opponent
+  hands and deck orders — these are what stop an implementation that deals in sorted order and
+  passes every consistency test while collapsing IS-MCTS into searching one arbitrary world),
+  determinism, and the round-trip property (re-observing a sample reproduces the original
+  observation), plus a fuzz pass determinizing every position of 300 real games from both seats.
+  All three failure modes were verified to fail the suite before the fix.
 - [ ] **4. Baseline agents first:** `RandomAgent`, `GreedyAgent` (one-ply heuristic). These are
   the yardstick — an MCTS that cannot crush both has a bug.
 - [ ] **5. Console hidden-hand mode** (`--reveal` flag, default **off**). Today `BoardView`
@@ -716,6 +799,47 @@ up front rather than retrofitting.
   stutter the UI on a phone if run inline.
 - [ ] **9. Deckbuilder** (`deckMode: "custom"`): browse the card set, build and save decks,
   validate against `RuleSet` limits.
+
+  **This step also owns migrating the determinizer off its symmetric-deck assumption**, which is
+  AI work, not UI work — budget for it separately from the deckbuilder screen.
+
+  *What the assumption is.* `ObservedState` gives the opponent's hand and deck as bare counts, so
+  their *contents* must come from somewhere else. In symmetric mode that somewhere is
+  `BuildSymmetricDeck` — and that is not a guess, it is certain knowledge: both players are dealt
+  the same list, derived from public data. The opponent's decklist simply isn't hidden. The only
+  hidden thing is how that known list splits between hand and deck, which makes determinization a
+  shuffle-and-deal and is why `Determinizer` is short.
+
+  *What breaks.* Under `deckMode: "custom"` the decklist itself becomes hidden. The question
+  changes from "how is this known multiset partitioned" to "which cards did they even bring, and
+  then how is *that* partitioned" — a distribution over possible decklists rather than a
+  partition of one. Worse, the failure mode changes character: today a mistake produces an
+  *impossible* world, which the conservation identity and the size guard catch loudly. A weak
+  belief model produces perfectly possible but improbable worlds, which nothing structural
+  detects. Correctness stops being assertable and becomes something you can only measure.
+
+  *What actually has to change.* Less than the above suggests, because the seam is already in the
+  right place:
+
+  - **Unchanged:** the `Determinize(ObservedState, IRandomSource) → GameState` signature and
+    everything downstream of it (the whole search), the conservation rule and
+    `GameState.DestroyCreature`, and the multiset arithmetic. Nearly every consistency, soundness,
+    determinism, and round-trip test in `DeterminizerTests.cs` stays valid verbatim — they are
+    phrased against observations, not against how the card pool was derived.
+  - **Changed:** one method. `UnseenCardsOf` starts from `BuildSymmetricDeck` and subtracts; it
+    would instead start from a *sampled* decklist. `RuleSet.DeckMode` is already the discriminator,
+    so dispatch needs no new flag, and the guard in `Determinize` throws today rather than
+    degrading precisely so this is a compile-and-fix rather than a silent behaviour change.
+  - **New:** the belief model. A sound first version is small — constrain to cards the opponent
+    has demonstrably played (those are known to be in their deck), fill the rest uniformly from
+    the legal pool subject to `DeckSize`/`MaxCopiesPerCard`, reject samples violating the
+    constraints. Crude (it will sample decks no human would build) but sound, which is the right
+    first version for the same reason uniform sampling was right for the symmetric case.
+    Archetype-aware weighting is open-ended; do it only if measured play strength demands it.
+
+  *No abstraction seam exists today, deliberately.* An `IDeckBeliefModel` designed against one
+  implementation and one hypothetical would likely be the wrong shape. The natural extraction
+  point is the first few lines of `UnseenCardsOf` when a second implementation actually exists.
 - [ ] **10. Persistence:** saved decks, settings, progress — Godot `user://`.
 - [ ] **11. Polish:** sound, transitions, menus.
 - [ ] **12. Export pipeline:** desktop builds, plus Android (release signing, `.aab` for Play
@@ -730,6 +854,8 @@ up front rather than retrofitting.
 - [ ] Full game playable with visuals against the Phase 2 AI on a desktop build.
 - [ ] The same, on a **physical Android device**.
 - [ ] Deckbuilder functional and validating against the engine's own rules.
+- [ ] The AI plays custom decks without assuming its opponent's decklist matches its own — the
+  determinizer samples a decklist rather than reading it from the ruleset (step 9).
 - [ ] `Shapes.Core` unmodified from Phase 3.
 
 ---

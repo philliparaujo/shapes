@@ -211,7 +211,7 @@ public static class ActionExecutor
 
         foreach (var (slot, creature) in state.Board.RemoveDead())
         {
-            state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, slot.Owner, slot, creature.CardId);
+            state.DestroyCreature(slot, creature);
         }
 
         // A `discard` op in that list may have recorded a debt larger than the hand can pay.

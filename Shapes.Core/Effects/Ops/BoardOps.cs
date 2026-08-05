@@ -28,7 +28,11 @@ internal sealed class DestroyOp : EffectOp
         }
 
         ctx.State.Board.Remove(slot);
-        ctx.State.RecordTurnEvent(TurnEventKind.CreatureDestroyed, slot.Owner, slot, creature.CardId);
+
+        // Discards the creature's card(s) as well as logging the destruction -- the same single
+        // definition of "a creature died" the post-action RemoveDead sweep uses. See
+        // GameState.DestroyCreature.
+        ctx.State.DestroyCreature(slot, creature);
         return creature;
     }
 }
@@ -83,7 +87,11 @@ internal sealed class SummonOp : EffectOp
             return;
         }
 
-        ctx.State.Board.Place(slot.Value, new CreatureInstance(cardId, health, types));
+        // isToken: a summoned creature was never a card in anyone's deck, and its id need not
+        // name one in the CardDatabase. Flagging it here is what keeps it out of a discard pile
+        // when it dies -- see CreatureInstance.IsToken.
+        ctx.State.Board.Place(
+            slot.Value, new CreatureInstance(cardId, health, types, isToken: true));
     }
 
     private static SlotIndex? FindEmptySlot(EffectContext ctx, TargetSelector selector)

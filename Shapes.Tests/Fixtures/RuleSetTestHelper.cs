@@ -25,6 +25,11 @@ public static class RuleSetTestHelper
 
     public static RuleSet WithScoreToWin(int scoreToWin) => Build(scoreToWin: scoreToWin);
 
+    // A custom-deck ruleset, for the code paths that require a symmetric one and must refuse a
+    // custom one loudly rather than misbehaving (CardDatabase.BuildSymmetricDeck, Determinizer).
+    public static RuleSet CustomDeck(int deckSize = 30, int maxCopiesPerCard = 2) =>
+        Build(deckMode: DeckMode.Custom, deckSize: deckSize, maxCopiesPerCard: maxCopiesPerCard);
+
     private static RuleSet Build(
         string? name = null,
         int? startingHandSize = null,
