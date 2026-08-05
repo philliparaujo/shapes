@@ -10,7 +10,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 1 / 7      |
+| 4 — AI-driven balance                    | 2 / 7      |
 | 5 — Godot client                         | 0 / 12     |
 
 747 tests passing. **Phases 1, 2, and 3 are complete.**
@@ -20,10 +20,10 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 2** — answer the two flagged design questions (merge tradeoff,
-unopposed-income compounding) as direct behaviour measurements now that step 1's metrics exist.
-Agents are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules vary from
-here instead.
+**Next up: Phase 4 step 3** — sweep rulesets/card variants and rank outliers, now that step 2 has
+confirmed both flagged design questions (merge tradeoff, unopposed-income compounding) are real,
+non-degenerate behaviours worth balancing against. Agents are frozen at Phase 3's final tuned
+configuration (step 7's matrix); cards/rules vary from here instead.
 
 ### Common commands
 
@@ -111,10 +111,14 @@ moves unioned, types combined, one slot, cannot merge again.
 determinizer, which reconstructs hidden cards by subtraction). Merging itself discards nothing;
 tokens discard nothing (never cards). Pinned by `CardConservationTests.cs`.
 
-> ⚠️ **Open design questions for Phase 4:** is merge's stat-gain-vs-vulnerability-and-slot-cost
-> tradeoff priced right (if the AI merges almost every chance, no)? And does an unopposed
-> creature's double duty — scoring *and* paying income — compound into an unbeatable runaway
-> lead? Neither changed yet; both need instrumenting first.
+> ⚠️ **Open design questions for Phase 4, now measured (step 2):** is merge's
+> stat-gain-vs-vulnerability-and-slot-cost tradeoff priced right? Confirmed not a free
+> strictly-better action — both `ismcts` and `ismcts-heuristic` decline the majority of legal
+> merges (~61-67%). Does an unopposed creature's double duty — scoring *and* paying income —
+> compound into a runaway lead? Confirmed strongly correlated with winning (streak-vs-margin
+> Pearson r = 0.73/0.48); a player who never held an unopposed creature 2+ turns running won zero
+> sampled games. Both are real, non-degenerate design issues for steps 3-4 to balance against, not
+> settled — content (cards/rules) hasn't changed yet.
 
 ---
 
@@ -329,9 +333,18 @@ step 10, so every number here reflects genuinely stable content.
   enforced rather than assumed. Score curves were tried and dropped: a flattened per-turn score
   series added size and noise to the JSON output without pulling its weight next to the other
   metrics. `Shapes.Sim`'s console output, `--json`, and `--metrics-json` all surface the report.
-- [ ] **2. Answer the two flagged design questions directly as behaviour measurements** (not win
-  rate, per Phase 2's lesson, and only meaningful with Phase 3's frozen competent agent): does the
-  AI ever decline a legal merge, and how strongly does unopposed-creature income compound?
+- [x] **2. Answered the two flagged design questions directly as behaviour measurements** (24
+  self-play games each, 200 iterations, both `ismcts` and `ismcts-heuristic` since the heuristic
+  playout is stronger and closer to optimal play): **merge is declined, not auto-taken** —
+  `ismcts` merged in 33.2% of opportunities (declined 66.8%), `ismcts-heuristic` in 38.8%
+  (declined 61.2%), with a declined merge in 95.8% of games for both. The tradeoff is real, not
+  priced as a free strictly-better action. **Unopposed-creature income compounding is real and
+  strong** — longest-unopposed-streak vs. final score margin: Pearson r = 0.729 (`ismcts`), 0.480
+  (`ismcts-heuristic`); a player who never sustained an unopposed creature 2+ turns running won 0
+  games in-sample at either configuration. Confirms both flagged concerns as genuine,
+  non-degenerate design issues for step 3/4 to address, not null results — though the sample is
+  smaller than Phase 3's 30-game convention and shows correlation, not causal isolation, so a
+  larger confirmatory run is worth doing before it drives a specific ruleset change.
 - [ ] **3. Sweep** rulesets/card variants; rank outliers.
 - [ ] **4. Iterate** — edit JSON, rerun, compare; keep a `balance/` experiment log.
 - [ ] **5. Watch for** never-played/auto-include cards, degenerate loops, first-player advantage
