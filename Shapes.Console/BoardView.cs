@@ -5,9 +5,16 @@ using Shapes.Core.State;
 namespace Shapes.Console;
 
 // Renders a GameState to the console: both boards, hands, resources, score, and turn info.
-internal static class BoardView
+//
+// Deliberately renders from GameState, not ObservedState, and hides by SUPPRESSING output rather
+// than by being handed a narrowed state (step 2.5). Two independent switches: what an agent may
+// see is a correctness property enforced by test, while what the screen shows is a preference.
+// Routing the console through ObservedState would couple the two and make --reveal impossible.
+public static class BoardView
 {
-    public static void Render(GameState state, CardDatabase cards)
+    // reveal: print both hands in full. Off by default -- the waiting seat's hand shows only a
+    // count, so a human never reads the AI's (or the other hotseat player's) cards.
+    public static void Render(GameState state, CardDatabase cards, bool reveal = false)
     {
         System.Console.WriteLine(
             $"— Turn {state.TurnNumber} — Player {(int)state.ActivePlayer + 1} to act ({state.Phase}) —");
@@ -15,12 +22,13 @@ internal static class BoardView
 
         foreach (var playerId in PlayerIds.All)
         {
-            RenderPlayer(state, cards, playerId);
+            RenderPlayer(state, cards, playerId, reveal);
             System.Console.WriteLine();
         }
     }
 
-    private static void RenderPlayer(GameState state, CardDatabase cards, PlayerId playerId)
+    private static void RenderPlayer(
+        GameState state, CardDatabase cards, PlayerId playerId, bool reveal)
     {
         var player = state[playerId];
         var marker = state.ActivePlayer == playerId ? "*" : " ";
@@ -38,15 +46,37 @@ internal static class BoardView
         System.Console.WriteLine(string.Join("  |  ", slots));
 
         System.Console.Write("  Hand:  ");
-        if (player.Hand.Count == 0)
+        System.Console.WriteLine(DescribeHand(state, cards, playerId, reveal));
+    }
+
+    // The one place step 2.5's hiding happens.
+    //
+    // The ACTIVE player always sees their own hand -- they are the one being asked to choose from
+    // it. Everyone else gets a count, never the contents.
+    //
+    // A count rather than a blank, because hand size is public information: you can see how many
+    // cards someone is holding across a table, and step 2.3's determinizer depends on it being
+    // knowable to sample a correctly-sized hand. Hiding it would show the human LESS than the AI
+    // is entitled to, which overshoots the fairness this step is for.
+    // Public rather than private so the hiding rule can be asserted directly, without a test
+    // scraping stdout for a substring. What gets hidden is the property worth pinning; where it
+    // lands on the screen is not.
+    public static string DescribeHand(
+        GameState state, CardDatabase cards, PlayerId playerId, bool reveal)
+    {
+        var hand = state[playerId].Hand;
+
+        if (!reveal && state.ActivePlayer != playerId)
         {
-            System.Console.WriteLine("(empty)");
+            return hand.Count == 1 ? "(1 card, hidden)" : $"({hand.Count} cards, hidden)";
         }
-        else
+
+        if (hand.Count == 0)
         {
-            var handNames = player.Hand.Select(id => cards.TryGet(id, out var c) ? c!.Name : id);
-            System.Console.WriteLine(string.Join(", ", handNames));
+            return "(empty)";
         }
+
+        return string.Join(", ", hand.Select(id => cards.TryGet(id, out var c) ? c!.Name : id));
     }
 
     private static string DescribeSlot(GameState state, CardDatabase cards, SlotIndex slot)

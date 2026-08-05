@@ -26,6 +26,22 @@ public sealed class ConsoleOptions
     // reading a whole game at once, or piping many games somewhere.
     public bool Quiet { get; private set; }
 
+    // Renders BOTH hands in full, which is what the client did before step 2.5.
+    //
+    // Default off, so the non-active seat's hand shows only a count. Without that, a human
+    // playing the AI reads the AI's hand while the AI cannot read theirs, and "I beat the AI"
+    // stops meaning anything. It applies to hotseat too -- two humans sharing a screen genuinely
+    // should not see each other's cards -- which is the convenience this flag buys back.
+    //
+    // Kept rather than deleted because full visibility is the right view for debugging a strange
+    // board state or watching an AI-v-AI game, where there is no one to hide information from.
+    //
+    // Note this is a DISPLAY switch only. What an agent may see is ObservedState's job (step 2.2)
+    // and is enforced by test; this flag cannot widen it. The console renders from GameState
+    // either way -- coupling the screen to the engine invariant would make full-visibility
+    // debugging impossible.
+    public bool Reveal { get; private set; }
+
     public bool ShowHelp { get; private set; }
 
     public static ConsoleOptions Parse(string[] args)
@@ -60,6 +76,10 @@ public sealed class ConsoleOptions
                     options.Quiet = true;
                     break;
 
+                case "--reveal":
+                    options.Reveal = true;
+                    break;
+
                 case "--help":
                 case "-h":
                     options.ShowHelp = true;
@@ -92,6 +112,8 @@ public sealed class ConsoleOptions
         System.Console.WriteLine("  --p2 <agent>   Player two: human (default), random, greedy");
         System.Console.WriteLine("  --seed <n>     Seed the game instead of prompting");
         System.Console.WriteLine("  --quiet        One line per action; no board render");
+        System.Console.WriteLine(
+            "  --reveal       Show both hands in full (default: the waiting seat's is a count)");
         System.Console.WriteLine("  --help         This message");
         System.Console.WriteLine();
         System.Console.WriteLine("Examples:");
@@ -104,5 +126,8 @@ public sealed class ConsoleOptions
         System.Console.WriteLine(
             "  dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet");
         System.Console.WriteLine("      Watch a full AI-v-AI game as a turn-by-turn action log.");
+        System.Console.WriteLine();
+        System.Console.WriteLine("  dotnet run --project Shapes.Console -- --p2 greedy --reveal");
+        System.Console.WriteLine("      Same, but with the AI's hand visible — for debugging only.");
     }
 }

@@ -1,5 +1,6 @@
 // Text client for Shapes: hotseat human v human, human v AI, and AI v AI play.
-// Implements PLAN.md Phase 1, step 11, plus the agent-driven modes added with step 2.4.
+// Implements PLAN.md Phase 1, step 11, plus the agent-driven modes added with step 2.4 and the
+// hidden-hand rendering added with step 2.5.
 //
 // Usage:
 //   dotnet run --project Shapes.Console                         hotseat (default)
@@ -105,7 +106,7 @@ while (!state.IsOver)
 
     if (!options.Quiet)
     {
-        BoardView.Render(state, cards);
+        BoardView.Render(state, cards, options.Reveal);
         System.Console.WriteLine();
     }
 
@@ -114,6 +115,14 @@ while (!state.IsOver)
     {
         var actions = ActionGenerator.Generate(state, cards);
         choice = PromptAction(actions, cards);
+
+        // Echo a human's action too, not just an AI's. With hands hidden (step 2.5) an
+        // opponent's action can no longer be inferred from watching their hand shrink -- a
+        // discard in particular used to read straight off the visible hand and would otherwise
+        // now happen silently. The log is what replaces that inference, and it prints only what
+        // is public: which action was taken, never the rest of the hand it came from.
+        System.Console.WriteLine(
+            $"  P{state.ActivePlayer.ToIndex() + 1} (Human): {Describe(choice, cards)}");
     }
     else
     {
@@ -137,7 +146,10 @@ while (!state.IsOver)
 
 if (!options.Quiet)
 {
-    BoardView.Render(state, cards);
+    // Reveal unconditionally on the final board: the game is over, so there is no longer anyone
+    // to hide information from, and seeing what the loser was holding is the whole value of a
+    // post-mortem render.
+    BoardView.Render(state, cards, reveal: true);
 }
 
 System.Console.WriteLine();

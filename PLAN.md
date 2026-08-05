@@ -8,11 +8,11 @@ AI-driven balance → Godot client.
 | Phase                          | Progress   |
 |--------------------------------|------------|
 | 1 — Playable engine            | 13 / 13    |
-| 2 — IS-MCTS AI                 | 4 / 9      |
+| 2 — IS-MCTS AI                 | 5 / 9      |
 | 3 — AI-driven balance          | 0 / 7      |
 | 4 — Godot client               | 0 / 12     |
 
-661 tests passing.
+671 tests passing.
 
 **Phase 1 is complete.** Step 1.13's mobile spike confirmed Godot 4's C#/.NET export works on a
 physical Android device.
@@ -26,11 +26,12 @@ now go to their owner's discard pile (`GameState.DestroyCreature`) instead of va
 landed `GreedyAgent` (`Shapes.Ai/Agents/GreedyAgent.cs`), completing the baseline pair — it scores
 actions from static card data rather than simulating, so it stays independent of the search it
 exists to measure. How strong the baselines actually are is Phase 3 step 1's measurement, not a
-Phase 2 claim.
+Phase 2 claim. Step 2.5 landed console hidden-hand mode: the waiting seat's hand renders as a
+count, with `--reveal` restoring the old both-hands view. The decision the step asked for was
+confirmed — hiding applies to **hotseat** too, not only when a seat is an agent.
 
-**Next up: step 2.5** — console hidden-hand mode (`--reveal` flag, default off). Note this step
-asks for a decision before implementing: hiding the inactive player's hand changes **hotseat**
-too, trading a little convenience on every hotseat game for correctness on all of them.
+**Next up: step 2.6** — IS-MCTS itself: selection (UCB1), expansion, playout, backprop, with
+per-iteration resampling over step 2.3's determinizer.
 
 ### Common commands
 
@@ -60,7 +61,11 @@ random seed, then two players take turns picking numbered actions in the same te
 (default), `random`, or `greedy`, so the same client covers hotseat, human-v-AI, and AI-v-AI.
 `--seed <n>` skips the prompt, making a game scriptable and exactly replayable; `--quiet` drops
 the board render for one line per action plus a turn header, which fits a whole game on a screen.
-Every AI decision is echoed either way. `--help` lists it all.
+Every decision, human or AI, is echoed either way. `--help` lists it all.
+
+**The waiting seat's hand renders as a count** (step 2.5), so a human never reads the AI's cards —
+without which "I beat the AI" measures nothing. `--reveal` restores the both-hands view, which is
+what you want when watching an AI-v-AI game or inspecting a strange board, and nothing else.
 
 **This is how you watch a game rather than just assert about one.** A green test suite says an
 agent's decisions were legal; it does not show what the agent did with its turns. Step 2.4's
@@ -822,7 +827,7 @@ rather than a blanket line-coverage percentage.
   teeth by making the heuristic's unknown-op branch throw — it failed immediately, naming
   `buff_max_health`, a real card effect no synthetic card exercises. Robustness is a property of
   the agent alone, so unlike a win rate it cannot drift when cards are repriced.
-- [ ] **5. Console hidden-hand mode** (`--reveal` flag, default **off**). Today `BoardView`
+- [x] **5. Console hidden-hand mode** (`--reveal` flag, default **off**). Today `BoardView`
   renders both hands in full every turn — fine for hotseat, but the moment step 2.4 makes
   human-vs-AI real it means the human sees the AI's hand while the AI cannot see theirs, so
   "I beat the AI" stops meaning anything.
@@ -848,6 +853,34 @@ rather than a blanket line-coverage percentage.
   Also needs a one-line event log for actions whose result would otherwise be invisible: an
   opponent's discard currently reads off their visible hand, and with hands hidden it would
   happen silently.
+
+  **Decision confirmed: hidden by default everywhere, hotseat included.** The alternative
+  considered was hiding only when a seat is an agent, which would have kept hotseat's convenience
+  at the cost of leaving it the one mode that shows a player their opponent's cards. Rejected —
+  a rule with an exception is the one people forget, and the exception would sit exactly where
+  two humans share a screen.
+
+  **What landed.** `BoardView.Render` takes a `reveal` flag, and the hiding happens in one place,
+  `BoardView.DescribeHand`: the **active** player always sees their own hand (they are being asked
+  to choose from it), everyone else gets `(N cards, hidden)`. A count, not a blank — hand size is
+  public information, and blanking it would show the human *less* than the AI is entitled to,
+  overshooting the fairness this step exists to establish. The final post-game board renders with
+  `reveal: true` unconditionally: the game is over, there is no one left to hide from, and seeing
+  what the loser held is the whole value of a post-mortem.
+
+  **The event log now echoes human actions too, not just AI ones.** Only AI decisions were printed
+  before, which was fine when both hands were visible — an opponent's discard could be read off
+  their shrinking hand. With hands hidden that inference is gone, so the log replaces it, printing
+  only what is public: which action was taken, never the hand it came from.
+
+  Pinned by `Shapes.Tests/Console/HiddenHandTests.cs`, which required `Shapes.Tests` to reference
+  `Shapes.Console` for the first time (harmless — `CorePurityTests` constrains `Shapes.Core`, not
+  the test project's own graph). PLAN.md's coverage target says console rendering isn't worth
+  testing, and that still stands: nothing here asserts layout or spacing. *Which hand is hidden*
+  is not rendering — it is the property that makes a human-v-AI result mean anything. **Both seats
+  are tested**, since the plausible regression is hiding by active-player index in a way that
+  inverts when player two acts, which would look perfect in a screenshot taken on player one's
+  turn. Verified to have teeth: inverting the seat comparison fails 6 of the 10 tests.
 - [ ] **6. IS-MCTS:** selection (UCB1), expansion, playout, backprop; per-iteration resampling.
 - [ ] **7. Playout policy:** start uniform-random, then lightly heuristic (prefer damage/score
   moves) — usually a large strength gain for modest cost.
@@ -861,7 +894,7 @@ rather than a blanket line-coverage percentage.
   measurement; fixing a number here would mean picking it before the tool that measures it exists.
 - [ ] A decision at a realistic budget completes in target wall-clock (suggest ≤2s desktop).
 - [ ] `ObservedState` provably leaks no hidden information.
-- [ ] A human-vs-AI console game hides the AI's hand by default, and `--reveal` restores full
+- [x] A human-vs-AI console game hides the AI's hand by default, and `--reveal` restores full
   visibility for debugging.
 
 > **On strength numbers in Phase 2.** Phase 2 builds agents; Phase 3 measures them. Any figure

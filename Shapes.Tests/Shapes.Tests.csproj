@@ -23,6 +23,12 @@
     <ProjectReference Include="..\Shapes.Ai\Shapes.Ai.csproj" />
     <!-- Card-data validation (step 1.7) loads the real content set. -->
     <ProjectReference Include="..\Shapes.Content\Shapes.Content.csproj" />
+    <!--
+      Step 2.5's hidden-hand rendering. Console rendering is generally not worth testing (see
+      PLAN.md's coverage target), but WHICH HAND IS HIDDEN is not rendering. It is the property
+      that makes a human-v-AI result mean something, so it gets pinned like any other.
+    -->
+    <ProjectReference Include="..\Shapes.Console\Shapes.Console.csproj" />
   </ItemGroup>
 
 </Project>
