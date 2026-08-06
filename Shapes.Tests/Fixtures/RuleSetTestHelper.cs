@@ -5,7 +5,7 @@ namespace Shapes.Tests.Fixtures;
 
 // Builds a RuleSet that differs from the default in exactly one field.
 //
-// RuleSet is immutable with a seventeen-argument constructor and no copy-with, so a test
+// RuleSet is immutable with an eighteen-argument constructor and no copy-with, so a test
 // varying one knob would otherwise restate every other value -- and would then silently stop
 // tracking the default if one of them changed. Restating them once, here, means a test reads as
 // "the default, but MaxMergeDepth is 3", which is what it actually means.
@@ -25,6 +25,9 @@ public static class RuleSetTestHelper
 
     public static RuleSet WithScoreToWin(int scoreToWin) => Build(scoreToWin: scoreToWin);
 
+    public static RuleSet WithScoreByCreatureDelta(bool scoreByCreatureDelta) =>
+        Build(scoreByCreatureDelta: scoreByCreatureDelta);
+
     // A custom-deck ruleset, for the code paths that require a symmetric one and must refuse a
     // custom one loudly rather than misbehaving (CardDatabase.BuildSymmetricDeck, Determinizer).
     public static RuleSet CustomDeck(int deckSize = 30, int maxCopiesPerCard = 2) =>
@@ -38,6 +41,7 @@ public static class RuleSetTestHelper
         ResourcePool? baseIncome = null,
         int? incomePerCreatureType = null,
         int? pointsPerUnopposedCreature = null,
+        bool? scoreByCreatureDelta = null,
         int? scoreToWin = null,
         bool? mergeEnabled = null,
         bool? mergeRequiresAdjacent = null,
@@ -59,6 +63,7 @@ public static class RuleSetTestHelper
             baseIncome: baseIncome ?? d.BaseIncome,
             incomePerCreatureType: incomePerCreatureType ?? d.IncomePerCreatureType,
             pointsPerUnopposedCreature: pointsPerUnopposedCreature ?? d.PointsPerUnopposedCreature,
+            scoreByCreatureDelta: scoreByCreatureDelta ?? d.ScoreByCreatureDelta,
             scoreToWin: scoreToWin ?? d.ScoreToWin,
             mergeEnabled: mergeEnabled ?? d.MergeEnabled,
             mergeRequiresAdjacent: mergeRequiresAdjacent ?? d.MergeRequiresAdjacent,

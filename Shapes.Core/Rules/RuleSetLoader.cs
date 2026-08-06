@@ -61,7 +61,8 @@ public static class RuleSetLoader
                 copiesPerCard: dto.CopiesPerCard ?? d.CopiesPerCard,
                 deckSize: dto.DeckSize ?? d.DeckSize,
                 maxCopiesPerCard: dto.MaxCopiesPerCard ?? d.MaxCopiesPerCard,
-                typeChart: ReadTypeChart(dto.TypeChart, d.TypeChart));
+                typeChart: ReadTypeChart(dto.TypeChart, d.TypeChart),
+                scoreByCreatureDelta: dto.ScoreByCreatureDelta ?? d.ScoreByCreatureDelta);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {

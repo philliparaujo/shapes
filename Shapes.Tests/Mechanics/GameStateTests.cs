@@ -76,6 +76,73 @@ public class GameStateTests
         Assert.Equal(0, state.PendingScore(PlayerId.Two));
     }
 
+    // -- ScoreByCreatureDelta: a pure board-presence race, positioning irrelevant ----------------
+
+    [Fact]
+    public void Creature_delta_scores_the_net_creature_count_advantage()
+    {
+        var rules = RuleSetTestHelper.WithScoreByCreatureDelta(true);
+        var state = new StateBuilder()
+            .WithRuleSet(rules)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Slot(1, "b", TypeMask.Spike).Slot(2, "c", TypeMask.Anvil))
+            .P2(p => p.Slot(0, "d", TypeMask.Spike))
+            .Build();
+
+        // 3 vs 1 -> delta 2, regardless of which slots are individually opposed (P1 slot 0 IS
+        // opposed by P2 slot 0 here, and still counts toward the 3).
+        Assert.Equal(2, state.PendingScore(PlayerId.One));
+        Assert.Equal(0, state.PendingScore(PlayerId.Two));
+    }
+
+    [Fact]
+    public void Creature_delta_never_goes_negative()
+    {
+        var rules = RuleSetTestHelper.WithScoreByCreatureDelta(true);
+        var state = new StateBuilder()
+            .WithRuleSet(rules)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "b", TypeMask.Spike).Slot(1, "c", TypeMask.Anvil))
+            .Build();
+
+        // P1 has fewer creatures than P2 -- P1 must score 0, not a negative number.
+        Assert.Equal(0, state.PendingScore(PlayerId.One));
+        Assert.Equal(1, state.PendingScore(PlayerId.Two));
+    }
+
+    [Fact]
+    public void Creature_delta_scores_zero_on_a_mirrored_board()
+    {
+        var rules = RuleSetTestHelper.WithScoreByCreatureDelta(true);
+        var state = new StateBuilder()
+            .WithRuleSet(rules)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Slot(1, "b", TypeMask.Spike))
+            .P2(p => p.Slot(0, "c", TypeMask.Spike).Slot(2, "d", TypeMask.Anvil))
+            .Build();
+
+        // 2 vs 2 -- equal counts, even though the occupied slots don't line up 1:1.
+        Assert.Equal(0, state.PendingScore(PlayerId.One));
+        Assert.Equal(0, state.PendingScore(PlayerId.Two));
+    }
+
+    [Fact]
+    public void Creature_delta_respects_the_ruleset_multiplier()
+    {
+        var rules = new RuleSet(
+            "delta-double", 4, 1, 8, new ResourcePool(1, 1, 1), 1,
+            pointsPerUnopposedCreature: 3, scoreToWin: 10,
+            true, true, false, 2, DeckMode.Symmetric, 2, 0, 0, TypeChart.Default,
+            scoreByCreatureDelta: true);
+
+        var state = new StateBuilder()
+            .WithRuleSet(rules)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Slot(1, "b", TypeMask.Spike))
+            .Build();
+
+        // Delta 2 x multiplier 3 -- confirms the delta path multiplies rather than hard-coding
+        // 1 point per net creature.
+        Assert.Equal(6, state.PendingScore(PlayerId.One));
+    }
+
     [Fact]
     public void Scoring_respects_the_ruleset_multiplier()
     {

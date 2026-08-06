@@ -51,8 +51,13 @@ public sealed class RuleSet
     public int IncomePerCreatureType { get; }
 
     // Scoring: at the start of a player's turn, each friendly creature whose opposing slot is
-    // empty scores PointsPerUnopposedCreature.
+    // empty scores PointsPerUnopposedCreature. If ScoreByCreatureDelta is set, this formula is
+    // replaced entirely: a player scores max(0, ownCreatureCount - opponentCreatureCount) x
+    // PointsPerUnopposedCreature instead, a pure board-presence race where per-slot opposition no
+    // longer matters at all -- a 3-vs-1 board pays 2 points a turn regardless of which slots the
+    // three occupy. See GameState.PendingScore for the two formulas.
     public int PointsPerUnopposedCreature { get; }
+    public bool ScoreByCreatureDelta { get; }
     public int ScoreToWin { get; }
 
     // Merging
@@ -88,7 +93,8 @@ public sealed class RuleSet
         int copiesPerCard,
         int deckSize,
         int maxCopiesPerCard,
-        TypeChart typeChart)
+        TypeChart typeChart,
+        bool scoreByCreatureDelta = false)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -143,6 +149,7 @@ public sealed class RuleSet
         DeckSize = deckSize;
         MaxCopiesPerCard = maxCopiesPerCard;
         TypeChart = typeChart;
+        ScoreByCreatureDelta = scoreByCreatureDelta;
     }
 
     // The shipping rules, matching Shapes.Content/rulesets/default.json. Tests and tools use
@@ -164,7 +171,8 @@ public sealed class RuleSet
         copiesPerCard: 2,
         deckSize: 0,
         maxCopiesPerCard: 0,
-        typeChart: TypeChart.Default);
+        typeChart: TypeChart.Default,
+        scoreByCreatureDelta: false);
 
     public override string ToString() => Name;
 }

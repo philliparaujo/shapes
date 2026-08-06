@@ -97,3 +97,42 @@ Notes (compared to **v1.2-baseline**):
 Reasons
 - Didn't notice many problems with existing ruleset
 - No hand limit is less restrictive and doesn't seem degenerate
+
+# scoring
+## v1.3-baseline (v1.2-nolimit)
+Economy rules: 2/2/2 + 0per
+Card rules: 4 starting, 1/turn, no hand limit
+Scoring rules: 10 for win, 1 for unopposed creature
+
+## v1.3-halfscore
+**Changed:** scoreToWin to 5
+Notes
+- Higher seat 1 win rate
+- Faster games
+- Similar merge/move/draw rates
+- Less decisiveness
+- Higher cost pressure, less unused resources
+- Nearly every card has higher take% (good)
+- Cheaper cards seem to have higher draw win rates
+- Hard to say what's better
+
+## v1.3-doublescore
+**Changed:** scoreToWin to 20
+Notes
+- Definitely worse than baseline or halfscore
+- Too many unspent resources, card draw becomes very strong
+
+## v1.3-creaturedelta
+**Changed:** scoreByCreatureDelta to true
+Notes
+- Games take too long, some never terminate (with good play)
+- The worst rule change by far
+
+## Results
+**Final decision:** Keeping **v1.3-baseline**'s scoreToWin of 10
+Reasons
+- Even though games might be slightly too long right now, scoreToWin of 5 introduces too many other problems
+  - More seat 1 imbalance
+  - More blowouts
+  - GamesWithNoSustainedUnopposed becomes >0
+  - Higher take rate signals "play every card you can" is a more viable strategy

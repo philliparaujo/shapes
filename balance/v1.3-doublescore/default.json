@@ -9,8 +9,7 @@
   "incomePerCreatureType": 0,
 
   "pointsPerUnopposedCreature": 1,
-  "scoreByCreatureDelta": false,
-  "scoreToWin": 10,
+  "scoreToWin": 20,
 
   "mergeEnabled": true,
   "mergeRequiresAdjacent": true,

@@ -35,6 +35,22 @@ public class RuleSetLoaderTests
     }
 
     [Fact]
+    public void Score_by_creature_delta_defaults_to_off()
+    {
+        var rules = RuleSetLoader.FromJson("{}");
+
+        Assert.False(rules.ScoreByCreatureDelta);
+    }
+
+    [Fact]
+    public void Score_by_creature_delta_can_be_switched_on()
+    {
+        var rules = RuleSetLoader.FromJson("""{ "scoreByCreatureDelta": true }""");
+
+        Assert.True(rules.ScoreByCreatureDelta);
+    }
+
+    [Fact]
     public void Hand_limit_accepts_the_unlimited_sentinel()
     {
         var rules = RuleSetLoader.FromJson("""{ "handLimit": "unlimited" }""");
@@ -217,6 +233,7 @@ public class RuleSetLoaderTests
         Assert.Equal(d.BaseIncome, loaded.BaseIncome);
         Assert.Equal(d.IncomePerCreatureType, loaded.IncomePerCreatureType);
         Assert.Equal(d.PointsPerUnopposedCreature, loaded.PointsPerUnopposedCreature);
+        Assert.Equal(d.ScoreByCreatureDelta, loaded.ScoreByCreatureDelta);
         Assert.Equal(d.ScoreToWin, loaded.ScoreToWin);
         Assert.Equal(d.MergeEnabled, loaded.MergeEnabled);
         Assert.Equal(d.MergeRequiresAdjacent, loaded.MergeRequiresAdjacent);

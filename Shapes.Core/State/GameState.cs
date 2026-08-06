@@ -213,10 +213,23 @@ public sealed class GameState
         }
     }
 
-    // Points a player would score right now: one per unopposed creature. Pure -- callers use
-    // it to preview scoring without applying it.
+    // Points a player would score right now: one per unopposed creature, or -- under
+    // Rules.ScoreByCreatureDelta -- a pure board-presence race, max(0, own creatures - opponent's
+    // creatures), which ignores per-slot opposition entirely. Pure -- callers use it to preview
+    // scoring without applying it.
     public int PendingScore(PlayerId player) =>
-        SlotIndex.AllFor(player).Count(Board.IsUnopposed) * Rules.PointsPerUnopposedCreature;
+        (Rules.ScoreByCreatureDelta ? CreatureDeltaScore(player) : UnopposedScore(player))
+        * Rules.PointsPerUnopposedCreature;
+
+    private int UnopposedScore(PlayerId player) =>
+        SlotIndex.AllFor(player).Count(Board.IsUnopposed);
+
+    private int CreatureDeltaScore(PlayerId player)
+    {
+        var own = SlotIndex.AllFor(player).Count(Board.IsOccupied);
+        var opponent = SlotIndex.AllFor(player.Opponent()).Count(Board.IsOccupied);
+        return Math.Max(0, own - opponent);
+    }
 
     // Income a player would receive right now: the flat base plus one per type per creature.
     // A Spike/Wheel creature contributes to both spike and wheel, which is why merged

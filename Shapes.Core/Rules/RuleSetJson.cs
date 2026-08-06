@@ -25,6 +25,7 @@ internal sealed class RuleSetDto
     public int? IncomePerCreatureType { get; set; }
 
     public int? PointsPerUnopposedCreature { get; set; }
+    public bool? ScoreByCreatureDelta { get; set; }
     public int? ScoreToWin { get; set; }
 
     public bool? MergeEnabled { get; set; }
