@@ -52,6 +52,16 @@ public sealed class ConsoleOptions
     // debugging impossible.
     public bool Reveal { get; private set; }
 
+    // Pauses after every action until Enter is pressed, instead of printing at full speed.
+    //
+    // A fixed-ms delay was considered and rejected: it fights both a fast-to-skim turn (drawing,
+    // ending) and a slow-to-read one (a multi-effect spell) in the same game, since both get the
+    // same wait. Stepping one action at a time lets the reader set their own pace, which a timer
+    // cannot. Independent of --quiet -- it controls PACING, not verbosity -- but its stated
+    // purpose (PLAN.md Phase 4 step 4) is pacing an otherwise-fast --quiet log, so the two are
+    // meant to be used together even though nothing enforces that.
+    public bool Step { get; private set; }
+
     public bool ShowHelp { get; private set; }
 
     public static ConsoleOptions Parse(string[] args)
@@ -101,6 +111,10 @@ public sealed class ConsoleOptions
                     options.Reveal = true;
                     break;
 
+                case "--step":
+                    options.Step = true;
+                    break;
+
                 case "--help":
                 case "-h":
                     options.ShowHelp = true;
@@ -139,6 +153,8 @@ public sealed class ConsoleOptions
         System.Console.WriteLine("  --quiet        One line per action; no board render");
         System.Console.WriteLine(
             "  --reveal       Show both hands in full (default: the waiting seat's is a count)");
+        System.Console.WriteLine(
+            "  --step         Pause for Enter after each action, instead of printing at full speed");
         System.Console.WriteLine("  --help         This message");
         System.Console.WriteLine();
         System.Console.WriteLine("Examples:");
@@ -158,5 +174,9 @@ public sealed class ConsoleOptions
         System.Console.WriteLine(
             "  dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet");
         System.Console.WriteLine("      Watch the search play the greedy baseline.");
+        System.Console.WriteLine();
+        System.Console.WriteLine(
+            "  dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet --step");
+        System.Console.WriteLine("      Same, but paused for Enter after each action.");
     }
 }

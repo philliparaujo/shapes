@@ -34,7 +34,7 @@ public static class BoardView
         var marker = state.ActivePlayer == playerId ? "*" : " ";
         System.Console.WriteLine(
             $"{marker} Player {(int)playerId + 1} — Score: {player.Score}  " +
-            $"Resources: {Describe(player.Resources)}");
+            $"Resources: {ResourceIcons.Describe(player.Resources)}");
 
         System.Console.Write("  Board: ");
         var slots = new List<string>();
@@ -79,7 +79,10 @@ public static class BoardView
         return string.Join(", ", hand.Select(id => cards.TryGet(id, out var c) ? c!.Name : id));
     }
 
-    private static string DescribeSlot(GameState state, CardDatabase cards, SlotIndex slot)
+    // Public for the same reason DescribeHand is: the merged-name property (full MergedFrom,
+    // not just the primary card) is worth pinning by test, even though PLAN.md's coverage note
+    // says console layout/wording in general is not.
+    public static string DescribeSlot(GameState state, CardDatabase cards, SlotIndex slot)
     {
         var creature = state.Board[slot];
         if (creature is null)
@@ -87,10 +90,19 @@ public static class BoardView
             return $"[{slot}] --";
         }
 
-        var name = cards.TryGet(creature.CardId, out var c) ? c!.Name : creature.CardId;
+        var name = DescribeName(cards, creature);
         var badges = DescribeBadges(creature);
-        return $"[{slot}] {name} {creature.Health}/{creature.MaxHealth} ({creature.Types}){badges}";
+        var types = ResourceIcons.Describe(creature.Types);
+        return $"[{slot}] {name} {creature.Health}/{creature.MaxHealth} ({types}){badges}";
     }
+
+    // A merged creature's full name, not just its primary card's -- e.g. "Circle Cadet + Medic"
+    // rather than just "Circle Cadet", since the merged-in half's identity is otherwise invisible
+    // on the board (only ToString()'s debug form hinted at it, via a bare "(merged x2)" count).
+    // A token id (never in CardDatabase, see CreatureInstance.IsToken) falls back to its raw id,
+    // the same fallback DescribeHand already uses for an unknown card.
+    private static string DescribeName(CardDatabase cards, CreatureInstance creature) =>
+        string.Join(" + ", creature.MergedFrom.Select(id => cards.TryGet(id, out var c) ? c!.Name : id));
 
     private static string DescribeBadges(CreatureInstance creature)
     {
@@ -122,7 +134,4 @@ public static class BoardView
 
         return badges.Count == 0 ? string.Empty : $" [{string.Join(",", badges)}]";
     }
-
-    private static string Describe(ResourcePool pool) =>
-        $"△{pool.Spike} ▢{pool.Anvil} ◯{pool.Wheel}";
 }

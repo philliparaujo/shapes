@@ -10,26 +10,26 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 7 / 10     |
+| 4 — AI-driven balance                    | 8 / 10     |
 | 5 — Godot client                         | 0 / 12     |
 
-820 tests passing. **Phases 1, 2, and 3 are complete.**
+850 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 4** — console upgrades. Steps 2b/2c gave the metrics the denominators,
+**Next up: Phase 4 step 5** — metrics upgrades. Steps 2b/2c gave the metrics the denominators,
 intervals, and diagnostic splits a sweep needs to rank on; 2d made that output readable and
 diffable; 2e checked the detectors against a known-wrong answer and found take rate alone is not
 reliable for economy/tempo-neutral cards — cost pressure is. Step 3 (done) carried that forward
 into the rules-level sweep — economy, hand size/draw, and scoring-threshold variants, logged in
-`balance/LOG.md`. Reading those results surfaced real tooling gaps (bare `Move #N` in the console,
-no move/spell effect text in reports, take rate's per-decision denominator misreading move-order-
-insensitive moves as low-value) that steps 4/5 close before the per-card sweep (step 6). Agents
-are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules vary from here
-instead.
+`balance/LOG.md`. Step 4 (done) closed the console-side tooling gap it surfaced — bare `Move #N`,
+no move/spell effect text, merged creatures showing only their primary card's name. Step 5 closes
+the metrics-side gap (per-turn take rate, more card/move info in the report) before the per-card
+sweep (step 6). Agents are frozen at Phase 3's final tuned configuration (step 7's matrix);
+cards/rules vary from here instead.
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -500,11 +500,26 @@ step 10, so every number here reflects genuinely stable content.
   compare, record what changed and why in `balance/LOG.md`. Covers the economy sweep (income
   levels, `incomePerCreatureType`), hand-size/draw sweep, and the scoring-threshold sweep — see
   `balance/LOG.md` for the full record of each variant tried and why it was kept or rejected.
-- [ ] **4. Console upgrades** for reading agent-vs-agent games during a sweep: move names (not
-  `Move #N`) and effect text in the action log and `BoardView`, full `MergedFrom` display for
-  merged creatures (currently only the primary card's name shows), and pacing for `--quiet` mode
-  — specifically a `--step` flag (advance one action at a time) rather than a fixed-ms delay,
-  since a fixed delay fights both fast-to-skim and slow-to-read moments in the same game.
+- [x] **4. Console upgrades** for reading agent-vs-agent games during a sweep. **`EffectText`**
+  (`Shapes.Core/Effects/EffectText.cs`) synthesizes a phrase from the op vocabulary — there is no
+  hand-authored description field on any card (deliberately: it would drift from the numbers a
+  balance edit changes) — covering all ~28 ops including nested `conditional`/`for_each` and the
+  scaled-damage/heal/resource family's scale basis. **`ActionText.Describe`**
+  (`Shapes.Console/ActionText.cs`, extracted from a `Program.cs` local function so it is directly
+  testable like `BoardView`) replaces the bare `Move #N` — `GameAction.Describe()` cannot resolve
+  a real move name itself since it has no `CardDatabase`/`GameState` access; `ActionText` walks
+  `CreatureInstance.MergedFrom` through `CardDatabase.MovesOf` to find the actual `MoveDefinition`
+  at that concatenated index, then appends its `EffectText`. `PlayCardAction`/`DiscardAction` get
+  the same real-name-plus-effects treatment. **`BoardView.DescribeSlot`** now joins every card in
+  `MergedFrom` (`"T Body + Basic Circle"`) instead of showing only `CreatureInstance.CardId`, the
+  primary card — the gap `CreatureInstance.ToString()`'s debug form had too (a bare
+  `(merged x2)` count, no names). **`--step`** pauses for Enter after every action, independent of
+  `--quiet` — chosen over a fixed-ms delay because a timer fights both a fast-to-skim turn and a
+  slow-to-read multi-effect spell in the same game; a manual step lets the reader set the pace
+  instead. 30 new tests (850 total): `EffectTextTests` (one per op shape, plus an unknown-op
+  fallback so a future op degrades to its raw name instead of crashing the console mid-game),
+  `ActionTextTests` (including a merged-creature move-index case pinning `MoveIndexOffset`
+  correctness through the display layer), `BoardViewMergeTests`, `ConsoleOptionsStepTests`.
 - [ ] **5. Metrics upgrades.** A per-turn take rate alongside the existing per-decision
   `PlayTakeRate`/`UseTakeRate` — the current rate counts a card/move as "offered" at every
   decision point it stays legal within a turn, so a move that's reliably used once per turn but

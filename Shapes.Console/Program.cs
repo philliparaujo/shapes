@@ -116,7 +116,7 @@ while (!state.IsOver)
     if (agent is null)
     {
         var actions = ActionGenerator.Generate(state, cards);
-        choice = PromptAction(actions, cards);
+        choice = PromptAction(actions, state, cards);
 
         // Echo a human's action too, not just an AI's. With hands hidden (step 2.5) an
         // opponent's action can no longer be inferred from watching their hand shrink -- a
@@ -124,7 +124,7 @@ while (!state.IsOver)
         // now happen silently. The log is what replaces that inference, and it prints only what
         // is public: which action was taken, never the rest of the hand it came from.
         System.Console.WriteLine(
-            $"  P{state.ActivePlayer.ToIndex() + 1} (Human): {Describe(choice, cards)}");
+            $"  P{state.ActivePlayer.ToIndex() + 1} (Human): {ActionText.Describe(choice, state, cards)}");
     }
     else
     {
@@ -134,7 +134,7 @@ while (!state.IsOver)
         // only its winner -- which is precisely the gap that made the blocking-slot bug invisible
         // until it was probed for directly.
         System.Console.WriteLine(
-            $"  P{state.ActivePlayer.ToIndex() + 1} ({agent.Name}): {Describe(choice, cards)}");
+            $"  P{state.ActivePlayer.ToIndex() + 1} ({agent.Name}): {ActionText.Describe(choice, state, cards)}");
     }
 
     ActionExecutor.Apply(state, cards, choice);
@@ -143,6 +143,12 @@ while (!state.IsOver)
     if (!options.Quiet)
     {
         System.Console.WriteLine();
+    }
+
+    if (options.Step)
+    {
+        System.Console.Write("(press Enter to continue) ");
+        System.Console.ReadLine();
     }
 }
 
@@ -194,13 +200,13 @@ static ulong PromptSeed()
     return (ulong)Random.Shared.NextInt64();
 }
 
-static GameAction PromptAction(IReadOnlyList<GameAction> actions, CardDatabase cards)
+static GameAction PromptAction(IReadOnlyList<GameAction> actions, GameState state, CardDatabase cards)
 {
     while (true)
     {
         for (var i = 0; i < actions.Count; i++)
         {
-            System.Console.WriteLine($"  {i + 1}. {Describe(actions[i], cards)}");
+            System.Console.WriteLine($"  {i + 1}. {ActionText.Describe(actions[i], state, cards)}");
         }
 
         System.Console.Write("> ");
@@ -214,22 +220,3 @@ static GameAction PromptAction(IReadOnlyList<GameAction> actions, CardDatabase c
     }
 }
 
-static string Describe(GameAction action, CardDatabase cards)
-{
-    // Swap the card id for its display name. Both PlayCard and Discard name a card, and a
-    // discard menu reading "Discard t_juggler" rather than "Discard T Juggler" is exactly the
-    // moment the player has to pick one, so it is worth getting right.
-    var cardId = action switch
-    {
-        PlayCardAction play => play.CardId,
-        DiscardAction discard => discard.CardId,
-        _ => null,
-    };
-
-    if (cardId is not null && cards.TryGet(cardId, out var card))
-    {
-        return action.Describe().Replace(cardId, card!.Name, StringComparison.Ordinal);
-    }
-
-    return action.Describe();
-}
