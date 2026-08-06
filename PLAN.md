@@ -10,7 +10,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 6 / 11     |
+| 4 — AI-driven balance                    | 7 / 10     |
 | 5 — Godot client                         | 0 / 12     |
 
 820 tests passing. **Phases 1, 2, and 3 are complete.**
@@ -20,12 +20,16 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 3** — the sweep itself. Steps 2b/2c gave the metrics the denominators,
+**Next up: Phase 4 step 4** — console upgrades. Steps 2b/2c gave the metrics the denominators,
 intervals, and diagnostic splits a sweep needs to rank on; 2d made that output readable and
-diffable; 2e (done) checked the detectors against a known-wrong answer and found take rate alone
-is not reliable for economy/tempo-neutral cards — cost pressure is. Step 3 carries that forward:
-don't rank on take rate alone for that card shape. Agents are frozen at Phase 3's final tuned
-configuration (step 7's matrix); cards/rules vary from here instead.
+diffable; 2e checked the detectors against a known-wrong answer and found take rate alone is not
+reliable for economy/tempo-neutral cards — cost pressure is. Step 3 (done) carried that forward
+into the rules-level sweep — economy, hand size/draw, and scoring-threshold variants, logged in
+`balance/LOG.md`. Reading those results surfaced real tooling gaps (bare `Move #N` in the console,
+no move/spell effect text in reports, take rate's per-decision denominator misreading move-order-
+insensitive moves as low-value) that steps 4/5 close before the per-card sweep (step 6). Agents
+are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules vary from here
+instead.
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -486,17 +490,36 @@ step 10, so every number here reflects genuinely stable content.
   for step 3:** take rate alone cannot be trusted to rank economy/tempo-neutral cards; cost pressure
   is the more reliable signal for that category, and any auto-include/dead-card call on a
   card in that shape should cross-check both before acting.
-- [ ] **3. Sweep** rulesets/card variants; rank outliers. **Delta-based, not rank-in-isolation:**
-  under `deckMode: "symmetric"` both seats hold every card, so most cards are played by both in
-  most games — contributing one win and one loss and compressing win rate mechanically toward 0.5
-  (the step 1 test run's cards sat 0.41–0.60 almost entirely because of this, not because the set
-  is balanced). Per-card win rate therefore cannot rank cards no matter how many games are run.
-  Rank on take rate, and establish causation by changing one thing and diffing two reports.
-- [ ] **4. Iterate** — edit JSON, rerun, compare; keep a `balance/` experiment log.
-- [ ] **5. Watch for** never-played/auto-include cards, degenerate loops, first-player advantage
-  beyond ~55%, non-terminating games.
-- [ ] **6. Archetype sweeps** (mono vs. mixed, aggro vs. control) once `deckMode: "custom"`
-  exists — only after per-card balance has settled.
+- [x] **3. Sweep rules changes** (economy, cards, scoring) and rank outliers. **Delta-based, not
+  rank-in-isolation:** under `deckMode: "symmetric"` both seats hold every card, so most cards are
+  played by both in most games — contributing one win and one loss and compressing win rate
+  mechanically toward 0.5 (the step 1 test run's cards sat 0.41–0.60 almost entirely because of
+  this, not because the set is balanced). Per-card win rate therefore cannot rank cards no matter
+  how many games are run. Rank on take rate, and establish causation by changing one thing and
+  diffing two reports. This is the start of the `balance/` experiment log: edit JSON, rerun,
+  compare, record what changed and why in `balance/LOG.md`. Covers the economy sweep (income
+  levels, `incomePerCreatureType`), hand-size/draw sweep, and the scoring-threshold sweep — see
+  `balance/LOG.md` for the full record of each variant tried and why it was kept or rejected.
+- [ ] **4. Console upgrades** for reading agent-vs-agent games during a sweep: move names (not
+  `Move #N`) and effect text in the action log and `BoardView`, full `MergedFrom` display for
+  merged creatures (currently only the primary card's name shows), and pacing for `--quiet` mode
+  — specifically a `--step` flag (advance one action at a time) rather than a fixed-ms delay,
+  since a fixed delay fights both fast-to-skim and slow-to-read moments in the same game.
+- [ ] **5. Metrics upgrades.** A per-turn take rate alongside the existing per-decision
+  `PlayTakeRate`/`UseTakeRate` — the current rate counts a card/move as "offered" at every
+  decision point it stays legal within a turn, so a move that's reliably used once per turn but
+  rarely used *first* reads as low-take-rate identically to a move nobody wants; a per-turn
+  denominator (offered/chosen once per turn, not once per decision) separates "not urgent" from
+  "not wanted." Beyond that: more card/move information surfaced directly in the report (cost,
+  health, move/spell effect text) so reading an outlier doesn't require tabbing to
+  `Shapes.Content/cards/`; extra columns for resource type/cost; light formatting improvements
+  (coloring, bolding, conditional formatting) for faster scanning.
+- [ ] **6. Sweep card changes** in symmetric decks — the per-card pass step 3's rules sweep was
+  deliberately sequenced ahead of, since a rules change shifts every card's take rate and doing
+  card-level tuning first would mean redoing it. Watch for never-played/auto-include cards,
+  degenerate loops, first-player advantage beyond ~55%, non-terminating games. Archetype sweeps
+  (mono vs. mixed, aggro vs. control) wait for `deckMode: "custom"` (Phase 5) — only meaningful
+  after per-card balance has settled on the symmetric deck.
 
 **Exit criteria:** no extreme take-rate outliers (no dead cards, no auto-includes) at a sample
 size where the intervals actually separate them; first-player advantage near even **by score
