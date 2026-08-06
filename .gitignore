@@ -26,6 +26,7 @@ coverage*.xml
 balance/**/*.csv
 balance/**/raw/
 metrics.json
+report.html
 
 # Godot (Phase 4)
 .godot/

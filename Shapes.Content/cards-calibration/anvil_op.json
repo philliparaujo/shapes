@@ -1,0 +1,10 @@
+{
+  "id": "anvil_op",
+  "name": "Anvil OP",
+  "kind": "spell",
+  "cost": { "anvil": 1 },
+  "effects": [
+    { "op": "gain_resource", "type": "anvil", "amount": 2 },
+    { "op": "draw", "amount": 1 }
+  ]
+}

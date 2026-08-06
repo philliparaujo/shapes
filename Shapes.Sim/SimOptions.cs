@@ -33,6 +33,12 @@ public sealed record SimOptions
 
     public string? MovesCsv { get; private init; }
 
+    // Adds Shapes.Content/cards-calibration's six deliberately mispriced spells (PLAN.md step
+    // 4.2e) to the loaded card set, on top of the real ~36. Never combine with a report meant to
+    // stand in for a real balance run -- the point is a known-wrong answer to check the
+    // detectors against, not a ranking of real cards.
+    public bool Calibration { get; private init; }
+
     public bool ShowHelp { get; private init; }
 
     public static SimOptions Parse(string[] args)
@@ -90,6 +96,9 @@ public sealed record SimOptions
                 case "--moves-csv":
                     options = options with { MovesCsv = RequireValue(args, ref i, "--moves-csv") };
                     break;
+                case "--calibration":
+                    options = options with { Calibration = true };
+                    break;
                 case "--help" or "-h":
                     options = options with { ShowHelp = true };
                     break;
@@ -129,6 +138,7 @@ public sealed record SimOptions
         Console.WriteLine("  --report PATH.html Write a self-contained metrics explorer (PLAN.md step 4.2d)");
         Console.WriteLine("  --cards-csv PATH   Write per-card metrics as a flat CSV");
         Console.WriteLine("  --moves-csv PATH   Write per-move metrics as a flat CSV");
+        Console.WriteLine("  --calibration      Add the 6 deliberately mispriced calibration spells (PLAN.md step 4.2e)");
         Console.WriteLine("  --help             Show this message");
     }
 

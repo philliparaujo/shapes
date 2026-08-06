@@ -91,6 +91,18 @@ var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
 var cards = CardLoader.FromDirectory(cardsDir);
 var rules = RuleSet.Default;
 
+// --calibration adds the six deliberately mispriced spells (PLAN.md step 4.2e) on top of the
+// real set, so the metrics detectors can be checked against a known-wrong answer. Loaded from a
+// separate directory rather than merged into cards\ on disk, so CardSetHash (which only hashes
+// cards\) and BuildSymmetricDeck's card count are unaffected for every non-calibration run.
+if (options.Calibration)
+{
+    var calibrationDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards-calibration");
+    var calibrationCards = CardLoader.FromDirectory(calibrationDir);
+    cards = new CardDatabase(cards.All.Concat(calibrationCards.All));
+    Console.WriteLine($"Calibration: added {calibrationCards.Count} deliberately mispriced spells.");
+}
+
 Console.WriteLine(
     $"Agents: {string.Join(", ", options.Agents)}    Games/pairing: {options.Games}    "
     + $"Seed: {options.Seed}    Iterations: {options.Iterations}");

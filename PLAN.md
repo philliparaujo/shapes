@@ -10,25 +10,22 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 5 / 11     |
+| 4 — AI-driven balance                    | 6 / 11     |
 | 5 — Godot client                         | 0 / 12     |
 
-803 tests passing. **Phases 1, 2, and 3 are complete.**
+820 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 2e** — validate the detectors against deliberately mispriced calibration
-spells, before step 3's sweep relies on them. Steps 2b/2c gave the metrics the denominators,
-intervals, and diagnostic splits a sweep needs to rank on; 2d (done) made that output readable and
-diffable; 2e checks it registers a known-wrong card at all. Agents are frozen at Phase 3's final
-tuned configuration (step 7's matrix); cards/rules vary from here instead.
-
-**Order matters here:** 2e's calibration run is meant to be read through 2d's explorer, and step 3
-should not start until an instrument that has never been checked against a known answer is checked
-against one.
+**Next up: Phase 4 step 3** — the sweep itself. Steps 2b/2c gave the metrics the denominators,
+intervals, and diagnostic splits a sweep needs to rank on; 2d made that output readable and
+diffable; 2e (done) checked the detectors against a known-wrong answer and found take rate alone
+is not reliable for economy/tempo-neutral cards — cost pressure is. Step 3 carries that forward:
+don't rank on take rate alone for that card shape. Agents are frozen at Phase 3's final tuned
+configuration (step 7's matrix); cards/rules vary from here instead.
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -463,23 +460,24 @@ step 10, so every number here reflects genuinely stable content.
   `ResultWriter`'s existing CSV conventions. `--from-metrics-json PATH` skips playing games and
   reads a previously written `--metrics-json` file back in, so `--report`/`--cards-csv`/
   `--moves-csv` can be (re)derived from a saved run without replaying the batch that produced it.
-- [ ] **2e. Calibration spells** — six deliberately mispriced spells (one over- and one
-  underpowered per resource) whose *correct* verdict is known in advance, so the detectors can be
-  checked against a right answer instead of only against each other. Per resource type:
-  **(i) overpowered** — cost 1, gain 2 of that resource and draw a card (net resource-positive
-  and card-positive: should show a take rate at or near the top of the field, near-zero cost
-  pressure, and a win rate above the pack); **(ii) underpowered** — cost 3, deal 1 damage (three
-  pips for the weakest effect in the vocabulary: should show a take rate at the floor alongside
-  high cost pressure). If a metric cannot separate these twelve from the real set, that metric
-  cannot rank real cards either, and step 3 would be building on an unvalidated instrument.
-  **They must NOT go in `Shapes.Content/cards/`.** `CardDatabase.BuildSymmetricDeck` uses every
-  card in the database, so adding twelve files silently grows the deck 72 → 96 and shifts draw
-  probability for all 36 existing cards — invalidating the very baseline they are meant to be
-  measured against. They belong in a separate content set (e.g. `Shapes.Content/cards-calibration/`)
-  loaded only for calibration runs, which also keeps `CardSetHash` on real runs unchanged.
-  Deliberately blunt rather than subtly mistuned: the question is "does the instrument register a
-  known-wrong card at all," and a borderline case answers it ambiguously. Reading the calibration
-  run is also the first real test of 2d's explorer.
+- [x] **2e. Calibration spells** — six deliberately mispriced spells (one over- and one
+  underpowered per resource), added as `Spike/Anvil/Wheel OP` (cost 1, gain 2 of that resource and
+  draw a card) and `Spike/Anvil/Wheel UP` (cost 3, deal 1 damage), text-differentiable by name
+  alone. Live in `Shapes.Content/cards-calibration/`, loaded only via `Shapes.Sim --calibration`,
+  never merged into `Shapes.Content/cards/` — so `BuildSymmetricDeck`'s 36-card baseline and
+  `CardSetHash` on real runs are untouched. **Mixed result, read through 2d's explorer at 40
+  games/pairing, `ismcts` + `ismcts-heuristic`:** cost pressure cleanly separated both groups from
+  the field and from each other (OP: 11-16% vs. field median 42%; UP: 55-70%, the highest in the
+  set) — that detector works as designed. **Take rate did not separate them** (OP/UP both landed
+  mid-pack, 14-19%, against a field median of ~21%) — a real instrument gap, not a calibration
+  failure to paper over. Two causes: (1) the UP spells' `damage` effect needs a `chosen_enemy`
+  target, so their take-rate denominator is legality-gated like `siphon`/`execute`, inflating their
+  rate relative to the always-legal OP spells; (2) IS-MCTS's `PlayoutDepth=200` playout horizon
+  undervalues a pure economy play with no immediate board impact, the exact blind spot PLAN.md
+  already flags ("a card whose payoff lands outside IS-MCTS's horizon reads as weak"). **Actionable
+  for step 3:** take rate alone cannot be trusted to rank economy/tempo-neutral cards; cost pressure
+  is the more reliable signal for that category, and any auto-include/dead-card call on a
+  card in that shape should cross-check both before acting.
 - [ ] **3. Sweep** rulesets/card variants; rank outliers. **Delta-based, not rank-in-isolation:**
   under `deckMode: "symmetric"` both seats hold every card, so most cards are played by both in
   most games — contributing one win and one loss and compressing win rate mechanically toward 0.5
