@@ -349,6 +349,64 @@ public class MetricsReportTests
     }
 
     [Fact]
+    public void Cards_drawn_per_game_splits_winner_from_loser_rather_than_averaging_them_together()
+    {
+        // Same reasoning as the resource-profile split: a pooled average here would report
+        // 3.5, describing neither the winner (2 draws) nor the loser (5 draws).
+        var games = new[]
+        {
+            MakeGame(
+                PlayerId.One,
+                cardsDrawnOne: ["a", "b"],
+                cardsDrawnTwo: ["a", "b", "c", "d", "e"]),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        Assert.Equal(2.0, metrics.CardsDrawnWinners.Mean, precision: 5);
+        Assert.Equal(5.0, metrics.CardsDrawnLosers.Mean, precision: 5);
+    }
+
+    [Fact]
+    public void Cards_drawn_per_game_is_also_available_by_seat_independent_of_outcome()
+    {
+        // Seat two wins, so the seat split and the winner/loser split must disagree -- proving
+        // the seat split isn't just the outcome split relabelled.
+        var games = new[]
+        {
+            MakeGame(
+                PlayerId.Two,
+                cardsDrawnOne: ["a", "b", "c"],
+                cardsDrawnTwo: ["a"]),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        Assert.Equal(3.0, metrics.CardsDrawnSeatOne.Mean, precision: 5);
+        Assert.Equal(1.0, metrics.CardsDrawnSeatTwo.Mean, precision: 5);
+        Assert.Equal(1.0, metrics.CardsDrawnWinners.Mean, precision: 5);
+    }
+
+    [Fact]
+    public void Nonterminating_games_contribute_cards_drawn_to_seat_profiles_but_to_neither_outcome_profile()
+    {
+        var games = new[]
+        {
+            MakeGame(
+                null, EndingType.NonTerminating,
+                cardsDrawnOne: ["a", "b"],
+                cardsDrawnTwo: ["a", "b"]),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        Assert.Equal(0, metrics.CardsDrawnWinners.Count);
+        Assert.Equal(0, metrics.CardsDrawnLosers.Count);
+        Assert.Equal(1, metrics.CardsDrawnSeatOne.Count);
+        Assert.Equal(1, metrics.CardsDrawnSeatTwo.Count);
+    }
+
+    [Fact]
     public void Card_take_rate_divides_plays_by_the_times_the_play_was_legal()
     {
         // The metric raw PlayCount cannot express: "dud" is offered constantly and almost never

@@ -233,6 +233,10 @@ Console.WriteLine(
 Console.WriteLine(
     $"                   losers   spike {metrics.ResourcesLosers.Spike.Mean,5:F2}  "
     + $"anvil {metrics.ResourcesLosers.Anvil.Mean,5:F2}  wheel {metrics.ResourcesLosers.Wheel.Mean,5:F2}");
+Console.WriteLine(
+    $"Cards drawn/game   winners  {metrics.CardsDrawnWinners}");
+Console.WriteLine(
+    $"                   losers   {metrics.CardsDrawnLosers}");
 
 var pricedOut = metrics.CardStats
     .Where(c => c.BlockedByCostCount > 0)

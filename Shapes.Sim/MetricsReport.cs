@@ -262,6 +262,21 @@ public sealed class MetricsReport
 
     public required ResourceProfile ResourcesSeatTwo { get; init; }
 
+    // CARDS DRAWN PER GAME -- total draws (opening hand plus every mid-game draw), the same
+    // winner/loser split as the resource profiles and for the same reason: a losing seat has
+    // typically played more turns catching up (or been eliminated early), so pooling the two
+    // reports a midpoint that describes neither. Draw count is mechanical (RuleSet.CardsDrawnPerTurn
+    // plus the opening hand, minus burn), so this reads mainly as a GAME LENGTH proxy split by
+    // outcome -- a decisive winner/loser gap here says winners are closing games out before the
+    // draw step compounds, not a claim about any one card.
+    public required MeanEstimate CardsDrawnWinners { get; init; }
+
+    public required MeanEstimate CardsDrawnLosers { get; init; }
+
+    public required MeanEstimate CardsDrawnSeatOne { get; init; }
+
+    public required MeanEstimate CardsDrawnSeatTwo { get; init; }
+
     // UNOPPOSED-SLOT OCCUPANCY -- the scoring rule's own denominator, pooled across both seats.
     //
     // Of all (scoring step x slot) pairs in the batch, the share where a seat held a creature
@@ -364,6 +379,10 @@ public sealed class MetricsReport
             ResourcesLosers = ResourceProfile.From(ResourceSamples(games, winners: false, seat: null)),
             ResourcesSeatOne = ResourceProfile.From(ResourceSamples(games, winners: null, seat: PlayerId.One)),
             ResourcesSeatTwo = ResourceProfile.From(ResourceSamples(games, winners: null, seat: PlayerId.Two)),
+            CardsDrawnWinners = MeanEstimate.From(CardsDrawnSamples(games, winners: true, seat: null)),
+            CardsDrawnLosers = MeanEstimate.From(CardsDrawnSamples(games, winners: false, seat: null)),
+            CardsDrawnSeatOne = MeanEstimate.From(CardsDrawnSamples(games, winners: null, seat: PlayerId.One)),
+            CardsDrawnSeatTwo = MeanEstimate.From(CardsDrawnSamples(games, winners: null, seat: PlayerId.Two)),
             UnopposedSlotRate = Interval.Wilson(
                 Math.Min(unopposedSlotTurns, slotOpportunities), slotOpportunities),
             UnopposedCreaturesPerStep = MeanEstimate.From(PerStepUnopposed(games)),
@@ -435,6 +454,32 @@ public sealed class MetricsReport
         }
 
         return samples;
+    }
+
+    // One sample per (game, seat wanted): total cards drawn that game, mirroring
+    // ResourceSamples' outcome/seat filtering exactly (same reasoning: a drawn/non-terminating
+    // game has no winner, so it contributes to the seat profiles but neither outcome profile).
+    private static IEnumerable<double> CardsDrawnSamples(
+        IReadOnlyList<GameResult> games, bool? winners, PlayerId? seat)
+    {
+        foreach (var game in games)
+        {
+            if (seat is { } wanted)
+            {
+                yield return (wanted == PlayerId.One ? game.CardsDrawnOne : game.CardsDrawnTwo).Count;
+                continue;
+            }
+
+            if (game.Winner is not { } winner)
+            {
+                continue;
+            }
+
+            var winnerCount = (winner == PlayerId.One ? game.CardsDrawnOne : game.CardsDrawnTwo).Count;
+            var loserCount = (winner == PlayerId.One ? game.CardsDrawnTwo : game.CardsDrawnOne).Count;
+
+            yield return winners == true ? winnerCount : loserCount;
+        }
     }
 
     // Transposes per-game margin series into per-turn-index means. Games have different lengths,

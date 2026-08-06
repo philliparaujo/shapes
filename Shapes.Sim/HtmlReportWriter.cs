@@ -228,6 +228,8 @@ function renderSummary() {
     statTile('Unopposed slot rate', pct(m.unopposedSlotRate.rate)),
     statTile('Longest unopposed streak', num(m.longestUnopposedStreak.mean) + ' steps'),
     statTile('No sustained unopposed', `${m.gamesWithNoSustainedUnopposed} / ${m.gameCount} games`),
+    statTile('Cards drawn/game (winners)', num(m.cardsDrawnWinners.mean) + ` [${num(m.cardsDrawnWinners.low)}, ${num(m.cardsDrawnWinners.high)}]`),
+    statTile('Cards drawn/game (losers)', num(m.cardsDrawnLosers.mean) + ` [${num(m.cardsDrawnLosers.low)}, ${num(m.cardsDrawnLosers.high)}]`),
   ];
   grid.innerHTML = tiles.join('');
 }
