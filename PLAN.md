@@ -10,26 +10,25 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 4 / 11     |
+| 4 — AI-driven balance                    | 5 / 11     |
 | 5 — Godot client                         | 0 / 12     |
 
-795 tests passing. **Phases 1, 2, and 3 are complete.**
+803 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 steps 2d and 2e** — build the metrics explorer, then validate the detectors
-against deliberately mispriced calibration spells, before step 3's sweep relies on them. Steps
-2b/2c gave the metrics the denominators, intervals, and diagnostic splits a sweep needs to rank
-on; 2d makes that output readable and diffable, and 2e checks it registers a known-wrong card at
-all. Agents are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules vary
-from here instead.
+**Next up: Phase 4 step 2e** — validate the detectors against deliberately mispriced calibration
+spells, before step 3's sweep relies on them. Steps 2b/2c gave the metrics the denominators,
+intervals, and diagnostic splits a sweep needs to rank on; 2d (done) made that output readable and
+diffable; 2e checks it registers a known-wrong card at all. Agents are frozen at Phase 3's final
+tuned configuration (step 7's matrix); cards/rules vary from here instead.
 
-**Order matters here:** 2e's calibration run is read through 2d's explorer, and step 3 should not
-start until an instrument that has never been checked against a known answer is checked against
-one.
+**Order matters here:** 2e's calibration run is meant to be read through 2d's explorer, and step 3
+should not start until an instrument that has never been checked against a known answer is checked
+against one.
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -60,6 +59,8 @@ Run from repo root (`shapes/`, where `Shapes.sln` lives).
 | Watch the search play         | `dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet` |
 | **Run the agent matrix**      | `dotnet run -c Release --project Shapes.Sim -- --agents random,greedy,ismcts,ismcts-heuristic --games 30` |
 | **See stats from played games** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --metrics-json metrics.json` |
+| **Browse stats in the metrics explorer** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --report report.html` |
+| **Re-explore a saved metrics.json** | `dotnet run -c Release --project Shapes.Sim -- --from-metrics-json metrics.json --report report.html` |
 
 `--p1`/`--p2` each take `human` (default), `random`, `greedy`, `ismcts`, or `ismcts-heuristic`
 (step 3.2's heuristic playout, same search otherwise). `--iterations <n>` sets the `ismcts`/
@@ -434,24 +435,34 @@ step 10, so every number here reflects genuinely stable content.
   could contest those slots — over-counting unopposed slot-turns ~40% while looking entirely
   plausible in aggregate. Now pinned by the exact identity `score == slot-turns x
   PointsPerUnopposedCreature`, which reconciles with zero slack on every game.
-- [ ] **2d. Metrics explorer** (`--report PATH.html`) — a self-contained, dependency-free HTML
+- [x] **2d. Metrics explorer** (`--report PATH.html`) — a self-contained, dependency-free HTML
   page written alongside `--metrics-json`, because the report has outgrown reading. One run is
   ~3,700 lines of JSON and ~1,600 numbers for cards alone, and the console output is a fixed
   slice chosen in advance; neither answers "which cards are outliers on take rate *and* have
-  intervals tight enough to act on." Sortable card and move tables, a minimum-n filter that greys
-  out rows too noisy to rank, and the batch-level scoring/economy panel.
+  intervals tight enough to act on." Sortable card and move tables (click a header to sort, click
+  again to reverse), a minimum-n filter that greys out rows too noisy to rank, and a batch-level
+  scoring/economy summary panel.
   **The diff view is the point, not the sorting** — step 4 iterates edit → rerun → compare, and
-  comparison is exactly what static text cannot do. Load a baseline plus a variant, show Δ per
-  card with the intervals overlaid so "moved" and "moved beyond noise" are visually distinct
-  (interval overlap is illegible as text: ±9pt and ±1.3pt read identically in a table and are
-  completely different as bars). Default view is **cards whose interval excludes the field
-  median**, so the page opens on the handful worth arguing about rather than on all 36 —
-  `Interval.Excludes` already answers that question.
-  Lives in `Shapes.Sim` next to `ResultWriter` (a reporting concern, no engine coupling —
-  `Shapes.Core` stays pure). Data inlined, no server, no install. A flat `--cards-csv` /
-  `--moves-csv` export ships alongside it as the escape hatch for questions the page did not
-  anticipate; it is nearly free given `ResultWriter.WriteCsv` already exists, and spreadsheets
-  are good at exactly this.
+  comparison is exactly what static text cannot do. The page has no server to load a second run
+  through, so the diff view is client-side: a file picker loads a second `--metrics-json` file
+  entirely in-browser (`FileReader`, no upload) as the baseline, and every card row then shows a Δ
+  plus the baseline rate overlaid on the interval bar, colored when the two intervals don't
+  overlap ("moved beyond noise" vs. "moved"). Default view (no baseline loaded) is **cards whose
+  interval excludes the field median**, so the page opens on the handful worth arguing about
+  rather than on all 36 — `Interval.Excludes` already answers that question. Baseline files are
+  PascalCase (`ResultWriter`'s convention) while the inlined run is camelCase (for the page's own
+  JS); a small `camelizeKeys` normalizer on load means the diff view accepts either without the
+  script maintaining two spellings of every property.
+  Lives in `Shapes.Sim/HtmlReportWriter.cs` next to `ResultWriter` (a reporting concern, no engine
+  coupling — `Shapes.Core` stays pure). Data inlined as a JSON `<script>` block, no CDN, no build
+  step, no install; `JavaScriptEncoder.Default`'s escaping of `<`/`>`/`&` is what keeps a card id
+  or move name from ever producing a literal `</script>` and truncating the payload, pinned by a
+  regression test asserting the page has exactly two script tags. `--cards-csv PATH` /
+  `--moves-csv PATH` ship alongside it as the escape hatch for questions the page did not
+  anticipate — flat per-card/per-move rows including interval bounds, built directly on
+  `ResultWriter`'s existing CSV conventions. `--from-metrics-json PATH` skips playing games and
+  reads a previously written `--metrics-json` file back in, so `--report`/`--cards-csv`/
+  `--moves-csv` can be (re)derived from a saved run without replaying the batch that produced it.
 - [ ] **2e. Calibration spells** — six deliberately mispriced spells (one over- and one
   underpowered per resource) whose *correct* verdict is known in advance, so the detectors can be
   checked against a right answer instead of only against each other. Per resource type:

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Shapes.Core.Rules;
 using Shapes.Sim;
 using Shapes.Tests.Fixtures;
@@ -90,6 +91,86 @@ public class ResultWriterTests
 
             Assert.Contains("\"MoveOffersOne\"", text, StringComparison.Ordinal);
             Assert.Contains("\"CardOffersOne\"", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Cards_csv_has_one_header_row_plus_one_row_per_card()
+    {
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            ResultWriter.WriteCardsCsv(path, metrics);
+            var lines = File.ReadAllLines(path);
+
+            Assert.Equal(metrics.CardStats.Count + 1, lines.Length);
+            Assert.StartsWith("cardId,playCount,gamesPlayedIn", lines[0], StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Moves_csv_has_one_header_row_plus_one_row_per_move()
+    {
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            ResultWriter.WriteMovesCsv(path, metrics);
+            var lines = File.ReadAllLines(path);
+
+            Assert.Equal(metrics.MoveStats.Count + 1, lines.Length);
+            Assert.StartsWith("cardId,moveName,useCount", lines[0], StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Metrics_json_deserializes_back_into_a_metrics_report()
+    {
+        // Program.cs's --from-metrics-json reads a saved report back in with exactly
+        // ResultWriter.JsonOptions -- this is the round trip that must hold for that path to
+        // work, distinct from the "does it contain the right substrings" tests above.
+        var result = SmallBatch();
+        var provenance = new RunProvenance
+        {
+            Agents = ["random", "greedy"],
+            GamesPerPairing = 2,
+            BaseSeed = 9,
+            Iterations = 10,
+            RuleSetName = RuleSet.Default.Name,
+            CardSetHash = "deadbeef",
+            CardCount = TestCards.Database.Count,
+            RunAtUtc = DateTimeOffset.UtcNow,
+        };
+        var original = MetricsReport.From(result.AllGames, provenance);
+        var path = Path.GetTempFileName();
+        try
+        {
+            ResultWriter.WriteMetricsJson(path, original);
+            var text = File.ReadAllText(path);
+            var loaded = JsonSerializer.Deserialize<MetricsReport>(text, ResultWriter.JsonOptions);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(original.GameCount, loaded.GameCount);
+            Assert.Equal(original.CardStats.Count, loaded.CardStats.Count);
+            Assert.Equal(original.SeatOneWinRate.Rate, loaded.SeatOneWinRate.Rate);
+            Assert.Equal(original.EndingCounts.Count, loaded.EndingCounts.Count);
+            Assert.NotNull(loaded.Provenance);
+            Assert.Equal("deadbeef", loaded.Provenance!.CardSetHash);
         }
         finally
         {

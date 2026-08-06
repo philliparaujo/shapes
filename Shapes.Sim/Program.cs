@@ -12,6 +12,7 @@
 // columns), never pooled -- pooling hides first-player advantage, which is one of the things
 // Phase 4 needs to watch for.
 
+using System.Text.Json;
 using Shapes.Core.Cards;
 using Shapes.Core.Rules;
 using Shapes.Sim;
@@ -37,6 +38,54 @@ if (options.ShowHelp)
 
 Console.WriteLine("Shapes — simulation runner");
 Console.WriteLine();
+
+// --from-metrics-json skips playing games entirely: read a previously written --metrics-json
+// file back in and jump straight to the output-writing block below, so a saved report can be
+// turned into --report/--cards-csv/--moves-csv without re-running a batch that may have taken
+// minutes (and whose exact seed/agent config may not even be reproducible from memory anymore).
+if (options.FromMetricsJson is { } metricsInputPath)
+{
+    MetricsReport loadedMetrics;
+    try
+    {
+        var text = File.ReadAllText(metricsInputPath);
+        loadedMetrics = JsonSerializer.Deserialize<MetricsReport>(text, ResultWriter.JsonOptions)
+            ?? throw new InvalidDataException($"'{metricsInputPath}' deserialized to null.");
+    }
+    catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException)
+    {
+        Console.Error.WriteLine($"Failed to read '{metricsInputPath}': {ex.Message}");
+        return 1;
+    }
+
+    Console.WriteLine($"Loaded metrics from {metricsInputPath} ({loadedMetrics.GameCount} games).");
+
+    if (options.Report is { } loadedReportPath)
+    {
+        HtmlReportWriter.Write(loadedReportPath, loadedMetrics);
+        Console.WriteLine($"Wrote metrics explorer to {loadedReportPath}");
+    }
+
+    if (options.CardsCsv is { } loadedCardsCsvPath)
+    {
+        ResultWriter.WriteCardsCsv(loadedCardsCsvPath, loadedMetrics);
+        Console.WriteLine($"Wrote per-card CSV to {loadedCardsCsvPath}");
+    }
+
+    if (options.MovesCsv is { } loadedMovesCsvPath)
+    {
+        ResultWriter.WriteMovesCsv(loadedMovesCsvPath, loadedMetrics);
+        Console.WriteLine($"Wrote per-move CSV to {loadedMovesCsvPath}");
+    }
+
+    if (options.MetricsJson is { } loadedMetricsJsonPath)
+    {
+        ResultWriter.WriteMetricsJson(loadedMetricsJsonPath, loadedMetrics);
+        Console.WriteLine($"Wrote metrics report to {loadedMetricsJsonPath}");
+    }
+
+    return 0;
+}
 
 var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
 var cards = CardLoader.FromDirectory(cardsDir);
@@ -295,6 +344,24 @@ if (options.MetricsJson is { } metricsPath)
 {
     ResultWriter.WriteMetricsJson(metricsPath, metrics);
     Console.WriteLine($"Wrote metrics report to {metricsPath}");
+}
+
+if (options.Report is { } reportPath)
+{
+    HtmlReportWriter.Write(reportPath, metrics);
+    Console.WriteLine($"Wrote metrics explorer to {reportPath}");
+}
+
+if (options.CardsCsv is { } cardsCsvPath)
+{
+    ResultWriter.WriteCardsCsv(cardsCsvPath, metrics);
+    Console.WriteLine($"Wrote per-card CSV to {cardsCsvPath}");
+}
+
+if (options.MovesCsv is { } movesCsvPath)
+{
+    ResultWriter.WriteMovesCsv(movesCsvPath, metrics);
+    Console.WriteLine($"Wrote per-move CSV to {movesCsvPath}");
 }
 
 return 0;

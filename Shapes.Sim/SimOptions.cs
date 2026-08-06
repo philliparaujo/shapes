@@ -21,6 +21,18 @@ public sealed record SimOptions
 
     public string? MetricsJson { get; private init; }
 
+    // When set, Program.cs skips playing games entirely and reads a previously-written
+    // --metrics-json file instead -- turning a saved report back into --report/--cards-csv/
+    // --moves-csv without re-running the batch that produced it (which may have taken minutes and
+    // whose exact agent config may not even be reproducible from memory anymore).
+    public string? FromMetricsJson { get; private init; }
+
+    public string? Report { get; private init; }
+
+    public string? CardsCsv { get; private init; }
+
+    public string? MovesCsv { get; private init; }
+
     public bool ShowHelp { get; private init; }
 
     public static SimOptions Parse(string[] args)
@@ -63,6 +75,21 @@ public sealed record SimOptions
                         MetricsJson = RequireValue(args, ref i, "--metrics-json"),
                     };
                     break;
+                case "--from-metrics-json":
+                    options = options with
+                    {
+                        FromMetricsJson = RequireValue(args, ref i, "--from-metrics-json"),
+                    };
+                    break;
+                case "--report":
+                    options = options with { Report = RequireValue(args, ref i, "--report") };
+                    break;
+                case "--cards-csv":
+                    options = options with { CardsCsv = RequireValue(args, ref i, "--cards-csv") };
+                    break;
+                case "--moves-csv":
+                    options = options with { MovesCsv = RequireValue(args, ref i, "--moves-csv") };
+                    break;
                 case "--help" or "-h":
                     options = options with { ShowHelp = true };
                     break;
@@ -76,7 +103,7 @@ public sealed record SimOptions
             options = options with { Agents = agents };
         }
 
-        if (options.Games <= 0)
+        if (options.FromMetricsJson is null && options.Games <= 0)
         {
             throw new ArgumentException("--games must be positive.");
         }
@@ -97,6 +124,11 @@ public sealed record SimOptions
         Console.WriteLine("  --csv PATH         Write per-pairing summary rows to a CSV file");
         Console.WriteLine("  --json PATH        Write the full result set (summary + per-game rows) as JSON");
         Console.WriteLine("  --metrics-json PATH  Write just the aggregated metrics report (PLAN.md step 4.1) as JSON");
+        Console.WriteLine("  --from-metrics-json PATH  Skip playing games; read a saved metrics report instead");
+        Console.WriteLine("                     (combine with --report/--cards-csv/--moves-csv to re-derive them)");
+        Console.WriteLine("  --report PATH.html Write a self-contained metrics explorer (PLAN.md step 4.2d)");
+        Console.WriteLine("  --cards-csv PATH   Write per-card metrics as a flat CSV");
+        Console.WriteLine("  --moves-csv PATH   Write per-move metrics as a flat CSV");
         Console.WriteLine("  --help             Show this message");
     }
 

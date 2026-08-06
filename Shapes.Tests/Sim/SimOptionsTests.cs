@@ -43,6 +43,28 @@ public class SimOptionsTests
     }
 
     [Fact]
+    public void Report_and_csv_export_paths_are_parsed()
+    {
+        var options = SimOptions.Parse(
+            ["--report", "out.html", "--cards-csv", "cards.csv", "--moves-csv", "moves.csv"]);
+
+        Assert.Equal("out.html", options.Report);
+        Assert.Equal("cards.csv", options.CardsCsv);
+        Assert.Equal("moves.csv", options.MovesCsv);
+    }
+
+    [Fact]
+    public void From_metrics_json_path_is_parsed_and_bypasses_the_positive_games_check()
+    {
+        // --games keeps its default of 100 here since no batch will run; the point is that
+        // --from-metrics-json alone (with no --games override) must not trip the "--games must
+        // be positive" validation, which only makes sense when a batch is actually being played.
+        var options = SimOptions.Parse(["--from-metrics-json", "metrics.json"]);
+
+        Assert.Equal("metrics.json", options.FromMetricsJson);
+    }
+
+    [Fact]
     public void Unknown_flag_throws()
     {
         Assert.Throws<ArgumentException>(() => SimOptions.Parse(["--bogus"]));
