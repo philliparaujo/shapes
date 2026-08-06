@@ -58,6 +58,7 @@ Run from repo root (`shapes/`, where `Shapes.sln` lives).
 | **See stats from played games** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --metrics-json metrics.json` |
 | **Browse stats in the metrics explorer** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --report report.html` |
 | **Re-explore a saved metrics.json** | `dotnet run -c Release --project Shapes.Sim -- --from-metrics-json metrics.json --report report.html` |
+| **Compare two saved metrics.json runs** | `dotnet run -c Release --project Shapes.Sim -- --compare baseline/metrics.json,candidate/metrics.json --compare-report compare.html` |
 
 `--p1`/`--p2` each take `human` (default), `random`, `greedy`, `ismcts`, or `ismcts-heuristic`
 (step 3.2's heuristic playout, same search otherwise). `--iterations <n>` sets the `ismcts`/
@@ -75,6 +76,13 @@ per-game detail plus the metrics report; `--metrics-json PATH` writes just the a
 `MetricsReport`, stamped with `RunProvenance` so two reports can be diffed. Point `--agents` at a
 single pairing and lower `--games` for a quick look at "how did that kind of game usually go"
 rather than the full matrix.
+
+**`--compare` is the CLI-first A/B diff** — reads two `--metrics-json` files (no games played) and
+writes a standalone HTML report covering summary/scoring/economy stat tiles plus outer-joined
+card and move tables, sorted by `|Δ take rate|`, colored only when the two Wilson/normal intervals
+actually fail to overlap ("moved beyond noise" vs. "moved"). The metrics explorer's own diff view
+(`--report`'s file picker) is the same idea done manually inside one report; this is the one-shot
+version for the step 3/4 edit → rerun → compare loop.
 
 **Read take rate before win rate.** Win rate compresses toward 50% under symmetric decks (both
 seats hold every card, so most cards contribute a win *and* a loss in most games) and is a

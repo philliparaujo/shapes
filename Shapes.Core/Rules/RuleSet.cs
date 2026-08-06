@@ -27,11 +27,22 @@ public enum DeckMode
 // producing a nonsense game hours into a simulation run.
 public sealed class RuleSet
 {
+    // Sentinel HandLimit meaning "no limit" -- explicit rather than callers picking an
+    // arbitrarily large number (a prior no-limit ruleset used 100, which is really "unlimited
+    // in practice given deck/game length" wearing a concrete value that looks like a real rule).
+    // The overdraw-burn comparison in GameState.DrawWithBurn (Hand.Count > HandLimit) works
+    // unchanged against int.MaxValue, so no consumer needs a null-check or an "is this unlimited"
+    // branch.
+    public const int NoHandLimit = int.MaxValue;
+
     public string Name { get; }
 
     // Cards
     public int StartingHandSize { get; }
     public int CardsDrawnPerTurn { get; }
+
+    // HandLimit == NoHandLimit means unlimited hand size (see RuleSetLoader for the "unlimited"
+    // JSON spelling).
     public int HandLimit { get; }
 
     // Income: a flat pool each turn, plus IncomePerCreatureType per type of each creature
@@ -140,7 +151,7 @@ public sealed class RuleSet
         name: "default",
         startingHandSize: 4,
         cardsDrawnPerTurn: 1,
-        handLimit: 8,
+        handLimit: NoHandLimit,
         baseIncome: new ResourcePool(2, 2, 2),
         incomePerCreatureType: 0,
         pointsPerUnopposedCreature: 1,

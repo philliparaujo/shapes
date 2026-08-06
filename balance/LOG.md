@@ -72,3 +72,28 @@ Reasons
 - Still a good move usage rate and relatively long games
 
 # card ruleset
+## v1.2-baseline (v1.1-medium) 
+Economy rules: 2/2/2 + 0per
+Card rules: 4 starting, 1/turn, 8 hand limit
+Now using `compare.html` for changes
+
+## v1.2-nolimit
+**Changed:** Hand limit to 100 (effectively infinite)
+Notes (compared to **v1.2-baseline**):
+- Results in slightly more resources used (better)
+- 'circle surfer', 'worshipper', 't juggler' played slightly less often
+- Very little different and I prefer no hand limit generally
+
+## v1.2-hardlimit
+**Changed:** Starting hand at 3, hand limit to 5
+Notes (compared to **v1.2-baseline**):
+- Less cost pressure, more unspent resources (bad?)
+- take% is higher across the board with less options to choose and more resources to spend
+- Higher cost cards are played more often (take%)
+- 't juggler' 'toss' is used more often
+
+## Results
+**Final decision:** Using **v1.2-nolimit**'s ruleset
+Reasons
+- Didn't notice many problems with existing ruleset
+- No hand limit is less restrictive and doesn't seem degenerate

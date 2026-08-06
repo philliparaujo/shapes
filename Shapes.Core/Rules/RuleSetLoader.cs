@@ -48,7 +48,7 @@ public static class RuleSetLoader
                 name: dto.Name ?? d.Name,
                 startingHandSize: dto.StartingHandSize ?? d.StartingHandSize,
                 cardsDrawnPerTurn: dto.CardsDrawnPerTurn ?? d.CardsDrawnPerTurn,
-                handLimit: dto.HandLimit ?? d.HandLimit,
+                handLimit: ReadHandLimit(dto.HandLimit, d.HandLimit),
                 baseIncome: ReadPool(dto.BaseIncome, d.BaseIncome),
                 incomePerCreatureType: dto.IncomePerCreatureType ?? d.IncomePerCreatureType,
                 pointsPerUnopposedCreature: dto.PointsPerUnopposedCreature ?? d.PointsPerUnopposedCreature,
@@ -80,6 +80,29 @@ public static class RuleSetLoader
         }
 
         return FromJson(File.ReadAllText(path), Path.GetFileName(path));
+    }
+
+    // handLimit is either a JSON number or the string "unlimited" (RuleSet.NoHandLimit) -- see
+    // RuleSetDto.HandLimit for why this is untyped rather than plain int?.
+    private static int ReadHandLimit(JsonElement? element, int fallback)
+    {
+        if (element is not { } value)
+        {
+            return fallback;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var limit))
+        {
+            return limit;
+        }
+
+        if (value.ValueKind == JsonValueKind.String && value.GetString() == "unlimited")
+        {
+            return RuleSet.NoHandLimit;
+        }
+
+        throw new ArgumentException(
+            $"handLimit must be a whole number or the string \"unlimited\", got '{value}'.");
     }
 
     private static ResourcePool ReadPool(ResourcePoolDto? dto, ResourcePool fallback)

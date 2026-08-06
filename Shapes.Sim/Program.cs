@@ -87,6 +87,38 @@ if (options.FromMetricsJson is { } metricsInputPath)
     return 0;
 }
 
+if (options.CompareBaseline is { } comparePathA && options.CompareCandidate is { } comparePathB)
+{
+    MetricsReport ReadMetrics(string path)
+    {
+        var text = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<MetricsReport>(text, ResultWriter.JsonOptions)
+            ?? throw new InvalidDataException($"'{path}' deserialized to null.");
+    }
+
+    MetricsReport baselineMetrics, candidateMetrics;
+    try
+    {
+        baselineMetrics = ReadMetrics(comparePathA);
+        candidateMetrics = ReadMetrics(comparePathB);
+    }
+    catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException)
+    {
+        Console.Error.WriteLine($"Failed to read metrics for comparison: {ex.Message}");
+        return 1;
+    }
+
+    Console.WriteLine(
+        $"Baseline:  {comparePathA} ({baselineMetrics.GameCount} games)");
+    Console.WriteLine(
+        $"Candidate: {comparePathB} ({candidateMetrics.GameCount} games)");
+
+    CompareReportWriter.Write(options.CompareReport!, baselineMetrics, candidateMetrics);
+    Console.WriteLine($"Wrote comparison report to {options.CompareReport}");
+
+    return 0;
+}
+
 var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
 var cards = CardLoader.FromDirectory(cardsDir);
 var rules = RuleSet.Default;

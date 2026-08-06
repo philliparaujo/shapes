@@ -27,6 +27,7 @@ balance/**/*.csv
 balance/**/raw/
 metrics.json
 report.html
+compare.html
 
 # Godot (Phase 4)
 .godot/

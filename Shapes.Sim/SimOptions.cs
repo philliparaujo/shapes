@@ -27,6 +27,15 @@ public sealed record SimOptions
     // whose exact agent config may not even be reproducible from memory anymore).
     public string? FromMetricsJson { get; private init; }
 
+    // Compare mode: read two previously-written --metrics-json files (baseline first, candidate
+    // second) and write a standalone diff report -- no games played. Mutually exclusive with
+    // every other mode; set together with CompareReport.
+    public string? CompareBaseline { get; private init; }
+
+    public string? CompareCandidate { get; private init; }
+
+    public string? CompareReport { get; private init; }
+
     public string? Report { get; private init; }
 
     public string? CardsCsv { get; private init; }
@@ -87,6 +96,23 @@ public sealed record SimOptions
                         FromMetricsJson = RequireValue(args, ref i, "--from-metrics-json"),
                     };
                     break;
+                case "--compare":
+                    var pair = RequireValue(args, ref i, "--compare").Split(
+                        ',', StringSplitOptions.TrimEntries);
+                    if (pair.Length != 2 || pair[0].Length == 0 || pair[1].Length == 0)
+                    {
+                        throw new ArgumentException(
+                            "--compare expects BASELINE.json,CANDIDATE.json.");
+                    }
+
+                    options = options with { CompareBaseline = pair[0], CompareCandidate = pair[1] };
+                    break;
+                case "--compare-report":
+                    options = options with
+                    {
+                        CompareReport = RequireValue(args, ref i, "--compare-report"),
+                    };
+                    break;
                 case "--report":
                     options = options with { Report = RequireValue(args, ref i, "--report") };
                     break;
@@ -112,7 +138,14 @@ public sealed record SimOptions
             options = options with { Agents = agents };
         }
 
-        if (options.FromMetricsJson is null && options.Games <= 0)
+        if (options.CompareBaseline is not null)
+        {
+            if (options.CompareReport is null)
+            {
+                throw new ArgumentException("--compare requires --compare-report PATH.html.");
+            }
+        }
+        else if (options.FromMetricsJson is null && options.Games <= 0)
         {
             throw new ArgumentException("--games must be positive.");
         }
@@ -135,6 +168,8 @@ public sealed record SimOptions
         Console.WriteLine("  --metrics-json PATH  Write just the aggregated metrics report (PLAN.md step 4.1) as JSON");
         Console.WriteLine("  --from-metrics-json PATH  Skip playing games; read a saved metrics report instead");
         Console.WriteLine("                     (combine with --report/--cards-csv/--moves-csv to re-derive them)");
+        Console.WriteLine("  --compare BASE.json,CANDIDATE.json  Skip playing games; diff two saved metrics reports");
+        Console.WriteLine("  --compare-report PATH.html  Write the standalone A/B diff report (required with --compare)");
         Console.WriteLine("  --report PATH.html Write a self-contained metrics explorer (PLAN.md step 4.2d)");
         Console.WriteLine("  --cards-csv PATH   Write per-card metrics as a flat CSV");
         Console.WriteLine("  --moves-csv PATH   Write per-move metrics as a flat CSV");

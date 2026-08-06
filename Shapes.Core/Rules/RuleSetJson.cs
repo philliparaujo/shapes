@@ -14,7 +14,12 @@ internal sealed class RuleSetDto
 
     public int? StartingHandSize { get; set; }
     public int? CardsDrawnPerTurn { get; set; }
-    public int? HandLimit { get; set; }
+
+    // Untyped rather than int?: handLimit accepts either a number or the string "unlimited"
+    // (RuleSet.NoHandLimit), so a no-hand-limit ruleset says so explicitly in the file instead of
+    // encoding it as an arbitrarily large number that reads like a real limit. Parsed by
+    // RuleSetLoader.ReadHandLimit.
+    public JsonElement? HandLimit { get; set; }
 
     public ResourcePoolDto? BaseIncome { get; set; }
     public int? IncomePerCreatureType { get; set; }

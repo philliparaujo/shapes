@@ -35,6 +35,23 @@ public class RuleSetLoaderTests
     }
 
     [Fact]
+    public void Hand_limit_accepts_the_unlimited_sentinel()
+    {
+        var rules = RuleSetLoader.FromJson("""{ "handLimit": "unlimited" }""");
+
+        Assert.Equal(RuleSet.NoHandLimit, rules.HandLimit);
+    }
+
+    [Fact]
+    public void Hand_limit_rejects_a_non_unlimited_string()
+    {
+        var ex = Assert.Throws<RuleSetLoadException>(
+            () => RuleSetLoader.FromJson("""{ "handLimit": "lots" }"""));
+
+        Assert.Contains("handLimit", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Explicit_zero_is_honoured_rather_than_treated_as_missing()
     {
         // The DTO uses nullable fields precisely so "0" and "absent" are distinguishable.
