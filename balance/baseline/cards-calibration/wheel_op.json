@@ -1,0 +1,10 @@
+{
+  "id": "wheel_op",
+  "name": "Wheel OP",
+  "kind": "spell",
+  "cost": { "wheel": 1 },
+  "effects": [
+    { "op": "gain_resource", "type": "wheel", "amount": 2 },
+    { "op": "draw", "amount": 1 }
+  ]
+}

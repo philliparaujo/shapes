@@ -1,0 +1,9 @@
+{
+  "id": "wheel_up",
+  "name": "Wheel UP",
+  "kind": "spell",
+  "cost": { "wheel": 3 },
+  "effects": [
+    { "op": "damage", "target": "chosen_enemy", "amount": 1 }
+  ]
+}

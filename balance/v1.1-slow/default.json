@@ -5,7 +5,7 @@
   "cardsDrawnPerTurn": 1,
   "handLimit": 8,
 
-  "baseIncome": { "spike": 2, "anvil": 2, "wheel": 2 },
+  "baseIncome": { "spike": 1, "anvil": 1, "wheel": 1 },
   "incomePerCreatureType": 0,
 
   "pointsPerUnopposedCreature": 1,

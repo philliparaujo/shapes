@@ -1,0 +1,9 @@
+{
+  "id": "wave_crash",
+  "name": "Wave Crash",
+  "kind": "spell",
+  "cost": { "wheel": 2 },
+  "effects": [
+    { "op": "damage", "target": "all_enemies", "amount": 1 }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "spike_up",
+  "name": "Spike UP",
+  "kind": "spell",
+  "cost": { "spike": 3 },
+  "effects": [
+    { "op": "damage", "target": "chosen_enemy", "amount": 1 }
+  ]
+}

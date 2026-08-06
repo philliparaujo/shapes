@@ -413,9 +413,9 @@ public class ActionExecutorTests
 
         Assert.Equal(PlayerId.Two, state.ActivePlayer);
         Assert.Equal(TurnPhase.Actions, state.Phase);
-        // P2's unopposed spike creature scored, then income landed (base 1/1/1 + 1 spike).
+        // P2's unopposed spike creature scored, then income landed (base 2/2/2, per-creature off).
         Assert.Equal(3, state[PlayerId.Two].Score);
-        Assert.Equal(new ResourcePool(2, 1, 1), state[PlayerId.Two].Resources);
+        Assert.Equal(new ResourcePool(2, 2, 2), state[PlayerId.Two].Resources);
     }
 
     [Fact]

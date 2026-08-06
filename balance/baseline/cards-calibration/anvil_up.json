@@ -1,0 +1,9 @@
+{
+  "id": "anvil_up",
+  "name": "Anvil UP",
+  "kind": "spell",
+  "cost": { "anvil": 3 },
+  "effects": [
+    { "op": "damage", "target": "chosen_enemy", "amount": 1 }
+  ]
+}

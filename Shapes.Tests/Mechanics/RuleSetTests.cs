@@ -17,8 +17,8 @@ public class RuleSetTests
         Assert.Equal(4, d.StartingHandSize);
         Assert.Equal(1, d.CardsDrawnPerTurn);
         Assert.Equal(8, d.HandLimit);
-        Assert.Equal(new ResourcePool(1, 1, 1), d.BaseIncome);
-        Assert.Equal(1, d.IncomePerCreatureType);
+        Assert.Equal(new ResourcePool(2, 2, 2), d.BaseIncome);
+        Assert.Equal(0, d.IncomePerCreatureType);
         Assert.Equal(1, d.PointsPerUnopposedCreature);
         Assert.Equal(10, d.ScoreToWin);
         Assert.True(d.MergeEnabled);

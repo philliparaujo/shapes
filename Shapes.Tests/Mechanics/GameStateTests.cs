@@ -9,6 +9,28 @@ namespace Shapes.Tests.Mechanics;
 // flagged for Phase 4 measurement.
 public class GameStateTests
 {
+    // RuleSet has no with-support (plain class, not a record); this rebuilds Default with only
+    // IncomePerCreatureType overridden, for the tests that specifically exercise per-creature
+    // income now that the shipping default has it switched off.
+    private static RuleSet WithIncomePerCreatureType(int incomePerCreatureType) => new(
+        RuleSet.Default.Name,
+        RuleSet.Default.StartingHandSize,
+        RuleSet.Default.CardsDrawnPerTurn,
+        RuleSet.Default.HandLimit,
+        RuleSet.Default.BaseIncome,
+        incomePerCreatureType,
+        RuleSet.Default.PointsPerUnopposedCreature,
+        RuleSet.Default.ScoreToWin,
+        RuleSet.Default.MergeEnabled,
+        RuleSet.Default.MergeRequiresAdjacent,
+        RuleSet.Default.MergeCostsAction,
+        RuleSet.Default.MaxMergeDepth,
+        RuleSet.Default.DeckMode,
+        RuleSet.Default.CopiesPerCard,
+        RuleSet.Default.DeckSize,
+        RuleSet.Default.MaxCopiesPerCard,
+        RuleSet.Default.TypeChart);
+
     [Fact]
     public void Unopposed_creatures_score_one_point_each()
     {
@@ -89,18 +111,20 @@ public class GameStateTests
     {
         var state = new StateBuilder().Build();
 
-        Assert.Equal(new ResourcePool(1, 1, 1), state.PendingIncome(PlayerId.One));
+        Assert.Equal(new ResourcePool(2, 2, 2), state.PendingIncome(PlayerId.One));
     }
 
     [Fact]
     public void Each_creature_adds_income_of_its_own_type()
     {
+        var rules = WithIncomePerCreatureType(1);
         var state = new StateBuilder()
+            .WithRuleSet(rules)
             .P1(p => p.Slot(0, "a", TypeMask.Spike).Slot(1, "b", TypeMask.Spike))
             .Build();
 
-        // base 1/1/1 plus two spike creatures
-        Assert.Equal(new ResourcePool(3, 1, 1), state.PendingIncome(PlayerId.One));
+        // base 2/2/2 plus two spike creatures, with per-creature income opted back in
+        Assert.Equal(new ResourcePool(4, 2, 2), state.PendingIncome(PlayerId.One));
     }
 
     [Fact]
@@ -108,14 +132,16 @@ public class GameStateTests
     {
         // The compounding the design notes flagged: mixing types buys extra income, paid for
         // with a 2x defensive exposure.
+        var rules = WithIncomePerCreatureType(1);
         var merged = new CreatureInstance("a", 3, TypeMask.Spike);
         merged.AbsorbMerge(new CreatureInstance("b", 3, TypeMask.Wheel));
 
         var state = new StateBuilder()
+            .WithRuleSet(rules)
             .P1(p => p.Slot(0, merged))
             .Build();
 
-        Assert.Equal(new ResourcePool(2, 1, 2), state.PendingIncome(PlayerId.One));
+        Assert.Equal(new ResourcePool(3, 2, 3), state.PendingIncome(PlayerId.One));
     }
 
     [Fact]
@@ -140,13 +166,15 @@ public class GameStateTests
     [Fact]
     public void Only_the_owners_creatures_count_toward_income()
     {
+        var rules = WithIncomePerCreatureType(1);
         var state = new StateBuilder()
+            .WithRuleSet(rules)
             .P1(p => p.Slot(0, "a", TypeMask.Spike))
             .P2(p => p.Slot(1, "b", TypeMask.Anvil))
             .Build();
 
-        Assert.Equal(new ResourcePool(2, 1, 1), state.PendingIncome(PlayerId.One));
-        Assert.Equal(new ResourcePool(1, 2, 1), state.PendingIncome(PlayerId.Two));
+        Assert.Equal(new ResourcePool(3, 2, 2), state.PendingIncome(PlayerId.One));
+        Assert.Equal(new ResourcePool(2, 3, 2), state.PendingIncome(PlayerId.Two));
     }
 
     [Fact]
@@ -227,7 +255,7 @@ public class GameStateTests
 
         Assert.Equal(TurnPhase.Actions, state.Phase);
         Assert.Equal(4, state[PlayerId.One].Score);
-        Assert.Equal(new ResourcePool(1, 1, 2), state[PlayerId.One].Resources);
+        Assert.Equal(new ResourcePool(2, 2, 2), state[PlayerId.One].Resources);
     }
 
     [Fact]

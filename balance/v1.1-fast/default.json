@@ -6,7 +6,7 @@
   "handLimit": 8,
 
   "baseIncome": { "spike": 2, "anvil": 2, "wheel": 2 },
-  "incomePerCreatureType": 0,
+  "incomePerCreatureType": 1,
 
   "pointsPerUnopposedCreature": 1,
   "scoreToWin": 10,

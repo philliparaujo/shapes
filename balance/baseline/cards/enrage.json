@@ -1,0 +1,10 @@
+{
+  "id": "enrage",
+  "name": "Enrage",
+  "kind": "spell",
+  "cost": { "spike": 1 },
+  "effects": [
+    { "op": "for_each", "collection": "all_creatures", "filter": "damaged",
+      "effects": [ { "op": "draw", "amount": 1 } ] }
+  ]
+}

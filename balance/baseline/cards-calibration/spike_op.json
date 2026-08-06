@@ -1,0 +1,10 @@
+{
+  "id": "spike_op",
+  "name": "Spike OP",
+  "kind": "spell",
+  "cost": { "spike": 1 },
+  "effects": [
+    { "op": "gain_resource", "type": "spike", "amount": 2 },
+    { "op": "draw", "amount": 1 }
+  ]
+}
