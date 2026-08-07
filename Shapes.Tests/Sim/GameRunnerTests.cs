@@ -135,6 +135,72 @@ public class GameRunnerTests
     }
 
     [Fact]
+    public void Per_turn_card_offers_never_exceed_per_decision_offers()
+    {
+        // Per-turn counting is strictly coarser than per-decision counting (at most one bump per
+        // turn instead of one per decision the card stayed legal), so the per-turn total can
+        // never exceed the per-decision total for the same card.
+        var result = GameRunner.Play("greedy", "greedy", seed: 11, TestCards.Database, Rules, iterations: 10);
+
+        foreach (var (byTurn, byDecision) in new[]
+        {
+            (result.CardOffersByTurnOne, result.CardOffersOne),
+            (result.CardOffersByTurnTwo, result.CardOffersTwo),
+        })
+        {
+            foreach (var (cardId, turnCount) in byTurn)
+            {
+                Assert.True(
+                    turnCount <= byDecision.GetValueOrDefault(cardId),
+                    $"{cardId} offered in {turnCount} turns but only "
+                    + $"{byDecision.GetValueOrDefault(cardId)} decisions.");
+            }
+        }
+    }
+
+    [Fact]
+    public void A_card_can_never_be_played_in_more_turns_than_it_was_offered_in()
+    {
+        var result = GameRunner.Play("greedy", "greedy", seed: 11, TestCards.Database, Rules, iterations: 10);
+
+        foreach (var (plays, offers) in new[]
+        {
+            (result.CardPlaysByTurnOne, result.CardOffersByTurnOne),
+            (result.CardPlaysByTurnTwo, result.CardOffersByTurnTwo),
+        })
+        {
+            foreach (var (cardId, playedTurns) in plays)
+            {
+                Assert.True(
+                    playedTurns <= offers.GetValueOrDefault(cardId),
+                    $"{cardId} played in {playedTurns} turns but offered only in "
+                    + $"{offers.GetValueOrDefault(cardId)} turns.");
+            }
+        }
+    }
+
+    [Fact]
+    public void A_move_can_never_be_used_in_more_turns_than_it_was_offered_in()
+    {
+        var result = GameRunner.Play("greedy", "greedy", seed: 11, TestCards.Database, Rules, iterations: 10);
+
+        foreach (var (uses, offers) in new[]
+        {
+            (result.MoveUsesByTurnOne, result.MoveOffersByTurnOne),
+            (result.MoveUsesByTurnTwo, result.MoveOffersByTurnTwo),
+        })
+        {
+            foreach (var (moveKey, usedTurns) in uses)
+            {
+                Assert.True(
+                    usedTurns <= offers.GetValueOrDefault(moveKey),
+                    $"{moveKey} used in {usedTurns} turns but offered only in "
+                    + $"{offers.GetValueOrDefault(moveKey)} turns.");
+            }
+        }
+    }
+
+    [Fact]
     public void Merges_never_exceed_the_decisions_where_a_merge_was_legal()
     {
         var result = GameRunner.Play("greedy", "greedy", seed: 11, TestCards.Database, Rules, iterations: 10);
@@ -154,8 +220,65 @@ public class GameRunnerTests
         Assert.NotEmpty(result.ScoreMarginByTurn);
         Assert.Equal(result.ScoreMarginByTurn.Count, result.ResourcesByTurnOne.Count);
         Assert.Equal(result.ScoreMarginByTurn.Count, result.ResourcesByTurnTwo.Count);
+        Assert.Equal(result.ScoreMarginByTurn.Count, result.HandSizeByTurnOne.Count);
+        Assert.Equal(result.ScoreMarginByTurn.Count, result.HandSizeByTurnTwo.Count);
         Assert.True(result.ScoreMarginByTurn.Count <= result.TurnCount);
         Assert.Equal(result.ScoreOne - result.ScoreTwo, result.ScoreMarginByTurn[^1]);
+    }
+
+    [Fact]
+    public void Hand_size_by_turn_is_never_negative_or_over_the_hand_limit()
+    {
+        var result = GameRunner.Play("greedy", "random", seed: 3, TestCards.Database, Rules, iterations: 10);
+
+        foreach (var series in new[] { result.HandSizeByTurnOne, result.HandSizeByTurnTwo })
+        {
+            foreach (var handSize in series)
+            {
+                Assert.InRange(handSize, 0, Rules.HandLimit);
+            }
+        }
+    }
+
+    [Fact]
+    public void Slots_occupied_by_turn_never_exceeds_the_board_size()
+    {
+        var result = GameRunner.Play("greedy", "random", seed: 3, TestCards.Database, Rules, iterations: 10);
+
+        foreach (var series in new[] { result.SlotsOccupiedByTurnOne, result.SlotsOccupiedByTurnTwo })
+        {
+            foreach (var occupied in series)
+            {
+                Assert.InRange(occupied, 0, SlotIndex.SlotsPerPlayer);
+            }
+        }
+    }
+
+    [Fact]
+    public void Combined_health_is_never_negative_and_zero_only_when_no_slots_are_occupied()
+    {
+        // A cross-check between the two board-presence series pinned by the same sampling call
+        // (SeatTracker.ObserveScoringStep) -- if either drifted out of sync with the other (e.g.
+        // health summed from a stale board read), an occupied slot with zero combined health
+        // would be the first symptom.
+        var result = GameRunner.Play("greedy", "random", seed: 3, TestCards.Database, Rules, iterations: 10);
+
+        foreach (var (occupied, health) in new[]
+        {
+            (result.SlotsOccupiedByTurnOne, result.CombinedHealthByTurnOne),
+            (result.SlotsOccupiedByTurnTwo, result.CombinedHealthByTurnTwo),
+        })
+        {
+            Assert.Equal(occupied.Count, health.Count);
+            for (var i = 0; i < occupied.Count; i++)
+            {
+                Assert.True(health[i] >= 0, $"Combined health {health[i]} at turn {i} is negative.");
+                if (occupied[i] == 0)
+                {
+                    Assert.Equal(0, health[i]);
+                }
+            }
+        }
     }
 
     [Fact]

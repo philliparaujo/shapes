@@ -332,15 +332,23 @@ var byTakeRate = metrics.CardStats
     .OrderByDescending(c => c.PlayTakeRate.Rate)
     .ToList();
 
-static void PrintCard(CardStat card) =>
+static void PrintCard(CardStat card, IReadOnlyDictionary<string, CardInfo> info)
+{
+    var costCol = info.TryGetValue(card.CardId, out var i)
+        ? $"cost={i.Cost,-7}"
+        : "cost=?      ";
     Console.WriteLine(
-        $"  {card.CardId,-18} take={card.PlayTakeRate.Rate,6:P1} [{card.PlayTakeRate.Low,5:P0},{card.PlayTakeRate.High,5:P0}] "
+        $"  {card.CardId,-18} {costCol} take={card.PlayTakeRate.Rate,6:P1} [{card.PlayTakeRate.Low,5:P0},{card.PlayTakeRate.High,5:P0}]  "
+        + $"take/turn={card.PlayTakeRatePerTurn.Rate,6:P1}  "
         + $"offers={card.OfferCount,5}  plays={card.PlayCount,4}  "
         + $"win(played)={card.WinRateWhenPlayed.Rate,6:P1}±{card.WinRateWhenPlayed.Margin,5:P0}");
+}
+
+var cardInfoLookup = CardInfo.BuildLookup(cards);
 
 foreach (var card in byTakeRate.Take(5))
 {
-    PrintCard(card);
+    PrintCard(card, cardInfoLookup);
 }
 
 if (byTakeRate.Count > 10)
@@ -350,8 +358,10 @@ if (byTakeRate.Count > 10)
 
 foreach (var card in byTakeRate.Skip(Math.Max(5, byTakeRate.Count - 5)))
 {
-    PrintCard(card);
+    PrintCard(card, cardInfoLookup);
 }
+
+var moveInfoLookup = MoveInfo.BuildLookup(cards);
 
 Console.WriteLine();
 Console.WriteLine("Moves by take rate — used / times the move was legal:");
@@ -360,10 +370,16 @@ foreach (var move in metrics.MoveStats
     .OrderByDescending(m => m.UseTakeRate.Rate)
     .Take(10))
 {
+    moveInfoLookup.TryGetValue((move.CardId, move.MoveName), out var moveInfo);
     Console.WriteLine(
-        $"  {move.MoveName,-18} ({move.CardId,-16}) take={move.UseTakeRate.Rate,6:P1} "
+        $"  {move.MoveName,-18} ({move.CardId,-16}) take={move.UseTakeRate.Rate,6:P1}  "
+        + $"take/turn={move.UseTakeRatePerTurn.Rate,6:P1}  "
         + $"offers={move.OfferCount,5}  uses={move.UseCount,4}  "
         + $"win={move.WinRateWhenUsed.Rate,6:P1}±{move.WinRateWhenUsed.Margin,5:P0}");
+    if (moveInfo is { EffectText.Length: > 0 })
+    {
+        Console.WriteLine($"      {moveInfo.EffectText}");
+    }
 }
 
 // A rate whose interval still straddles 0.5 after the whole batch cannot rank anything -- saying
@@ -396,19 +412,19 @@ if (options.MetricsJson is { } metricsPath)
 
 if (options.Report is { } reportPath)
 {
-    HtmlReportWriter.Write(reportPath, metrics);
+    HtmlReportWriter.Write(reportPath, metrics, cards);
     Console.WriteLine($"Wrote metrics explorer to {reportPath}");
 }
 
 if (options.CardsCsv is { } cardsCsvPath)
 {
-    ResultWriter.WriteCardsCsv(cardsCsvPath, metrics);
+    ResultWriter.WriteCardsCsv(cardsCsvPath, metrics, cards);
     Console.WriteLine($"Wrote per-card CSV to {cardsCsvPath}");
 }
 
 if (options.MovesCsv is { } movesCsvPath)
 {
-    ResultWriter.WriteMovesCsv(movesCsvPath, metrics);
+    ResultWriter.WriteMovesCsv(movesCsvPath, metrics, cards);
     Console.WriteLine($"Wrote per-move CSV to {movesCsvPath}");
 }
 

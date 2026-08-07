@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Shapes.Core.Cards;
 
 namespace Shapes.Sim;
 
@@ -47,23 +48,42 @@ public static class ResultWriter
     // are still a spreadsheet away. One row per card/move, opportunity denominators and interval
     // bounds included (not just the point rate) so a spreadsheet formula can recompute margin or
     // re-filter by sample size without round-tripping back through the JSON.
-    public static void WriteCardsCsv(string path, MetricsReport metrics)
+    // cards is optional -- --from-metrics-json can re-derive CSVs from a saved MetricsReport
+    // with no CardDatabase in hand, and the reference columns are simply blank in that case.
+    public static void WriteCardsCsv(string path, MetricsReport metrics, CardDatabase? cards = null)
     {
+        var info = cards is null ? null : CardInfo.BuildLookup(cards);
+
         var sb = new StringBuilder();
         sb.AppendLine(
-            "cardId,playCount,gamesPlayedIn,offerCount,playTakeRate,playTakeRateLow,playTakeRateHigh,"
+            "cardId,name,attackType,cost,health,effectText,"
+            + "playCount,gamesPlayedIn,offerCount,playTakeRate,playTakeRateLow,playTakeRateHigh,"
+            + "offeredInTurns,playedInTurns,playTakeRatePerTurn,playTakeRatePerTurnLow,playTakeRatePerTurnHigh,"
             + "winRateWhenPlayed,timesDrawn,gamesDrawnIn,winRateWhenDrawn,blockedByCostCount,"
             + "costPressure,survivalStepsMean,survivalStepsCount,scoredWhileAliveRate");
 
         foreach (var card in metrics.CardStats)
         {
+            CardInfo? cardInfo = null;
+            info?.TryGetValue(card.CardId, out cardInfo);
+
             sb.Append(CsvField(card.CardId)).Append(',')
+              .Append(CsvField(cardInfo?.Name ?? string.Empty)).Append(',')
+              .Append(CsvField(cardInfo?.AttackType?.ToString() ?? string.Empty)).Append(',')
+              .Append(CsvField(cardInfo?.Cost.ToString() ?? string.Empty)).Append(',')
+              .Append(cardInfo is null ? string.Empty : F(cardInfo.Health)).Append(',')
+              .Append(CsvField(cardInfo?.EffectText ?? string.Empty)).Append(',')
               .Append(F(card.PlayCount)).Append(',')
               .Append(F(card.GamesPlayedIn)).Append(',')
               .Append(F(card.OfferCount)).Append(',')
               .Append(F(card.PlayTakeRate.Rate)).Append(',')
               .Append(F(card.PlayTakeRate.Low)).Append(',')
               .Append(F(card.PlayTakeRate.High)).Append(',')
+              .Append(F(card.OfferedInTurns)).Append(',')
+              .Append(F(card.PlayedInTurns)).Append(',')
+              .Append(F(card.PlayTakeRatePerTurn.Rate)).Append(',')
+              .Append(F(card.PlayTakeRatePerTurn.Low)).Append(',')
+              .Append(F(card.PlayTakeRatePerTurn.High)).Append(',')
               .Append(F(card.WinRateWhenPlayed.Rate)).Append(',')
               .Append(F(card.TimesDrawn)).Append(',')
               .Append(F(card.GamesDrawnIn)).Append(',')
@@ -79,23 +99,38 @@ public static class ResultWriter
         File.WriteAllText(path, sb.ToString());
     }
 
-    public static void WriteMovesCsv(string path, MetricsReport metrics)
+    public static void WriteMovesCsv(string path, MetricsReport metrics, CardDatabase? cards = null)
     {
+        var info = cards is null ? null : MoveInfo.BuildLookup(cards);
+
         var sb = new StringBuilder();
         sb.AppendLine(
-            "cardId,moveName,useCount,gamesUsedIn,offerCount,useTakeRate,useTakeRateLow,"
-            + "useTakeRateHigh,winRateWhenUsed");
+            "cardId,moveName,attackType,cost,effectText,"
+            + "useCount,gamesUsedIn,offerCount,useTakeRate,useTakeRateLow,"
+            + "useTakeRateHigh,offeredInTurns,usedInTurns,useTakeRatePerTurn,"
+            + "useTakeRatePerTurnLow,useTakeRatePerTurnHigh,winRateWhenUsed");
 
         foreach (var move in metrics.MoveStats)
         {
+            MoveInfo? moveInfo = null;
+            info?.TryGetValue((move.CardId, move.MoveName), out moveInfo);
+
             sb.Append(CsvField(move.CardId)).Append(',')
               .Append(CsvField(move.MoveName)).Append(',')
+              .Append(CsvField(moveInfo?.AttackType?.ToString() ?? string.Empty)).Append(',')
+              .Append(CsvField(moveInfo?.Cost.ToString() ?? string.Empty)).Append(',')
+              .Append(CsvField(moveInfo?.EffectText ?? string.Empty)).Append(',')
               .Append(F(move.UseCount)).Append(',')
               .Append(F(move.GamesUsedIn)).Append(',')
               .Append(F(move.OfferCount)).Append(',')
               .Append(F(move.UseTakeRate.Rate)).Append(',')
               .Append(F(move.UseTakeRate.Low)).Append(',')
               .Append(F(move.UseTakeRate.High)).Append(',')
+              .Append(F(move.OfferedInTurns)).Append(',')
+              .Append(F(move.UsedInTurns)).Append(',')
+              .Append(F(move.UseTakeRatePerTurn.Rate)).Append(',')
+              .Append(F(move.UseTakeRatePerTurn.Low)).Append(',')
+              .Append(F(move.UseTakeRatePerTurn.High)).Append(',')
               .Append(F(move.WinRateWhenUsed.Rate))
               .AppendLine();
         }

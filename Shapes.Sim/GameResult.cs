@@ -146,6 +146,30 @@ public sealed class GameResult
 
     public required IReadOnlyDictionary<string, int> MoveOffersTwo { get; init; }
 
+    // PER-TURN opportunity/take denominators (PLAN.md step 4.5) -- the same counts as
+    // CardOffers*/MoveOffers* and Cards/MovesPlayed/Used above, but deduplicated to "did this
+    // happen at all this turn" rather than "at how many decision points." CardOffers* counts a
+    // card that stays legal across five decisions in a turn as five offers, so a move that is
+    // reliably used once per turn but rarely used FIRST reads identically, on that denominator,
+    // to a move nobody wants. Counting once per turn instead separates "not urgent" (offered
+    // every turn, used most turns, just not immediately) from "not wanted" (offered every turn,
+    // rarely used at all).
+    public required IReadOnlyDictionary<string, int> CardOffersByTurnOne { get; init; }
+
+    public required IReadOnlyDictionary<string, int> CardOffersByTurnTwo { get; init; }
+
+    public required IReadOnlyDictionary<string, int> CardPlaysByTurnOne { get; init; }
+
+    public required IReadOnlyDictionary<string, int> CardPlaysByTurnTwo { get; init; }
+
+    public required IReadOnlyDictionary<string, int> MoveOffersByTurnOne { get; init; }
+
+    public required IReadOnlyDictionary<string, int> MoveOffersByTurnTwo { get; init; }
+
+    public required IReadOnlyDictionary<string, int> MoveUsesByTurnOne { get; init; }
+
+    public required IReadOnlyDictionary<string, int> MoveUsesByTurnTwo { get; init; }
+
     // Decision points that offered at least one legal merge, per seat. The denominator for
     // "merge take rate" -- step 4.2 measured this by instrumenting a bespoke run; carrying it in
     // GameResult makes it a standing metric that every batch reports for free.
@@ -172,6 +196,19 @@ public sealed class GameResult
     public required IReadOnlyList<ResourcePool> ResourcesByTurnOne { get; init; }
 
     public required IReadOnlyList<ResourcePool> ResourcesByTurnTwo { get; init; }
+
+    // Hand size at each turn boundary, per seat -- same sampling point as ResourcesByTurn*, and
+    // answering the same kind of question for card economy that resource levels answer for
+    // resource economy. A hand hovering near 0-1 most turns means income/draw is too stingy or
+    // combat burns cards too fast to ever build a hand; a hand routinely at 6+ means income/draw
+    // is too generous relative to what there is to spend cards on, or removal/board clears keep
+    // resetting the board without spending the hand down. Neither extreme is directly visible
+    // from CardsDrawnWinners/Losers (a game-end total) or CostPressure (a resource-affordability
+    // signal, not a hand-size one) -- this is the number that actually answers "how full are
+    // hands, over the course of a typical game."
+    public required IReadOnlyList<int> HandSizeByTurnOne { get; init; }
+
+    public required IReadOnlyList<int> HandSizeByTurnTwo { get; init; }
 
     // UNOPPOSED-SLOT OCCUPANCY (the +1-per-unopposed-creature scoring rule's own denominator).
     //
@@ -203,6 +240,22 @@ public sealed class GameResult
     public required int LongestUnopposedStreakOne { get; init; }
 
     public required int LongestUnopposedStreakTwo { get; init; }
+
+    // BOARD PRESENCE, per seat, per scoring step -- slots occupied and combined CURRENT health
+    // (not max) of that seat's creatures, sampled at the same step UnopposedSlotTurns* already
+    // reads the board at. Neither is visible from the unopposed-slot metrics alone: a seat can
+    // hold every slot unopposed with three 1-health creatures or one full-health creature and two
+    // empty slots, and those are very different board states with the same score. Combined health
+    // (not slot count alone) is what separates "present" from "actually threatening" -- three
+    // mauled creatures occupy the same three slots as three fresh ones but defend nothing like as
+    // well.
+    public required IReadOnlyList<int> SlotsOccupiedByTurnOne { get; init; }
+
+    public required IReadOnlyList<int> SlotsOccupiedByTurnTwo { get; init; }
+
+    public required IReadOnlyList<int> CombinedHealthByTurnOne { get; init; }
+
+    public required IReadOnlyList<int> CombinedHealthByTurnTwo { get; init; }
 
     // CREATURE SURVIVAL (scoring steps survived, per creature that left the board).
     //

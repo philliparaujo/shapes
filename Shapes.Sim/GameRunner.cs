@@ -76,9 +76,32 @@ public static class GameRunner
         var mergeOffersOne = new int[1];
         var mergeOffersTwo = new int[1];
 
+        // PER-TURN denominators: "was this offered/played at all THIS turn," not "at how many
+        // decision points" -- deduplicated per (turn number, id) via a per-seat HashSet reset
+        // each time TurnNumber advances, mirroring AccountSeat's per-game dedup one level down.
+        var cardOffersByTurnOne = new Dictionary<string, int>(StringComparer.Ordinal);
+        var cardOffersByTurnTwo = new Dictionary<string, int>(StringComparer.Ordinal);
+        var cardPlaysByTurnOne = new Dictionary<string, int>(StringComparer.Ordinal);
+        var cardPlaysByTurnTwo = new Dictionary<string, int>(StringComparer.Ordinal);
+        var moveOffersByTurnOne = new Dictionary<string, int>(StringComparer.Ordinal);
+        var moveOffersByTurnTwo = new Dictionary<string, int>(StringComparer.Ordinal);
+        var moveUsesByTurnOne = new Dictionary<string, int>(StringComparer.Ordinal);
+        var moveUsesByTurnTwo = new Dictionary<string, int>(StringComparer.Ordinal);
+        var cardsSeenThisTurnOne = new HashSet<string>(StringComparer.Ordinal);
+        var cardsSeenThisTurnTwo = new HashSet<string>(StringComparer.Ordinal);
+        var movesSeenThisTurnOne = new HashSet<string>(StringComparer.Ordinal);
+        var movesSeenThisTurnTwo = new HashSet<string>(StringComparer.Ordinal);
+        var cardsPlayedThisTurnOne = new HashSet<string>(StringComparer.Ordinal);
+        var cardsPlayedThisTurnTwo = new HashSet<string>(StringComparer.Ordinal);
+        var movesUsedThisTurnOne = new HashSet<string>(StringComparer.Ordinal);
+        var movesUsedThisTurnTwo = new HashSet<string>(StringComparer.Ordinal);
+        var perTurnTurnNumber = 0;
+
         var scoreMarginByTurn = new List<int>();
         var resourcesByTurnOne = new List<ResourcePool>();
         var resourcesByTurnTwo = new List<ResourcePool>();
+        var handSizeByTurnOne = new List<int>();
+        var handSizeByTurnTwo = new List<int>();
         var lastSampledTurn = 0;
 
         var trackers = new Dictionary<PlayerId, SeatTracker>
@@ -103,11 +126,31 @@ public static class GameRunner
             // exactly the denominator "how often was this taken when available" needs. Counting
             // after Apply would measure a different (post-action) state.
             var acting = state.ActivePlayer;
+
+            // A new turn number resets which cards/moves have already been counted THIS turn --
+            // must happen before CountOffers so the very first decision of a turn always counts.
+            if (state.TurnNumber != perTurnTurnNumber)
+            {
+                perTurnTurnNumber = state.TurnNumber;
+                cardsSeenThisTurnOne.Clear();
+                cardsSeenThisTurnTwo.Clear();
+                movesSeenThisTurnOne.Clear();
+                movesSeenThisTurnTwo.Clear();
+                cardsPlayedThisTurnOne.Clear();
+                cardsPlayedThisTurnTwo.Clear();
+                movesUsedThisTurnOne.Clear();
+                movesUsedThisTurnTwo.Clear();
+            }
+
             CountOffers(
                 state, cards,
                 acting == PlayerId.One ? cardOffersOne : cardOffersTwo,
                 acting == PlayerId.One ? moveOffersOne : moveOffersTwo,
-                acting == PlayerId.One ? mergeOffersOne : mergeOffersTwo);
+                acting == PlayerId.One ? mergeOffersOne : mergeOffersTwo,
+                acting == PlayerId.One ? cardOffersByTurnOne : cardOffersByTurnTwo,
+                acting == PlayerId.One ? moveOffersByTurnOne : moveOffersByTurnTwo,
+                acting == PlayerId.One ? cardsSeenThisTurnOne : cardsSeenThisTurnTwo,
+                acting == PlayerId.One ? movesSeenThisTurnOne : movesSeenThisTurnTwo);
 
             // Affordability is sampled at the same decision points as offers, so the two share a
             // denominator: "offered N times, blocked by cost M times" is only a coherent
@@ -128,6 +171,11 @@ public static class GameRunner
                     {
                         if (playCard.Player == PlayerId.One) creaturesPlayedOne++; else creaturesPlayedTwo++;
                     }
+
+                    RecordOncePerTurn(
+                        playCard.CardId,
+                        playCard.Player == PlayerId.One ? cardsPlayedThisTurnOne : cardsPlayedThisTurnTwo,
+                        playCard.Player == PlayerId.One ? cardPlaysByTurnOne : cardPlaysByTurnTwo);
                     break;
                 case UseMoveAction useMove:
                     {
@@ -135,6 +183,11 @@ public static class GameRunner
                         var (ownerCardId, moveName) = ResolveMove(cards, creature.MergedFrom, useMove.MoveIndex);
                         (useMove.Player == PlayerId.One ? movesUsedOne : movesUsedTwo)
                             .Add((ownerCardId, moveName));
+
+                        RecordOncePerTurn(
+                            MoveKey.Of(ownerCardId, moveName),
+                            useMove.Player == PlayerId.One ? movesUsedThisTurnOne : movesUsedThisTurnTwo,
+                            useMove.Player == PlayerId.One ? moveUsesByTurnOne : moveUsesByTurnTwo);
                         break;
                     }
                 case MergeAction merge:
@@ -196,6 +249,8 @@ public static class GameRunner
                 scoreMarginByTurn.Add(state[PlayerId.One].Score - state[PlayerId.Two].Score);
                 resourcesByTurnOne.Add(state[PlayerId.One].Resources);
                 resourcesByTurnTwo.Add(state[PlayerId.Two].Resources);
+                handSizeByTurnOne.Add(state[PlayerId.One].Hand.Count);
+                handSizeByTurnTwo.Add(state[PlayerId.Two].Hand.Count);
             }
         }
 
@@ -232,17 +287,31 @@ public static class GameRunner
             CardOffersTwo = cardOffersTwo,
             MoveOffersOne = moveOffersOne,
             MoveOffersTwo = moveOffersTwo,
+            CardOffersByTurnOne = cardOffersByTurnOne,
+            CardOffersByTurnTwo = cardOffersByTurnTwo,
+            CardPlaysByTurnOne = cardPlaysByTurnOne,
+            CardPlaysByTurnTwo = cardPlaysByTurnTwo,
+            MoveOffersByTurnOne = moveOffersByTurnOne,
+            MoveOffersByTurnTwo = moveOffersByTurnTwo,
+            MoveUsesByTurnOne = moveUsesByTurnOne,
+            MoveUsesByTurnTwo = moveUsesByTurnTwo,
             MergeOffersOne = mergeOffersOne[0],
             MergeOffersTwo = mergeOffersTwo[0],
             ScoreMarginByTurn = scoreMarginByTurn,
             ResourcesByTurnOne = resourcesByTurnOne,
             ResourcesByTurnTwo = resourcesByTurnTwo,
+            HandSizeByTurnOne = handSizeByTurnOne,
+            HandSizeByTurnTwo = handSizeByTurnTwo,
             UnopposedSlotTurnsOne = trackers[PlayerId.One].UnopposedSlotTurns,
             UnopposedSlotTurnsTwo = trackers[PlayerId.Two].UnopposedSlotTurns,
             ScoringStepsOne = trackers[PlayerId.One].ScoringSteps,
             ScoringStepsTwo = trackers[PlayerId.Two].ScoringSteps,
             LongestUnopposedStreakOne = trackers[PlayerId.One].LongestUnopposedStreak,
             LongestUnopposedStreakTwo = trackers[PlayerId.Two].LongestUnopposedStreak,
+            SlotsOccupiedByTurnOne = trackers[PlayerId.One].SlotsOccupiedByStep,
+            SlotsOccupiedByTurnTwo = trackers[PlayerId.Two].SlotsOccupiedByStep,
+            CombinedHealthByTurnOne = trackers[PlayerId.One].CombinedHealthByStep,
+            CombinedHealthByTurnTwo = trackers[PlayerId.Two].CombinedHealthByStep,
             CreatureSurvivalOne = trackers[PlayerId.One].Survival,
             CreatureSurvivalTwo = trackers[PlayerId.Two].Survival,
             CardsBlockedByCostOne = trackers[PlayerId.One].BlockedByCost,
@@ -298,7 +367,11 @@ public static class GameRunner
         GameState state, CardDatabase cards,
         Dictionary<string, int> cardOffers,
         Dictionary<string, int> moveOffers,
-        int[] mergeOffers)
+        int[] mergeOffers,
+        Dictionary<string, int> cardOffersByTurn,
+        Dictionary<string, int> moveOffersByTurn,
+        HashSet<string> cardsSeenThisTurn,
+        HashSet<string> movesSeenThisTurn)
     {
         var legal = ActionGenerator.Generate(state, cards);
 
@@ -330,16 +403,30 @@ public static class GameRunner
         foreach (var cardId in cardsSeen)
         {
             cardOffers[cardId] = cardOffers.GetValueOrDefault(cardId) + 1;
+            RecordOncePerTurn(cardId, cardsSeenThisTurn, cardOffersByTurn);
         }
 
         foreach (var move in movesSeen)
         {
             moveOffers[move] = moveOffers.GetValueOrDefault(move) + 1;
+            RecordOncePerTurn(move, movesSeenThisTurn, moveOffersByTurn);
         }
 
         if (mergeSeen)
         {
             mergeOffers[0]++;
+        }
+    }
+
+    // Bumps `counts[id]` at most once per turn: `seenThisTurn` is cleared by the caller whenever
+    // TurnNumber advances, so a second decision point (or a second play/use) offering/taking the
+    // same id later in the same turn is a no-op here. This is what turns a per-decision count
+    // into a per-turn count -- the only difference from CardOffers*/MovesUsed* is this dedup.
+    private static void RecordOncePerTurn(string id, HashSet<string> seenThisTurn, Dictionary<string, int> counts)
+    {
+        if (seenThisTurn.Add(id))
+        {
+            counts[id] = counts.GetValueOrDefault(id) + 1;
         }
     }
 

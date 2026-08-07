@@ -10,26 +10,29 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 8 / 10     |
+| 4 — AI-driven balance                    | 9 / 10     |
 | 5 — Godot client                         | 0 / 12     |
 
-850 tests passing. **Phases 1, 2, and 3 are complete.**
+876 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 5** — metrics upgrades. Steps 2b/2c gave the metrics the denominators,
-intervals, and diagnostic splits a sweep needs to rank on; 2d made that output readable and
-diffable; 2e checked the detectors against a known-wrong answer and found take rate alone is not
-reliable for economy/tempo-neutral cards — cost pressure is. Step 3 (done) carried that forward
-into the rules-level sweep — economy, hand size/draw, and scoring-threshold variants, logged in
-`balance/LOG.md`. Step 4 (done) closed the console-side tooling gap it surfaced — bare `Move #N`,
-no move/spell effect text, merged creatures showing only their primary card's name. Step 5 closes
-the metrics-side gap (per-turn take rate, more card/move info in the report) before the per-card
-sweep (step 6). Agents are frozen at Phase 3's final tuned configuration (step 7's matrix);
-cards/rules vary from here instead.
+**Next up: Phase 4 step 6** — sweep card changes in symmetric decks. Steps 2b/2c gave the metrics
+the denominators, intervals, and diagnostic splits a sweep needs to rank on; 2d made that output
+readable and diffable; 2e checked the detectors against a known-wrong answer and found take rate
+alone is not reliable for economy/tempo-neutral cards — cost pressure is. Step 3 (done) carried
+that forward into the rules-level sweep — economy, hand size/draw, and scoring-threshold variants,
+logged in `balance/LOG.md`. Step 4 (done) closed the console-side tooling gap it surfaced — bare
+`Move #N`, no move/spell effect text, merged creatures showing only their primary card's name.
+Step 5 (done) closed the metrics-side gap: a per-turn take rate (`CardStat.PlayTakeRatePerTurn`/
+`MoveStat.UseTakeRatePerTurn`) alongside the existing per-decision rates, and cost/health/resource
+type/effect text joined onto every card and move row in the HTML explorer, the CSV exports, and
+the console's card/move listings, plus conditional coloring on take-rate outliers in the HTML
+report. Agents are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules
+vary from here instead.
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -520,15 +523,81 @@ step 10, so every number here reflects genuinely stable content.
   fallback so a future op degrades to its raw name instead of crashing the console mid-game),
   `ActionTextTests` (including a merged-creature move-index case pinning `MoveIndexOffset`
   correctness through the display layer), `BoardViewMergeTests`, `ConsoleOptionsStepTests`.
-- [ ] **5. Metrics upgrades.** A per-turn take rate alongside the existing per-decision
-  `PlayTakeRate`/`UseTakeRate` — the current rate counts a card/move as "offered" at every
-  decision point it stays legal within a turn, so a move that's reliably used once per turn but
-  rarely used *first* reads as low-take-rate identically to a move nobody wants; a per-turn
-  denominator (offered/chosen once per turn, not once per decision) separates "not urgent" from
-  "not wanted." Beyond that: more card/move information surfaced directly in the report (cost,
-  health, move/spell effect text) so reading an outlier doesn't require tabbing to
-  `Shapes.Content/cards/`; extra columns for resource type/cost; light formatting improvements
-  (coloring, bolding, conditional formatting) for faster scanning.
+- [x] **5. Metrics upgrades.** A per-turn take rate alongside the existing per-decision
+  `PlayTakeRate`/`UseTakeRate` — the old rate counts a card/move as "offered" at every decision
+  point it stays legal within a turn, so a move that's reliably used once per turn but rarely used
+  *first* read as low-take-rate identically to a move nobody wants. `GameRunner` now tracks, per
+  seat, which turns each card/move was offered in and which turns it was played/used in
+  (`CardOffersByTurn*`/`CardPlaysByTurn*`/`MoveOffersByTurn*`/`MoveUsesByTurn*` on `GameResult`,
+  deduplicated once per turn via a per-seat `HashSet` reset on every `TurnNumber` change — the same
+  dedup idea `AccountSeat` already used one level up, at the game). `MetricsReport` aggregates
+  these into `CardStat.PlayTakeRatePerTurn`/`MoveStat.UseTakeRatePerTurn` (Wilson intervals,
+  matching every other rate in the report), separating "not urgent" (offered every turn, played
+  most turns, just rarely the first thing done) from "not wanted" (offered every turn, rarely
+  played at all) — the two read identically on the decision-level denominator alone.
+  **Card/move reference data** (cost, health, resource type, synthesized effect text via the
+  existing `EffectText.Describe`) is joined onto the report at write time by a new
+  `CardInfo`/`MoveInfo` lookup (`Shapes.Sim/CardInfo.cs`), built from `CardDatabase` and kept out
+  of `MetricsReport`/`CardStat`/`MoveStat` themselves — those stay pure aggregation over
+  `GameResult` with no `CardDatabase` dependency, matching every existing `MetricsReportTests`
+  fixture. Consumed by the HTML explorer (new Type/Cost/Health/Effect columns, inlined as two
+  additional `<script>` JSON blocks, `cards` param on `HtmlReportWriter.Write` optional so
+  `--from-metrics-json` still works without a loaded card set), the `--cards-csv`/`--moves-csv`
+  exports (same new columns), and the console's per-card/per-move listings (cost inline, move
+  effect text under each move line). **Formatting**: take-rate cells whose interval sits fully
+  above/below the field median are bolded and colored (green above, red below) in the HTML
+  explorer, and resource type renders as a colored chip (△/▢/◯) instead of a bare enum name.
+  **Composite power score**: an opinionated per-card rollup in the HTML explorer only (no new
+  `MetricsReport` fields) — a z-score average of take rate, take rate/turn, and win rate
+  played/drawn across the min-n-filtered field, plus (creatures only) a take-rate-weighted mean of
+  the creature's own moves' take rate and win rate, so a card that gets played but whose moves go
+  unused scores lower than its play stats alone suggest. Z-scored, not rank-averaged, so the
+  result preserves how far a card sits from the pack rather than just its order; spells and
+  creatures are only comparable within their own kind. Computed client-side
+  (`computeCompositeScores` in the template) precisely because it's a judgment call layered on top
+  of the real metrics, not a new fact about the games played — the page says so directly next to
+  the column. Ported verbatim into `compare.html` (`CompareReportWriter.cs`) as a `Δ power score`
+  column, computed independently per side against that side's own field (so a card's z-score can
+  move between runs even if its raw take rate barely did, if the rest of the field shifted around
+  it) and diffed like every other stat there. `compare.html` never loads a `CardDatabase` (the
+  `--compare` path reads two `--metrics-json` files and plays no games), so the creature/spell
+  split the move rollup needs is inferred from `moveStats` presence on each side instead of a
+  `cardInfo` lookup — true by construction (a spell has effects and no moves, a creature the
+  reverse) and needs nothing beyond data already in both files. No confidence interval on this
+  score, unlike the rate columns, so "moved" is a fixed `|Δ| ≥ 0.5` threshold (matching
+  `report.html`'s own hi/lo coloring cutoff for the same score) rather than a disjoint-intervals
+  test. **Hand size by turn**: `GameRunner` samples `Hand.Count` at the same per-turn
+  boundary `ScoreMarginByTurn`/`ResourcesByTurn*` already use (`HandSizeByTurnOne/Two` on
+  `GameResult`), `MetricsReport` transposes it into per-turn `MeanEstimate`s the same way
+  (`ComputeMarginByTurn` generalized into `ComputeSeriesByTurn`, shared by both), and the HTML
+  explorer renders it as a two-line chart (seat 1 vs. seat 2, deliberately not a single "P1 − P2"
+  series the way score margin is — both seats being starved or both being flush are opposite
+  findings a difference would erase). Reads alongside cost pressure: a thin hand with low cost
+  pressure is a draw problem, a thin hand with high cost pressure is a resource problem.
+  **Resources by turn, per type**: the per-turn counterpart of `ResourcesSeatOne/Two` (which
+  already existed but only as one mean-over-the-whole-game per resource type) — `MetricsReport`
+  now also exposes `ResourcesByTurnOne/Two` (`ResourceSeriesProfile`: one `MeanEstimate` series
+  per resource type), reusing the exact `ResourcesByTurn*` raw per-game samples `ResourceProfile`
+  already pools, just transposed by turn index instead of collapsed. `ComputeSeriesByTurn` widened
+  to a generic `<T>` form (a value-selector `Func<T, double>` alongside the series selector) so the
+  same transpose serves margin/hand-size's `int` series and the new `ResourcePool` series without
+  duplicating the turn-alignment logic three times over. Rendered as three small two-line charts
+  (Spike/Anvil/Wheel, seat 1 vs. seat 2) in the Economy panel, right below the existing resource
+  table — `twoSeatLineChart` factored out of the hand-size chart's renderer since both are "two
+  per-seat `MeanEstimate` series, no natural P1-minus-P2 framing" the same way. Reads against
+  cost pressure per type: a level climbing turn over turn with low cost pressure for that type
+  means income for it outpaces what there is to spend; climbing with high cost pressure means the
+  type itself (not the amount) is the bottleneck.
+  **Board presence by turn**: slot count and combined CURRENT (not max) creature health, per seat,
+  sampled at the same scoring-step boundary `UnopposedSlotTurns*` already reads the board at
+  (`SeatTracker.ObserveScoringStep` extended to fold this into the loop it already runs over that
+  seat's slots, rather than a second board pass). Exists because unopposed-slot occupancy alone
+  can't distinguish "present" from "actually threatening" -- three 1-health creatures occupying
+  every slot score identically to three full-health ones, and slot count holding steady while
+  combined health falls is a board being worn down, invisible to every other metric in the report.
+  `GameResult.SlotsOccupiedByTurn*`/`CombinedHealthByTurn*`, aggregated in `MetricsReport` via the
+  same `ComputeSeriesByTurn` used everywhere else in this family, rendered as two more
+  `twoSeatLineChart`s in a new "Board presence by turn" panel ahead of Economy.
 - [ ] **6. Sweep card changes** in symmetric decks — the per-card pass step 3's rules sweep was
   deliberately sequenced ahead of, since a rules change shifts every card's take rate and doing
   card-level tuning first would mean redoing it. Watch for never-played/auto-include cards,

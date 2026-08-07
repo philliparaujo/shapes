@@ -78,6 +78,19 @@ public sealed class CardStat
     // absolute terms. Compare cards against each other, not against an absolute threshold.
     public Interval PlayTakeRate => Interval.Wilson(Math.Min(PlayCount, OfferCount), OfferCount);
 
+    // Turns in which this card was offered at least one decision, and, of those, turns in which
+    // it was played at least once. Same ratio as PlayTakeRate but deduplicated to "this turn,"
+    // not "this decision" -- separates a card the agent wants but doesn't rush (offered every
+    // turn, played most turns, just rarely the very first thing it does that turn -- a low
+    // decision-level rate but a high turn-level one) from a card nobody wants at all (low on
+    // both). PlayTakeRate alone cannot tell those apart; this is the number that does.
+    public required int OfferedInTurns { get; init; }
+
+    public required int PlayedInTurns { get; init; }
+
+    public Interval PlayTakeRatePerTurn =>
+        Interval.Wilson(Math.Min(PlayedInTurns, OfferedInTurns), OfferedInTurns);
+
     public Interval WinRateWhenPlayed => Interval.Wilson(WinsWhenPlayed, GamesPlayedIn);
 
     // Drawn-but-not-necessarily-played -- the starting hand plus every mid-game draw, so this
@@ -151,6 +164,16 @@ public sealed class MoveStat
     // cannot rank that move yet, rather than ranking it on four uses.
     public Interval UseTakeRate => Interval.Wilson(Math.Min(UseCount, OfferCount), OfferCount);
 
+    // Per-turn counterpart of UseTakeRate, same reasoning as CardStat.PlayTakeRatePerTurn: a
+    // move used reliably once per turn but rarely used FIRST reads as low-take-rate identically
+    // to a move nobody wants, on the decision-level denominator alone.
+    public required int OfferedInTurns { get; init; }
+
+    public required int UsedInTurns { get; init; }
+
+    public Interval UseTakeRatePerTurn =>
+        Interval.Wilson(Math.Min(UsedInTurns, OfferedInTurns), OfferedInTurns);
+
     public Interval WinRateWhenUsed => Interval.Wilson(WinsWhenUsed, GamesUsedIn);
 }
 
@@ -174,6 +197,23 @@ public sealed class ResourceProfile
             Anvil = MeanEstimate.From(samples.Select(r => (double)r.Anvil)),
             Wheel = MeanEstimate.From(samples.Select(r => (double)r.Wheel)),
         };
+}
+
+// The per-turn counterpart of ResourceProfile -- ResourceProfile collapses a seat's whole game
+// into one mean per resource type, which is the right shape for "winners vs. losers" (a
+// game-outcome question) but the wrong shape for "does income outpace spending as the game goes
+// on" (a turn-by-turn question, same reasoning as ScoreMarginByTurn/HandSizeByTurn*). One series
+// per resource type rather than a single pooled total, because Spike/Anvil/Wheel building up
+// unevenly (e.g. Anvil piling up while Spike/Wheel stay spent) is invisible in a summed total and
+// is exactly the kind of type-distribution problem CostPressure already flags at the batch level
+// -- this is the per-turn, per-type view of the same question.
+public sealed class ResourceSeriesProfile
+{
+    public required IReadOnlyList<MeanEstimate> Spike { get; init; }
+
+    public required IReadOnlyList<MeanEstimate> Anvil { get; init; }
+
+    public required IReadOnlyList<MeanEstimate> Wheel { get; init; }
 }
 
 // Whole-batch metrics: PLAN.md Phase 4 step 1's list, extended by step 3's prerequisites
@@ -217,6 +257,52 @@ public sealed class MetricsReport
     // income-compounding finding needs: a lead that widens monotonically turn over turn is
     // compounding, one that oscillates is not.
     public required IReadOnlyList<MeanEstimate> ScoreMarginByTurn { get; init; }
+
+    // Hand size at each turn index, per seat -- same per-turn-index averaging as
+    // ScoreMarginByTurn (turn t averages only over games that reached it), split by seat rather
+    // than expressed as a single margin because hand size has no natural "P1 minus P2" framing:
+    // both seats being low is a starved economy, both being high is a bloated one, and those are
+    // opposite findings that a difference would erase. Read alongside CostPressure and the
+    // resource profiles: a hand hovering near 0-1 most turns with LOW cost pressure means the
+    // hand itself is the bottleneck (not enough draw), while low hand size with HIGH cost
+    // pressure means resources are the bottleneck and the hand is just waiting on affordability.
+    // A hand routinely at 6+ suggests income/draw outpacing what a turn can spend, or removal/
+    // board clears resetting the board without spending the hand down.
+    public required IReadOnlyList<MeanEstimate> HandSizeByTurnOne { get; init; }
+
+    public required IReadOnlyList<MeanEstimate> HandSizeByTurnTwo { get; init; }
+
+    // Resource levels at each turn index, per seat, per resource type -- the per-turn
+    // counterpart of ResourcesSeatOne/Two below (those collapse a whole game into one mean; this
+    // is the curve). Same reasoning and same turn-alignment rule as ScoreMarginByTurn/
+    // HandSizeByTurn*, split by seat rather than winner/loser since (like hand size) there is no
+    // "P1 minus P2" framing for a resource level -- both seats sitting on a pile of unspent Anvil
+    // is one finding, one seat starved of Spike while the other floods is a different one, and
+    // pooling would erase the distinction. Read against CostPressure per resource type: a level
+    // that climbs turn over turn with low cost pressure for that type means income outpaces what
+    // there is to spend it on; climbing with high cost pressure means the type itself is the
+    // bottleneck (nothing affordable asks for it), not the amount.
+    public required ResourceSeriesProfile ResourcesByTurnOne { get; init; }
+
+    public required ResourceSeriesProfile ResourcesByTurnTwo { get; init; }
+
+    // BOARD PRESENCE by turn, per seat -- slots occupied and combined CURRENT (not max) creature
+    // health, sampled at the same scoring-step boundary as UnopposedSlotRate. Neither is visible
+    // from the unopposed-slot metrics alone: a seat can hold every slot unopposed with three
+    // 1-health creatures or one full-health creature and two empty slots, and those are very
+    // different board states producing the identical score. Combined health, not slot count
+    // alone, is what separates merely "present" from "actually threatening" -- a mauled board
+    // occupies the same slots as a fresh one but defends nothing like as well. Same "no natural
+    // P1-minus-P2 framing" reasoning as HandSizeByTurn*/ResourcesByTurn*: one seat's board being
+    // empty and the other's full is one finding, both being thin is a different one, and a
+    // difference would erase which is which.
+    public required IReadOnlyList<MeanEstimate> SlotsOccupiedByTurnOne { get; init; }
+
+    public required IReadOnlyList<MeanEstimate> SlotsOccupiedByTurnTwo { get; init; }
+
+    public required IReadOnlyList<MeanEstimate> CombinedHealthByTurnOne { get; init; }
+
+    public required IReadOnlyList<MeanEstimate> CombinedHealthByTurnTwo { get; init; }
 
     public required MeanEstimate GameLength { get; init; }
 
@@ -364,7 +450,15 @@ public sealed class MetricsReport
             SeatTwoWinRate = Interval.Wilson(seatTwoWins, games.Count),
             FinalScoreMargin = MeanEstimate.From(margins),
             AbsoluteScoreMargin = MeanEstimate.From(margins.Select(Math.Abs)),
-            ScoreMarginByTurn = ComputeMarginByTurn(games),
+            ScoreMarginByTurn = ComputeSeriesByTurn(games, g => g.ScoreMarginByTurn),
+            HandSizeByTurnOne = ComputeSeriesByTurn(games, g => g.HandSizeByTurnOne),
+            HandSizeByTurnTwo = ComputeSeriesByTurn(games, g => g.HandSizeByTurnTwo),
+            ResourcesByTurnOne = ComputeResourceSeriesByTurn(games, g => g.ResourcesByTurnOne),
+            ResourcesByTurnTwo = ComputeResourceSeriesByTurn(games, g => g.ResourcesByTurnTwo),
+            SlotsOccupiedByTurnOne = ComputeSeriesByTurn(games, g => g.SlotsOccupiedByTurnOne),
+            SlotsOccupiedByTurnTwo = ComputeSeriesByTurn(games, g => g.SlotsOccupiedByTurnTwo),
+            CombinedHealthByTurnOne = ComputeSeriesByTurn(games, g => g.CombinedHealthByTurnOne),
+            CombinedHealthByTurnTwo = ComputeSeriesByTurn(games, g => g.CombinedHealthByTurnTwo),
             GameLength = MeanEstimate.From(games.Select(g => (double)g.TurnCount)),
             CardStats = cardStats,
             MoveStats = moveStats,
@@ -482,13 +576,25 @@ public sealed class MetricsReport
         }
     }
 
-    // Transposes per-game margin series into per-turn-index means. Games have different lengths,
-    // so turn index t averages only over the games that reached turn t -- the alternative
-    // (padding short games with their final margin) would manufacture a plateau that no game
-    // actually played, and bias the tail toward whatever decided the shortest games.
-    private static IReadOnlyList<MeanEstimate> ComputeMarginByTurn(IReadOnlyList<GameResult> games)
+    // Transposes a per-game per-turn series (margin, hand size, ...) into per-turn-index means.
+    // Games have different lengths, so turn index t averages only over the games that reached
+    // turn t -- the alternative (padding short games with their final value) would manufacture a
+    // plateau that no game actually played, and bias the tail toward whatever decided the
+    // shortest games. Shared by ScoreMarginByTurn and HandSizeByTurn* -- same transpose, applied
+    // to whichever per-game series the caller selects.
+    private static IReadOnlyList<MeanEstimate> ComputeSeriesByTurn(
+        IReadOnlyList<GameResult> games, Func<GameResult, IReadOnlyList<int>> series) =>
+        ComputeSeriesByTurn(games, g => series(g), v => v);
+
+    // General form: series(game) yields the raw per-turn samples of any type T (an int for
+    // margin/hand size, a ResourcePool for resource-by-turn), and value() projects out the double
+    // this particular caller wants to average -- e.g. r => r.Spike for one resource type. Same
+    // transpose as the int-only overload above, generalized so ResourceSeriesByTurn can reuse it
+    // once per resource type instead of re-deriving the turn-alignment logic three times.
+    private static IReadOnlyList<MeanEstimate> ComputeSeriesByTurn<T>(
+        IReadOnlyList<GameResult> games, Func<GameResult, IReadOnlyList<T>> series, Func<T, double> value)
     {
-        var longest = games.Max(g => g.ScoreMarginByTurn.Count);
+        var longest = games.Max(g => series(g).Count);
         var byTurn = new List<MeanEstimate>(longest);
 
         for (var turn = 0; turn < longest; turn++)
@@ -496,9 +602,10 @@ public sealed class MetricsReport
             var atTurn = new List<double>();
             foreach (var game in games)
             {
-                if (turn < game.ScoreMarginByTurn.Count)
+                var values = series(game);
+                if (turn < values.Count)
                 {
-                    atTurn.Add(game.ScoreMarginByTurn[turn]);
+                    atTurn.Add(value(values[turn]));
                 }
             }
 
@@ -507,6 +614,18 @@ public sealed class MetricsReport
 
         return byTurn;
     }
+
+    // One ComputeSeriesByTurn transpose per resource type, over the same ResourcesByTurn* raw
+    // samples ResourceProfile.From already pools into a single game-long mean -- this is the
+    // per-turn-index counterpart, split by type instead of collapsed.
+    private static ResourceSeriesProfile ComputeResourceSeriesByTurn(
+        IReadOnlyList<GameResult> games, Func<GameResult, IReadOnlyList<ResourcePool>> series) =>
+        new()
+        {
+            Spike = ComputeSeriesByTurn(games, series, r => r.Spike),
+            Anvil = ComputeSeriesByTurn(games, series, r => r.Anvil),
+            Wheel = ComputeSeriesByTurn(games, series, r => r.Wheel),
+        };
 
     // Shared by CardStats (play + draw) and MoveStats: for each game, walk one seat's list of ids
     // (played, drawn, or used -- a plain card id for cards, a (CardId, MoveName) tuple for moves),
@@ -557,6 +676,8 @@ public sealed class MetricsReport
         var winsWhenDrawn = new Dictionary<string, int>();
         var offerCounts = new Dictionary<string, int>();
         var blockedCounts = new Dictionary<string, int>();
+        var offeredInTurns = new Dictionary<string, int>();
+        var playedInTurns = new Dictionary<string, int>();
         var survivalByCard = new Dictionary<string, List<double>>(StringComparer.Ordinal);
         var scoredWhileAlive = new Dictionary<string, int>(StringComparer.Ordinal);
         var lifetimeCount = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -574,6 +695,10 @@ public sealed class MetricsReport
             AccumulateOffers(game.CardOffersTwo, offerCounts);
             AccumulateOffers(game.CardsBlockedByCostOne, blockedCounts);
             AccumulateOffers(game.CardsBlockedByCostTwo, blockedCounts);
+            AccumulateOffers(game.CardOffersByTurnOne, offeredInTurns);
+            AccumulateOffers(game.CardOffersByTurnTwo, offeredInTurns);
+            AccumulateOffers(game.CardPlaysByTurnOne, playedInTurns);
+            AccumulateOffers(game.CardPlaysByTurnTwo, playedInTurns);
 
             foreach (var lifetime in game.CreatureSurvivalOne.Concat(game.CreatureSurvivalTwo))
             {
@@ -613,6 +738,8 @@ public sealed class MetricsReport
                 GamesPlayedIn = gamesPlayedIn.GetValueOrDefault(cardId),
                 WinsWhenPlayed = winsWhenPlayed.GetValueOrDefault(cardId),
                 OfferCount = offerCounts.GetValueOrDefault(cardId),
+                OfferedInTurns = offeredInTurns.GetValueOrDefault(cardId),
+                PlayedInTurns = playedInTurns.GetValueOrDefault(cardId),
                 TimesDrawn = drawCounts.GetValueOrDefault(cardId),
                 GamesDrawnIn = gamesDrawnIn.GetValueOrDefault(cardId),
                 WinsWhenDrawn = winsWhenDrawn.GetValueOrDefault(cardId),
@@ -638,6 +765,8 @@ public sealed class MetricsReport
         // decoded back to the tuple key the use counts are already in, so both halves of a
         // MoveStat come from one identity rather than two that might drift apart.
         var stringKeyedOffers = new Dictionary<string, int>(StringComparer.Ordinal);
+        var stringKeyedOfferedInTurns = new Dictionary<string, int>(StringComparer.Ordinal);
+        var stringKeyedUsedInTurns = new Dictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var game in games)
         {
@@ -647,9 +776,17 @@ public sealed class MetricsReport
                 game.MovesUsedTwo, game.Winner == PlayerId.Two, useCounts, gamesUsedIn, winsWhenUsed);
             AccumulateOffers(game.MoveOffersOne, stringKeyedOffers);
             AccumulateOffers(game.MoveOffersTwo, stringKeyedOffers);
+            AccumulateOffers(game.MoveOffersByTurnOne, stringKeyedOfferedInTurns);
+            AccumulateOffers(game.MoveOffersByTurnTwo, stringKeyedOfferedInTurns);
+            AccumulateOffers(game.MoveUsesByTurnOne, stringKeyedUsedInTurns);
+            AccumulateOffers(game.MoveUsesByTurnTwo, stringKeyedUsedInTurns);
         }
 
         var offerCounts = stringKeyedOffers.ToDictionary(
+            kv => MoveKey.Split(kv.Key), kv => kv.Value);
+        var offeredInTurns = stringKeyedOfferedInTurns.ToDictionary(
+            kv => MoveKey.Split(kv.Key), kv => kv.Value);
+        var usedInTurns = stringKeyedUsedInTurns.ToDictionary(
             kv => MoveKey.Split(kv.Key), kv => kv.Value);
 
         var everyMove = new HashSet<(string CardId, string MoveName)>(useCounts.Keys);
@@ -664,6 +801,8 @@ public sealed class MetricsReport
                 GamesUsedIn = gamesUsedIn.GetValueOrDefault(key),
                 WinsWhenUsed = winsWhenUsed.GetValueOrDefault(key),
                 OfferCount = offerCounts.GetValueOrDefault(key),
+                OfferedInTurns = offeredInTurns.GetValueOrDefault(key),
+                UsedInTurns = usedInTurns.GetValueOrDefault(key),
             })
             .OrderByDescending(s => s.UseCount)
             .ThenBy(s => s.CardId, StringComparer.Ordinal)

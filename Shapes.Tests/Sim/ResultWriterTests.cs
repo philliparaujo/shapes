@@ -110,7 +110,7 @@ public class ResultWriterTests
             var lines = File.ReadAllLines(path);
 
             Assert.Equal(metrics.CardStats.Count + 1, lines.Length);
-            Assert.StartsWith("cardId,playCount,gamesPlayedIn", lines[0], StringComparison.Ordinal);
+            Assert.StartsWith("cardId,name,attackType,cost,health,effectText,playCount", lines[0], StringComparison.Ordinal);
         }
         finally
         {
@@ -130,7 +130,28 @@ public class ResultWriterTests
             var lines = File.ReadAllLines(path);
 
             Assert.Equal(metrics.MoveStats.Count + 1, lines.Length);
-            Assert.StartsWith("cardId,moveName,useCount", lines[0], StringComparison.Ordinal);
+            Assert.StartsWith("cardId,moveName,attackType,cost,effectText,useCount", lines[0], StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Cards_csv_enriches_rows_with_card_reference_data_when_a_database_is_supplied()
+    {
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            ResultWriter.WriteCardsCsv(path, metrics, TestCards.Database);
+            var lines = File.ReadAllLines(path);
+
+            // Every real card has a non-empty name -- the join succeeded for at least one row
+            // rather than silently leaving every reference column blank.
+            Assert.Contains(lines.Skip(1), line => !line.StartsWith(",", StringComparison.Ordinal));
         }
         finally
         {

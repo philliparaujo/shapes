@@ -33,17 +33,31 @@ public class MetricsReportTests
         IReadOnlyDictionary<string, int>? cardOffersTwo = null,
         IReadOnlyDictionary<string, int>? moveOffersOne = null,
         IReadOnlyDictionary<string, int>? moveOffersTwo = null,
+        IReadOnlyDictionary<string, int>? cardOffersByTurnOne = null,
+        IReadOnlyDictionary<string, int>? cardOffersByTurnTwo = null,
+        IReadOnlyDictionary<string, int>? cardPlaysByTurnOne = null,
+        IReadOnlyDictionary<string, int>? cardPlaysByTurnTwo = null,
+        IReadOnlyDictionary<string, int>? moveOffersByTurnOne = null,
+        IReadOnlyDictionary<string, int>? moveOffersByTurnTwo = null,
+        IReadOnlyDictionary<string, int>? moveUsesByTurnOne = null,
+        IReadOnlyDictionary<string, int>? moveUsesByTurnTwo = null,
         int mergeOffersOne = 0,
         int mergeOffersTwo = 0,
         IReadOnlyList<int>? scoreMarginByTurn = null,
         IReadOnlyList<ResourcePool>? resourcesByTurnOne = null,
         IReadOnlyList<ResourcePool>? resourcesByTurnTwo = null,
+        IReadOnlyList<int>? handSizeByTurnOne = null,
+        IReadOnlyList<int>? handSizeByTurnTwo = null,
         int unopposedSlotTurnsOne = 0,
         int unopposedSlotTurnsTwo = 0,
         int scoringStepsOne = 0,
         int scoringStepsTwo = 0,
         int longestUnopposedStreakOne = 0,
         int longestUnopposedStreakTwo = 0,
+        IReadOnlyList<int>? slotsOccupiedByTurnOne = null,
+        IReadOnlyList<int>? slotsOccupiedByTurnTwo = null,
+        IReadOnlyList<int>? combinedHealthByTurnOne = null,
+        IReadOnlyList<int>? combinedHealthByTurnTwo = null,
         IReadOnlyList<CreatureLifetime>? creatureSurvivalOne = null,
         IReadOnlyList<CreatureLifetime>? creatureSurvivalTwo = null,
         IReadOnlyDictionary<string, int>? cardsBlockedByCostOne = null,
@@ -80,17 +94,31 @@ public class MetricsReportTests
             CardOffersTwo = cardOffersTwo ?? new Dictionary<string, int>(),
             MoveOffersOne = moveOffersOne ?? new Dictionary<string, int>(),
             MoveOffersTwo = moveOffersTwo ?? new Dictionary<string, int>(),
+            CardOffersByTurnOne = cardOffersByTurnOne ?? new Dictionary<string, int>(),
+            CardOffersByTurnTwo = cardOffersByTurnTwo ?? new Dictionary<string, int>(),
+            CardPlaysByTurnOne = cardPlaysByTurnOne ?? new Dictionary<string, int>(),
+            CardPlaysByTurnTwo = cardPlaysByTurnTwo ?? new Dictionary<string, int>(),
+            MoveOffersByTurnOne = moveOffersByTurnOne ?? new Dictionary<string, int>(),
+            MoveOffersByTurnTwo = moveOffersByTurnTwo ?? new Dictionary<string, int>(),
+            MoveUsesByTurnOne = moveUsesByTurnOne ?? new Dictionary<string, int>(),
+            MoveUsesByTurnTwo = moveUsesByTurnTwo ?? new Dictionary<string, int>(),
             MergeOffersOne = mergeOffersOne,
             MergeOffersTwo = mergeOffersTwo,
             ScoreMarginByTurn = scoreMarginByTurn ?? [],
             ResourcesByTurnOne = resourcesByTurnOne ?? [],
             ResourcesByTurnTwo = resourcesByTurnTwo ?? [],
+            HandSizeByTurnOne = handSizeByTurnOne ?? [],
+            HandSizeByTurnTwo = handSizeByTurnTwo ?? [],
             UnopposedSlotTurnsOne = unopposedSlotTurnsOne,
             UnopposedSlotTurnsTwo = unopposedSlotTurnsTwo,
             ScoringStepsOne = scoringStepsOne,
             ScoringStepsTwo = scoringStepsTwo,
             LongestUnopposedStreakOne = longestUnopposedStreakOne,
             LongestUnopposedStreakTwo = longestUnopposedStreakTwo,
+            SlotsOccupiedByTurnOne = slotsOccupiedByTurnOne ?? [],
+            SlotsOccupiedByTurnTwo = slotsOccupiedByTurnTwo ?? [],
+            CombinedHealthByTurnOne = combinedHealthByTurnOne ?? [],
+            CombinedHealthByTurnTwo = combinedHealthByTurnTwo ?? [],
             CreatureSurvivalOne = creatureSurvivalOne ?? [],
             CreatureSurvivalTwo = creatureSurvivalTwo ?? [],
             CardsBlockedByCostOne = cardsBlockedByCostOne ?? new Dictionary<string, int>(),
@@ -434,6 +462,52 @@ public class MetricsReportTests
     }
 
     [Fact]
+    public void Per_turn_take_rate_separates_not_urgent_from_not_wanted()
+    {
+        // "reliable" stays legal across many decisions each turn but is always played -- its
+        // per-decision take rate is low (few of the many decisions it stayed legal for are the
+        // one where it got played) even though the agent takes it every single turn it is
+        // offered. Per-turn take rate is the number that reveals that distinction.
+        var games = new[]
+        {
+            MakeGame(
+                PlayerId.One,
+                cardsPlayedOne: ["reliable"],
+                cardOffersOne: new Dictionary<string, int> { ["reliable"] = 20 },
+                cardOffersByTurnOne: new Dictionary<string, int> { ["reliable"] = 1 },
+                cardPlaysByTurnOne: new Dictionary<string, int> { ["reliable"] = 1 }),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        var reliable = metrics.CardStats.Single(c => c.CardId == "reliable");
+        Assert.Equal(0.05, reliable.PlayTakeRate.Rate, precision: 5);
+        Assert.Equal(1.0, reliable.PlayTakeRatePerTurn.Rate, precision: 5);
+        Assert.True(reliable.PlayTakeRatePerTurn.Rate > reliable.PlayTakeRate.Rate);
+    }
+
+    [Fact]
+    public void Move_per_turn_take_rate_divides_turns_used_in_by_turns_offered_in()
+    {
+        var games = new[]
+        {
+            MakeGame(
+                PlayerId.One,
+                movesUsedOne: [("cadet", "Slash")],
+                moveOffersOne: new Dictionary<string, int> { [MoveKey.Of("cadet", "Slash")] = 8 },
+                moveOffersByTurnOne: new Dictionary<string, int> { [MoveKey.Of("cadet", "Slash")] = 4 },
+                moveUsesByTurnOne: new Dictionary<string, int> { [MoveKey.Of("cadet", "Slash")] = 2 }),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        var slash = metrics.MoveStats.Single(m => m.CardId == "cadet" && m.MoveName == "Slash");
+        Assert.Equal(4, slash.OfferedInTurns);
+        Assert.Equal(2, slash.UsedInTurns);
+        Assert.Equal(0.5, slash.UseTakeRatePerTurn.Rate, precision: 5);
+    }
+
+    [Fact]
     public void A_card_offered_but_never_played_still_appears_with_a_zero_take_rate()
     {
         // Step 4.5's "never-played card" watch item. A card absent from every played list would
@@ -551,6 +625,103 @@ public class MetricsReportTests
         Assert.Equal(2, metrics.ScoreMarginByTurn[0].Count);
         Assert.Equal(9.0, metrics.ScoreMarginByTurn[2].Mean, precision: 5);
         Assert.Equal(1, metrics.ScoreMarginByTurn[2].Count);
+    }
+
+    [Fact]
+    public void Hand_size_by_turn_is_reported_per_seat_never_pooled()
+    {
+        // Same transpose as ScoreMarginByTurn (average only over games that reached that turn),
+        // but split by seat rather than expressed as a difference -- pooling one seat's empty
+        // hand with the other's full one would average to a healthy-looking midpoint that
+        // neither seat actually had, exactly the failure mode seat win rate already avoids.
+        var games = new[]
+        {
+            MakeGame(PlayerId.One, handSizeByTurnOne: [1, 0], handSizeByTurnTwo: [5, 6]),
+            MakeGame(PlayerId.One, handSizeByTurnOne: [3, 2, 1], handSizeByTurnTwo: [4, 5, 6]),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        Assert.Equal(3, metrics.HandSizeByTurnOne.Count);
+        Assert.Equal(3, metrics.HandSizeByTurnTwo.Count);
+        Assert.Equal(2.0, metrics.HandSizeByTurnOne[0].Mean, precision: 5);
+        Assert.Equal(4.5, metrics.HandSizeByTurnTwo[0].Mean, precision: 5);
+        Assert.Equal(1.0, metrics.HandSizeByTurnOne[2].Mean, precision: 5);
+        Assert.Equal(1, metrics.HandSizeByTurnOne[2].Count);
+        Assert.Equal(6.0, metrics.HandSizeByTurnTwo[2].Mean, precision: 5);
+    }
+
+    [Fact]
+    public void Resource_by_turn_is_split_per_seat_and_per_resource_type()
+    {
+        // Same transpose and same "never pooled" reasoning as hand size, but one series per
+        // resource type instead of one series total -- a seat's Spike and Anvil can move in
+        // opposite directions turn over turn, which a single pooled total would hide.
+        var games = new[]
+        {
+            MakeGame(
+                PlayerId.One,
+                resourcesByTurnOne: [new ResourcePool(1, 0, 2), new ResourcePool(3, 1, 2)],
+                resourcesByTurnTwo: [new ResourcePool(0, 4, 1)]),
+            MakeGame(
+                PlayerId.One,
+                resourcesByTurnOne: [new ResourcePool(3, 2, 2)],
+                resourcesByTurnTwo: [new ResourcePool(2, 6, 3)]),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        Assert.Equal(2, metrics.ResourcesByTurnOne.Spike.Count);
+        Assert.Equal(2.0, metrics.ResourcesByTurnOne.Spike[0].Mean, precision: 5);
+        Assert.Equal(1.0, metrics.ResourcesByTurnOne.Anvil[0].Mean, precision: 5);
+        Assert.Equal(2.0, metrics.ResourcesByTurnOne.Wheel[0].Mean, precision: 5);
+
+        // Turn index 1 only exists in the first game's seat-one series -- averages only over
+        // the one game that reached it, same rule as ScoreMarginByTurn/HandSizeByTurn.
+        Assert.Equal(1, metrics.ResourcesByTurnOne.Spike[1].Count);
+        Assert.Equal(3.0, metrics.ResourcesByTurnOne.Spike[1].Mean, precision: 5);
+
+        Assert.Single(metrics.ResourcesByTurnTwo.Spike);
+        Assert.Equal(1.0, metrics.ResourcesByTurnTwo.Spike[0].Mean, precision: 5);
+        Assert.Equal(5.0, metrics.ResourcesByTurnTwo.Anvil[0].Mean, precision: 5);
+        Assert.Equal(2.0, metrics.ResourcesByTurnTwo.Wheel[0].Mean, precision: 5);
+    }
+
+    [Fact]
+    public void Board_presence_by_turn_is_reported_per_seat_never_pooled()
+    {
+        // Same transpose/never-pooled reasoning as hand size and resources: a slot-count series
+        // that holds steady while combined health falls is a board getting worn down, not a
+        // stable one -- the two series must be readable independently, not just their sum.
+        var games = new[]
+        {
+            MakeGame(
+                PlayerId.One,
+                slotsOccupiedByTurnOne: [2, 3],
+                combinedHealthByTurnOne: [8, 5],
+                slotsOccupiedByTurnTwo: [1],
+                combinedHealthByTurnTwo: [4]),
+            MakeGame(
+                PlayerId.One,
+                slotsOccupiedByTurnOne: [0],
+                combinedHealthByTurnOne: [0],
+                slotsOccupiedByTurnTwo: [3],
+                combinedHealthByTurnTwo: [12]),
+        };
+
+        var metrics = MetricsReport.From(games);
+
+        Assert.Equal(2, metrics.SlotsOccupiedByTurnOne.Count);
+        Assert.Equal(1.0, metrics.SlotsOccupiedByTurnOne[0].Mean, precision: 5);
+        Assert.Equal(4.0, metrics.CombinedHealthByTurnOne[0].Mean, precision: 5);
+
+        // Turn index 1 exists only in the first game -- averages over that one game alone.
+        Assert.Equal(1, metrics.SlotsOccupiedByTurnOne[1].Count);
+        Assert.Equal(3.0, metrics.SlotsOccupiedByTurnOne[1].Mean, precision: 5);
+        Assert.Equal(5.0, metrics.CombinedHealthByTurnOne[1].Mean, precision: 5);
+
+        Assert.Equal(2.0, metrics.SlotsOccupiedByTurnTwo[0].Mean, precision: 5);
+        Assert.Equal(8.0, metrics.CombinedHealthByTurnTwo[0].Mean, precision: 5);
     }
 
     [Fact]

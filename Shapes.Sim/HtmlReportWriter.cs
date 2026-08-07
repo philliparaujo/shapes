@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Shapes.Core.Cards;
 
 namespace Shapes.Sim;
 
@@ -32,10 +33,29 @@ public static class HtmlReportWriter
         Encoder = JavaScriptEncoder.Default,
     };
 
-    public static void Write(string path, MetricsReport metrics)
+    // cards is optional -- --from-metrics-json re-derives a report from a saved MetricsReport
+    // with no CardDatabase in hand, and the page degrades gracefully to its pre-step-5 columns
+    // (cardInfo/moveInfo render as empty objects, and every lookup in the template already
+    // guards with `|| {}`).
+    public static void Write(string path, MetricsReport metrics, CardDatabase? cards = null)
     {
         var json = JsonSerializer.Serialize(metrics, JsonOptions);
-        var html = Template.Replace("__METRICS_JSON__", json, StringComparison.Ordinal);
+
+        var cardInfo = cards is null
+            ? new Dictionary<string, CardInfo>()
+            : CardInfo.BuildLookup(cards).ToDictionary(kv => kv.Key, kv => kv.Value);
+        var moveInfo = cards is null
+            ? new Dictionary<string, MoveInfo>()
+            : MoveInfo.BuildLookup(cards)
+                .ToDictionary(kv => MoveKey.Of(kv.Key.CardId, kv.Key.MoveName), kv => kv.Value);
+
+        var cardInfoJson = JsonSerializer.Serialize(cardInfo, JsonOptions);
+        var moveInfoJson = JsonSerializer.Serialize(moveInfo, JsonOptions);
+
+        var html = Template
+            .Replace("__METRICS_JSON__", json, StringComparison.Ordinal)
+            .Replace("__CARD_INFO_JSON__", cardInfoJson, StringComparison.Ordinal)
+            .Replace("__MOVE_INFO_JSON__", moveInfoJson, StringComparison.Ordinal);
         File.WriteAllText(path, html);
     }
 
@@ -87,6 +107,14 @@ public static class HtmlReportWriter
   .moved { color: #d14343; font-weight: 600; }
   .not-moved { opacity: 0.55; }
   .hint { font-size: 12px; opacity: 0.7; margin: 4px 0 12px; max-width: 68em; }
+  .effect-text { opacity: 0.75; max-width: 320px; white-space: normal; }
+  .res-chip { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .res-spike { background: color-mix(in srgb, #d14343 22%, transparent); color: #d14343; }
+  .res-anvil { background: color-mix(in srgb, #3a6bd1 22%, transparent); color: #3a6bd1; }
+  .res-wheel { background: color-mix(in srgb, #2f9e5e 22%, transparent); color: #2f9e5e; }
+  .res-none { opacity: 0.5; }
+  td.take.hi { color: #2f9e5e; font-weight: 700; }
+  td.take.lo { color: #d14343; font-weight: 700; }
   .resource-table td, .resource-table th { padding: 4px 12px; }
   .resource-table th:first-child, .resource-table td:first-child { padding-left: 0; }
   svg.margin-chart { display: block; }
@@ -94,6 +122,13 @@ public static class HtmlReportWriter
   .margin-chart .margin-line { stroke: color-mix(in srgb, CanvasText 65%, transparent); stroke-width: 1.5; fill: none; }
   .margin-chart .margin-band { fill: color-mix(in srgb, CanvasText 12%, transparent); }
   .margin-chart .axis-label { font-size: 10px; fill: color-mix(in srgb, CanvasText 55%, transparent); }
+  svg.hand-chart { display: block; }
+  .hand-chart .seat-one-line { stroke: #3a6bd1; stroke-width: 1.5; fill: none; }
+  .hand-chart .seat-two-line { stroke: #d14343; stroke-width: 1.5; fill: none; }
+  .hand-chart .axis-label { font-size: 10px; fill: color-mix(in srgb, CanvasText 55%, transparent); }
+  .hand-chart .grid-line { stroke: color-mix(in srgb, CanvasText 12%, transparent); stroke-width: 1; }
+  .chart-legend { font-size: 12px; margin-top: 4px; }
+  .chart-legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -115,6 +150,44 @@ public static class HtmlReportWriter
     where the shaded band widens — with that in mind.
   </p>
   <div id="margin-chart"></div>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">Hand size by turn, per seat</h2>
+  <p class="hint">
+    Mean cards in hand at each turn boundary, split by seat (never pooled — one seat starved while
+    the other floods would average out to a healthy-looking midpoint that neither seat actually
+    had). A hand hovering near 0-1 most turns means income or draw is too stingy, or combat burns
+    cards faster than they can be replaced; a hand routinely at 6+ means income/draw outpaces what
+    a turn can spend, or removal/board clears keep resetting the board without spending the hand
+    down. Read alongside <strong>cost pressure</strong> below: a low hand size with <em>low</em>
+    cost pressure means the hand itself is the bottleneck (not enough draw); a low hand size with
+    <em>high</em> cost pressure means resources are the bottleneck and the (already thin) hand is
+    just waiting on affordability. Later turns average over fewer games (short games have already
+    ended).
+  </p>
+  <div id="hand-chart"></div>
+  <div class="chart-legend">
+    <span class="swatch" style="background:#3a6bd1"></span>Seat 1
+    <span class="swatch" style="background:#d14343"></span>Seat 2
+  </div>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">Board presence by turn, per seat</h2>
+  <p class="hint">
+    Slots occupied and combined <strong>current</strong> (not max) creature health at each scoring
+    step, split by seat. Slot count and unopposed-slot rate (in Scoring rule, below) can look
+    identical for very different boards: three 1-health creatures occupying every slot score the
+    same as three full-health ones, but defend nothing like as well. Combined health is what tells
+    "present" apart from "actually threatening" — a slot count holding steady while combined
+    health falls means the board is present but getting worn down, not stable.
+  </p>
+  <div class="grid" id="board-presence-charts"></div>
+  <div class="chart-legend">
+    <span class="swatch" style="background:#3a6bd1"></span>Seat 1
+    <span class="swatch" style="background:#d14343"></span>Seat 2
+  </div>
 </div>
 
 <div class="panel">
@@ -140,9 +213,30 @@ public static class HtmlReportWriter
     <thead></thead>
     <tbody></tbody>
   </table>
+  <p class="hint" style="margin-top:16px; margin-bottom:6px">
+    The same unspent-resource levels as a curve instead of a single mean, one chart per resource
+    type, seat 1 vs. seat 2 (never pooled — one seat sitting on a pile of Anvil while the other
+    stays spent is a real asymmetry a pooled mean would hide). A level climbing turn over turn
+    with <em>low</em> cost pressure for that type (see the Cards table) means income for that
+    type is outpacing what there is to spend it on; climbing with <em>high</em> cost pressure
+    means the type itself is the bottleneck — nothing affordable currently asks for it — not the
+    amount held.
+  </p>
+  <div class="grid" id="resource-charts"></div>
 </div>
 
 <h2>Cards</h2>
+<p class="hint">
+  <strong>Power score</strong> is an opinionated rollup, not a replacement for the columns beside
+  it: the z-score average of take rate, take rate/turn, win rate (played), and win rate (drawn)
+  across the field of cards passing the min-n filter, plus (for creatures only) a take-rate-weighted
+  average of that creature's own moves' take rate and win rate -- so a creature that gets played but
+  whose moves mostly go unused scores lower than its play stats alone would suggest. Z-scored so
+  take rates (naturally low) and win rates (naturally near 50%) don't distort each other by scale.
+  Spells and creatures are only comparable <em>within</em> their own kind, not across. It knows
+  nothing about what a card costs or is meant to do -- a low score on a situational answer card is
+  not the same finding as a low score on a vanilla creature. Read the individual columns first.
+</p>
 <div class="controls">
   <label>Min n (offers): <input type="number" id="card-min-n" value="0" min="0"></label>
   <button class="toggle-btn active" id="card-outliers-btn">Outliers only (excludes field median)</button>
@@ -163,6 +257,8 @@ public static class HtmlReportWriter
 </table>
 
 <script id="metrics-data" type="application/json">__METRICS_JSON__</script>
+<script id="card-info-data" type="application/json">__CARD_INFO_JSON__</script>
+<script id="move-info-data" type="application/json">__MOVE_INFO_JSON__</script>
 <script>
 // Recursively lower-cases the first letter of every object key. The inlined report below is
 // serialized camelCase for readable JS; a baseline file loaded via the file picker is normally a
@@ -182,10 +278,32 @@ function camelizeKeys(value) {
 }
 
 const metrics = JSON.parse(document.getElementById('metrics-data').textContent);
+const cardInfo = camelizeKeys(JSON.parse(document.getElementById('card-info-data').textContent));
+const moveInfo = camelizeKeys(JSON.parse(document.getElementById('move-info-data').textContent));
 let baseline = null;
 
 function pct(x) { return (x * 100).toFixed(1) + '%'; }
 function num(x, d) { return (typeof x === 'number') ? x.toFixed(d === undefined ? 2 : d) : '—'; }
+
+// Cost/attack-type reference data is looked up by id -- not part of MetricsReport itself (that
+// stays pure aggregation over played games), joined in here purely for display so an outlier
+// row doesn't send the reader to Shapes.Content/cards/ to remember what a card costs or does.
+const RES_SYMBOL = { spike: '△', anvil: '▢', wheel: '◯' };
+
+function resChip(type) {
+  if (!type) return '<span class="res-none">—</span>';
+  const key = String(type).toLowerCase();
+  return `<span class="res-chip res-${key}">${RES_SYMBOL[key] || type}</span>`;
+}
+
+function costText(cost) {
+  if (!cost) return '—';
+  const parts = [];
+  if (cost.spike) parts.push(`${cost.spike}△`);
+  if (cost.anvil) parts.push(`${cost.anvil}▢`);
+  if (cost.wheel) parts.push(`${cost.wheel}◯`);
+  return parts.length ? parts.join(' ') : '0';
+}
 
 function median(values) {
   if (values.length === 0) return 0;
@@ -254,6 +372,8 @@ function renderEconomy() {
       <td>${num(profile.anvil.mean)} <span class="hint" style="margin:0">[${num(profile.anvil.low)}, ${num(profile.anvil.high)}]</span></td>
       <td>${num(profile.wheel.mean)} <span class="hint" style="margin:0">[${num(profile.wheel.low)}, ${num(profile.wheel.high)}]</span></td>
     </tr>`).join('');
+
+  renderResourceCharts();
 }
 
 // Line + shaded-interval SVG chart for ScoreMarginByTurn -- no charting library, matching the
@@ -298,11 +418,186 @@ function renderMarginChart() {
     </svg>`;
 }
 
+// Two-line SVG chart for a per-seat MeanEstimate series (hand size, resource-by-turn) --
+// deliberately two overlaid lines rather than margin chart's single-line-plus-band, because
+// there is no natural "seat one minus seat two" framing for either: both being low is a starved
+// economy, both being high is a bloated one, and a difference would erase exactly that finding.
+// No interval band per line to keep two series legible at once; the width of the swing between
+// seats is itself informative. gridStep/width/height are parameters so the same renderer serves
+// the full-width hand chart and the three smaller side-by-side resource charts.
+function twoSeatLineChart(seriesOne, seriesTwo, { width = 900, height = 220, gridStep = 2, cssClass = 'hand-chart' } = {}) {
+  if (!seriesOne || !seriesTwo || (seriesOne.length === 0 && seriesTwo.length === 0)) {
+    return '<p class="hint">No per-turn data in this report.</p>';
+  }
+
+  const padL = 40, padR = 12, padT = 12, padB = 24;
+  const plotW = width - padL - padR, plotH = height - padT - padB;
+  const longest = Math.max(seriesOne.length, seriesTwo.length);
+
+  const allMeans = [...seriesOne, ...seriesTwo].map(s => s.mean);
+  const yMin = Math.min(0, ...allMeans), yMax = Math.max(1, ...allMeans);
+  const yPad = Math.max((yMax - yMin) * 0.08, 0.5);
+  const y0 = yMin - yPad, y1 = yMax + yPad;
+
+  const x = (i) => padL + (longest === 1 ? 0 : (i / (longest - 1)) * plotW);
+  const y = (v) => padT + plotH - ((v - y0) / (y1 - y0)) * plotH;
+
+  const linePoints = (series) => series.map((s, i) => `${x(i)},${y(s.mean)}`).join(' ');
+  const turnTicks = [0, Math.floor(longest / 2), longest - 1];
+  const tickLabel = (i) => {
+    const n1 = seriesOne[i]?.count ?? 0, n2 = seriesTwo[i]?.count ?? 0;
+    return `t${i + 1} (n=${n1}/${n2})`;
+  };
+  const gridValues = [];
+  for (let v = 0; v <= y1; v += gridStep) gridValues.push(v);
+
+  return `
+    <svg class="${cssClass}" viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px">
+      ${gridValues.filter(v => v >= y0 && v <= y1).map(v => `
+        <line class="grid-line" x1="${padL}" y1="${y(v)}" x2="${width - padR}" y2="${y(v)}"></line>
+        <text class="axis-label" x="${padL - 6}" y="${y(v) + 3}" text-anchor="end">${num(v, 0)}</text>
+      `).join('')}
+      <polyline class="seat-one-line" points="${linePoints(seriesOne)}"></polyline>
+      <polyline class="seat-two-line" points="${linePoints(seriesTwo)}"></polyline>
+      ${turnTicks.map(i => `<text class="axis-label" x="${x(i)}" y="${height - 6}" text-anchor="middle">${tickLabel(i)}</text>`).join('')}
+    </svg>`;
+}
+
+function renderHandChart() {
+  document.getElementById('hand-chart').innerHTML =
+    twoSeatLineChart(metrics.handSizeByTurnOne, metrics.handSizeByTurnTwo, { cssClass: 'hand-chart' });
+}
+
+// Two side-by-side charts, same twoSeatLineChart shape as hand size/resources: slot count
+// (integer, small range, so a coarser gridStep) and combined current health (can run into the
+// teens/twenties with several creatures, wider range).
+function renderBoardPresenceCharts() {
+  const container = document.getElementById('board-presence-charts');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div>
+      <div class="stat label" style="margin-bottom:4px">Slots occupied</div>
+      ${twoSeatLineChart(
+        metrics.slotsOccupiedByTurnOne, metrics.slotsOccupiedByTurnTwo,
+        { width: 420, height: 200, gridStep: 1, cssClass: 'hand-chart' })}
+    </div>
+    <div>
+      <div class="stat label" style="margin-bottom:4px">Combined health</div>
+      ${twoSeatLineChart(
+        metrics.combinedHealthByTurnOne, metrics.combinedHealthByTurnTwo,
+        { width: 420, height: 200, gridStep: 5, cssClass: 'hand-chart' })}
+    </div>`;
+}
+
+// Three small charts, one per resource type, each the same two-seat-line shape as the hand
+// chart -- reuses twoSeatLineChart rather than a bespoke renderer since the underlying data
+// (a per-seat MeanEstimate series) and the "no P1-minus-P2 framing" reasoning are identical.
+function renderResourceCharts() {
+  const container = document.getElementById('resource-charts');
+  if (!container) return;
+
+  const types = [
+    ['spike', 'Spike △'],
+    ['anvil', 'Anvil ▢'],
+    ['wheel', 'Wheel ◯'],
+  ];
+
+  container.innerHTML = types.map(([key, label]) => `
+    <div>
+      <div class="stat label" style="margin-bottom:4px">${label}</div>
+      ${twoSeatLineChart(
+        metrics.resourcesByTurnOne?.[key], metrics.resourcesByTurnTwo?.[key],
+        { width: 300, height: 180, gridStep: 2, cssClass: 'hand-chart' })}
+    </div>`).join('') + `
+    <div class="chart-legend" style="grid-column: 1 / -1">
+      <span class="swatch" style="background:#3a6bd1"></span>Seat 1
+      <span class="swatch" style="background:#d14343"></span>Seat 2
+    </div>`;
+}
+
 // --- Sortable, filterable card/move tables -------------------------------------------------
 
 let cardSort = { key: 'playTakeRate', dir: -1 };
 let moveSort = { key: 'useTakeRate', dir: -1 };
 let cardOutliersOnly = true;
+
+// --- Composite power score --------------------------------------------------------------
+//
+// An opinionated rollup, NOT a replacement for the individual stats above. Combines four
+// per-card rates (take rate, take rate/turn, win rate when played, win rate when drawn) via
+// z-score -- each stat standardized to mean 0 / stdev 1 across the field before averaging, so
+// take rates (which run low in absolute terms) and win rates (which cluster near 50% under
+// symmetric decks) don't distort each other by raw scale. Z-score rather than rank-averaging:
+// it preserves HOW FAR a card sits from the pack, not just its order, which matters when most
+// of the field is bunched and one or two cards are genuine outliers.
+//
+// For a creature, two more inputs are added: its moves' take rate and win-rate-when-used,
+// each rolled up as a TAKE-RATE-WEIGHTED MEAN across that creature's moves (a move used more
+// often carries more weight in the average) -- this is what lets "played often but its moves
+// go unused" pull the composite down, matching the gap a reader asking "is this card actually
+// good" cannot currently see by eyeballing take rate and move take rate as two separate numbers.
+// A spell has no moves and is scored on the 4-input card-only formula, so composite scores are
+// only strictly comparable within a kind (creature vs. creature, spell vs. spell), not across.
+//
+// Cards below the min-n filter are excluded from the field used to compute mean/stdev (a thin
+// sample would both get an unreliable score AND skew the baseline for everyone else), and are
+// rendered as thin-n / "—" like every other rate on this page.
+function weightedMean(items, valueOf, weightOf) {
+  const totalWeight = items.reduce((sum, item) => sum + weightOf(item), 0);
+  if (totalWeight === 0) return null;
+  return items.reduce((sum, item) => sum + valueOf(item) * weightOf(item), 0) / totalWeight;
+}
+
+function zScores(values) {
+  const finite = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
+  if (finite.length === 0) return () => null;
+  const mean = finite.reduce((a, b) => a + b, 0) / finite.length;
+  const variance = finite.reduce((a, b) => a + (b - mean) ** 2, 0) / finite.length;
+  const stdev = Math.sqrt(variance);
+  return (v) => (typeof v !== 'number' || Number.isNaN(v) || stdev === 0) ? null : (v - mean) / stdev;
+}
+
+function movesByCard() {
+  const byCard = {};
+  for (const m of metrics.moveStats) {
+    (byCard[m.cardId] ||= []).push(m);
+  }
+  return byCard;
+}
+
+function computeCompositeScores(cards, minN) {
+  const eligible = cards.filter(c => c.offerCount >= minN && c.offerCount > 0);
+  const byCard = movesByCard();
+
+  const moveTakeRollup = {};
+  const moveWinRollup = {};
+  for (const c of eligible) {
+    const moves = (byCard[c.cardId] || []).filter(m => m.offerCount > 0);
+    moveTakeRollup[c.cardId] = weightedMean(moves, m => m.useTakeRate.rate, m => m.offerCount);
+    moveWinRollup[c.cardId] = weightedMean(moves, m => m.winRateWhenUsed.rate, m => m.offerCount);
+  }
+
+  const zTake = zScores(eligible.map(c => c.playTakeRate.rate));
+  const zTakePerTurn = zScores(eligible.map(c => c.playTakeRatePerTurn.rate));
+  const zWinPlayed = zScores(eligible.map(c => c.winRateWhenPlayed.rate));
+  const zWinDrawn = zScores(eligible.map(c => c.winRateWhenDrawn.rate));
+  const zMoveTake = zScores(eligible.filter(c => cardInfo[c.cardId]?.kind === 'creature').map(c => moveTakeRollup[c.cardId]));
+  const zMoveWin = zScores(eligible.filter(c => cardInfo[c.cardId]?.kind === 'creature').map(c => moveWinRollup[c.cardId]));
+
+  const scores = {};
+  for (const c of eligible) {
+    const isCreature = cardInfo[c.cardId]?.kind === 'creature';
+    const parts = [zTake(c.playTakeRate.rate), zTakePerTurn(c.playTakeRatePerTurn.rate),
+      zWinPlayed(c.winRateWhenPlayed.rate), zWinDrawn(c.winRateWhenDrawn.rate)];
+    if (isCreature) {
+      parts.push(zMoveTake(moveTakeRollup[c.cardId]), zMoveWin(moveWinRollup[c.cardId]));
+    }
+    const present = parts.filter(p => p !== null);
+    scores[c.cardId] = present.length === 0 ? null : present.reduce((a, b) => a + b, 0) / present.length;
+  }
+  return scores;
+}
 
 function intervalBar(interval, refLine, deltaInterval) {
   const low = interval.low * 100, high = interval.high * 100, rate = interval.rate * 100;
@@ -321,6 +616,7 @@ function cardRows() {
   const fieldMedian = median(metrics.cardStats.filter(c => c.offerCount > 0).map(c => c.playTakeRate.rate));
   const minN = parseInt(document.getElementById('card-min-n').value, 10) || 0;
   const baselineById = baseline ? Object.fromEntries(baseline.cardStats.map(c => [c.cardId, c])) : null;
+  const composite = computeCompositeScores(metrics.cardStats, minN);
 
   let rows = metrics.cardStats.filter(c => c.offerCount >= minN);
   if (cardOutliersOnly && !baseline) {
@@ -328,15 +624,20 @@ function cardRows() {
   }
 
   rows = [...rows].sort((a, b) => {
-    const get = (c) => cardSort.key.split('.').reduce((o, k) => o && o[k], c);
+    const get = (c) => cardSort.key === 'composite'
+      ? composite[c.cardId]
+      : cardSort.key.split('.').reduce((o, k) => o && o[k], c);
     const av = get(a), bv = get(b);
-    if (av === bv) return 0;
+    if (av === bv || (av == null && bv == null)) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
     return (av > bv ? 1 : -1) * cardSort.dir;
   });
 
   return rows.map(c => {
     const thin = c.offerCount < 20;
     const bl = baselineById ? baselineById[c.cardId] : null;
+    const info = cardInfo[c.cardId];
     let deltaCell = '';
     let moveClass = '';
     if (bl) {
@@ -345,13 +646,29 @@ function cardRows() {
       moveClass = moved ? 'moved' : 'not-moved';
       deltaCell = `<td class="${moveClass}">${delta >= 0 ? '+' : ''}${pct(delta)}</td>`;
     }
+    // Conditional formatting: a take rate whose interval sits fully above/below the field
+    // median is bolded and colored, matching the "auto-include vs. dead card" watch items --
+    // green for a card that keeps getting chosen, red for one that keeps getting passed over.
+    const takeClass = c.offerCount === 0 ? '' : excludes(c.playTakeRate, fieldMedian)
+      ? (c.playTakeRate.rate > fieldMedian ? 'hi' : 'lo')
+      : '';
+    const score = composite[c.cardId];
+    const scoreClass = score === null || score === undefined ? '' : (score > 0.5 ? 'hi' : score < -0.5 ? 'lo' : '');
+    const scoreCell = score === null || score === undefined ? '—' : (score >= 0 ? '+' : '') + num(score, 2);
     return `<tr class="${thin ? 'thin-n' : ''} ${cardOutliersOnly ? 'outlier' : ''}">
-      <td>${c.cardId}</td>
-      <td class="take">${pct(c.playTakeRate.rate)}</td>
+      <td>${c.cardId}${info ? ` <span class="hint" style="margin:0">${info.name}</span>` : ''}</td>
+      <td>${info ? resChip(info.attackType) : '—'}</td>
+      <td>${info ? costText(info.cost) : '—'}</td>
+      <td>${info && info.kind === 'creature' ? info.health : '—'}</td>
+      <td class="effect-text">${info ? info.effectText : ''}</td>
+      <td class="take ${scoreClass}" title="Composite power score: z-score average of take rate, take rate/turn, win rate (played), win rate (drawn), plus (for creatures) take-rate-weighted move take rate and move win rate. Opinionated rollup -- read the individual columns before trusting it.">${scoreCell}</td>
+      <td class="take ${takeClass}">${pct(c.playTakeRate.rate)}</td>
       <td>${intervalBar(c.playTakeRate, bl ? undefined : fieldMedian, bl ? bl.playTakeRate : undefined)}</td>
       ${deltaCell}
       <td>${c.offerCount}</td>
       <td>${c.playCount}</td>
+      <td>${pct(c.playTakeRatePerTurn.rate)}</td>
+      <td>${c.offeredInTurns}</td>
       <td>${pct(c.winRateWhenPlayed.rate)}</td>
       <td>${pct(c.winRateWhenDrawn.rate)}</td>
       <td>${pct(c.costPressure.rate)}</td>
@@ -364,11 +681,18 @@ function cardRows() {
 function cardHeader() {
   const cols = [
     ['cardId', 'Card'],
+    [null, 'Type'],
+    [null, 'Cost'],
+    [null, 'Health'],
+    [null, 'Effect'],
+    ['composite', 'Power score'],
     ['playTakeRate.rate', 'Take rate'],
     [null, 'Interval'],
     ...(baseline ? [[null, 'Δ vs baseline']] : []),
     ['offerCount', 'Offers (n)'],
     ['playCount', 'Plays'],
+    ['playTakeRatePerTurn.rate', 'Take rate/turn'],
+    ['offeredInTurns', 'Turns offered (n)'],
     ['winRateWhenPlayed.rate', 'Win (played)'],
     ['winRateWhenDrawn.rate', 'Win (drawn)'],
     ['costPressure.rate', 'Cost pressure'],
@@ -405,13 +729,23 @@ function moveRows() {
   });
   return rows.map(m => {
     const thin = m.offerCount < 20;
+    const info = moveInfo[m.cardId + '::' + m.moveName];
+    const fieldMedian = median(metrics.moveStats.filter(x => x.offerCount > 0).map(x => x.useTakeRate.rate));
+    const takeClass = m.offerCount === 0 ? '' : excludes(m.useTakeRate, fieldMedian)
+      ? (m.useTakeRate.rate > fieldMedian ? 'hi' : 'lo')
+      : '';
     return `<tr class="${thin ? 'thin-n' : ''}">
       <td>${m.moveName}</td>
       <td>${m.cardId}</td>
-      <td class="take">${pct(m.useTakeRate.rate)}</td>
+      <td>${info ? resChip(info.attackType) : '—'}</td>
+      <td>${info ? costText(info.cost) : '—'}</td>
+      <td class="effect-text">${info ? info.effectText : ''}</td>
+      <td class="take ${takeClass}">${pct(m.useTakeRate.rate)}</td>
       <td>${intervalBar(m.useTakeRate)}</td>
       <td>${m.offerCount}</td>
       <td>${m.useCount}</td>
+      <td>${pct(m.useTakeRatePerTurn.rate)}</td>
+      <td>${m.offeredInTurns}</td>
       <td>${pct(m.winRateWhenUsed.rate)}</td>
     </tr>`;
   }).join('');
@@ -421,10 +755,15 @@ function moveHeader() {
   const cols = [
     ['moveName', 'Move'],
     ['cardId', 'Card'],
+    [null, 'Type'],
+    [null, 'Cost'],
+    [null, 'Effect'],
     ['useTakeRate.rate', 'Take rate'],
     [null, 'Interval'],
     ['offerCount', 'Offers (n)'],
     ['useCount', 'Uses'],
+    ['useTakeRatePerTurn.rate', 'Take rate/turn'],
+    ['offeredInTurns', 'Turns offered (n)'],
     ['winRateWhenUsed.rate', 'Win rate'],
   ];
   return '<tr>' + cols.map(([key, label]) => {
@@ -475,6 +814,8 @@ document.getElementById('baseline-input').addEventListener('change', (e) => {
 renderProvenance();
 renderSummary();
 renderMarginChart();
+renderHandChart();
+renderBoardPresenceCharts();
 renderEconomy();
 renderCardTable();
 renderMoveTable();

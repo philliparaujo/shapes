@@ -25,6 +25,9 @@ internal sealed class SeatTracker
 
     private int _currentStreak;
 
+    private readonly List<int> _slotsOccupiedByStep = [];
+    private readonly List<int> _combinedHealthByStep = [];
+
     public SeatTracker(PlayerId seat) => _seat = seat;
 
     public int UnopposedSlotTurns { get; private set; }
@@ -32,6 +35,16 @@ internal sealed class SeatTracker
     public int ScoringSteps { get; private set; }
 
     public int LongestUnopposedStreak { get; private set; }
+
+    // BOARD PRESENCE, per scoring step -- slots occupied and combined CURRENT health (not max;
+    // a mauled board reads differently from a fresh one holding the same slot count) of this
+    // seat's creatures. Sampled at the same step as unopposed-slot occupancy, since that is the
+    // moment the scoring rule itself reads the board (GameState.PendingScore) -- the same
+    // reasoning that made getting the unopposed-slot-turns sampling point right non-negotiable
+    // (see ObserveScoringStep below) applies here too, not just a convenient reuse.
+    public IReadOnlyList<int> SlotsOccupiedByStep => _slotsOccupiedByStep;
+
+    public IReadOnlyList<int> CombinedHealthByStep => _combinedHealthByStep;
 
     public IReadOnlyList<CreatureLifetime> Survival => _survival;
 
@@ -43,16 +56,29 @@ internal sealed class SeatTracker
     }
 
     // Called once per scoring step for this seat, from the same turn boundary GameRunner already
-    // samples score margin at. Counts slot-turns (how many slots were unopposed), maintains the
-    // consecutive-step streak, and marks the creatures currently standing in unopposed slots so
-    // their lifetime records can distinguish a scoring creature from a blocker.
+    // samples score margin at. Counts slot-turns (how many slots were unopposed), board presence
+    // (slots occupied, combined current health), maintains the consecutive-step streak, and
+    // marks the creatures currently standing in unopposed slots so their lifetime records can
+    // distinguish a scoring creature from a blocker. One loop over this seat's slots covers all
+    // of it, since every one of these questions is answered by the same board read.
     public void ObserveScoringStep(Board board)
     {
         ScoringSteps++;
 
         var unopposedNow = 0;
+        var occupiedNow = 0;
+        var combinedHealthNow = 0;
         foreach (var slot in SlotIndex.AllFor(_seat))
         {
+            var creature = board[slot];
+            if (creature is null)
+            {
+                continue;
+            }
+
+            occupiedNow++;
+            combinedHealthNow += creature.Health;
+
             if (!board.IsUnopposed(slot))
             {
                 continue;
@@ -60,13 +86,15 @@ internal sealed class SeatTracker
 
             unopposedNow++;
 
-            if (_live.TryGetValue(slot, out var creature))
+            if (_live.TryGetValue(slot, out var liveCreature))
             {
-                creature.WasEverUnopposed = true;
+                liveCreature.WasEverUnopposed = true;
             }
         }
 
         UnopposedSlotTurns += unopposedNow;
+        _slotsOccupiedByStep.Add(occupiedNow);
+        _combinedHealthByStep.Add(combinedHealthNow);
 
         // Streak counts STEPS on which at least one slot was unopposed, not slots -- "sustained
         // an unopposed creature across consecutive turns" is the shape step 4.2's finding took,

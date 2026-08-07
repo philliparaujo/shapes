@@ -28,13 +28,24 @@ public class HtmlReportWriterTests
             Assert.Contains("\"cardStats\"", text, StringComparison.Ordinal);
             Assert.Contains("\"moveStats\"", text, StringComparison.Ordinal);
             Assert.Contains("\"scoreMarginByTurn\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"handSizeByTurnOne\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"handSizeByTurnTwo\"", text, StringComparison.Ordinal);
             Assert.Contains("\"resourcesWinners\"", text, StringComparison.Ordinal);
             Assert.Contains("\"resourcesLosers\"", text, StringComparison.Ordinal);
             Assert.Contains("\"resourcesSeatOne\"", text, StringComparison.Ordinal);
             Assert.Contains("\"resourcesSeatTwo\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"resourcesByTurnOne\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"resourcesByTurnTwo\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"slotsOccupiedByTurnOne\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"slotsOccupiedByTurnTwo\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"combinedHealthByTurnOne\"", text, StringComparison.Ordinal);
+            Assert.Contains("\"combinedHealthByTurnTwo\"", text, StringComparison.Ordinal);
             Assert.Contains("id=\"metrics-data\"", text, StringComparison.Ordinal);
             Assert.Contains("id=\"margin-chart\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"hand-chart\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"resource-charts\"", text, StringComparison.Ordinal);
             Assert.Contains("id=\"resource-table\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"board-presence-charts\"", text, StringComparison.Ordinal);
 
             // No external references -- no CDN script/link, no server needed to view it.
             Assert.DoesNotContain("http://", text, StringComparison.Ordinal);
@@ -60,11 +71,56 @@ public class HtmlReportWriterTests
             HtmlReportWriter.Write(path, metrics);
             var text = File.ReadAllText(path);
 
-            // Exactly two <script> blocks are expected: the inlined JSON data and the page logic.
-            // A raw "</script>" leaking out of the JSON payload would produce a third.
+            // Exactly four <script> blocks are expected: metrics data, card info, move info, and
+            // the page logic. A raw "</script>" leaking out of any JSON payload would add a fifth.
             var closingTagCount = System.Text.RegularExpressions.Regex.Matches(
                 text, "</script>", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
-            Assert.Equal(2, closingTagCount);
+            Assert.Equal(4, closingTagCount);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Report_inlines_card_and_move_reference_data_when_a_database_is_supplied()
+    {
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            HtmlReportWriter.Write(path, metrics, TestCards.Database);
+            var text = File.ReadAllText(path);
+
+            Assert.Contains("id=\"card-info-data\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"move-info-data\"", text, StringComparison.Ordinal);
+
+            // Exactly four script blocks now: metrics data, card info, move info, page logic.
+            var closingTagCount = System.Text.RegularExpressions.Regex.Matches(
+                text, "</script>", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
+            Assert.Equal(4, closingTagCount);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Report_computes_a_composite_power_score_column()
+    {
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            HtmlReportWriter.Write(path, metrics, TestCards.Database);
+            var text = File.ReadAllText(path);
+
+            Assert.Contains("Power score", text, StringComparison.Ordinal);
+            Assert.Contains("computeCompositeScores", text, StringComparison.Ordinal);
         }
         finally
         {

@@ -123,6 +123,17 @@ public static class CompareReportWriter
 </div>
 
 <h2>Cards</h2>
+<p class="hint">
+  <strong>Power score</strong> is the same opinionated rollup as the single-report metrics
+  explorer's Power score column: a z-score average of take rate, take rate/turn, and win rate
+  played/drawn, plus (creatures only) a take-rate-weighted mean of the card's own moves' take
+  rate and win rate. Computed independently against EACH run's own field (baseline's mean/stdev
+  for the baseline score, candidate's for the candidate score), so a card's z-score can move
+  between runs even if its raw take rate barely changed, if the rest of the field moved around it.
+  Δ power score colors when the change clears ±0.5, since this metric carries no confidence
+  interval to test for overlap the way the rate columns do. Read the individual rate columns
+  before trusting it — it inherits every caveat those already carry.
+</p>
 <div class="controls">
   <label>Min n (offers, either run): <input type="number" id="card-min-n" value="0" min="0"></label>
   <button class="toggle-btn active" id="card-moved-btn">Moved beyond noise only</button>
@@ -247,6 +258,75 @@ function renderEconomy() {
     </tr>`).join('');
 }
 
+// --- Composite power score, ported from HtmlReportWriter's report.html -----------------------
+//
+// Same formula as the single-report explorer's Power score column (see HtmlReportWriter.cs for
+// the full rationale): a z-score average of take rate, take rate/turn, win rate played/drawn,
+// plus (creatures only) a take-rate-weighted mean of the card's own moves' take rate and win
+// rate. Computed independently for baseline and candidate (each against its OWN field's mean/
+// stdev, not a pooled one -- comparing a card's z-score under two different populations is
+// exactly what a delta-based sweep needs, matching how every other stat here is a baseline vs.
+// candidate lookup rather than one field-wide computation) and then diffed like every other
+// column, since compare.html's entire point is "diff two whole reports", not "recompute in one."
+//
+// Unlike report.html, this page never loads a CardDatabase (the --compare path reads two
+// --metrics-json files and never plays a game or touches Shapes.Content/cards/), so there is no
+// cardInfo lookup to ask "is this a creature." A card counts as a creature here if it has at
+// least one entry in that SIDE's moveStats -- true by construction (CardValidator: a spell has
+// effects and no moves, a creature has moves and no effects), and needs nothing beyond the two
+// metrics.json files already loaded.
+function weightedMean(items, valueOf, weightOf) {
+  const totalWeight = items.reduce((sum, item) => sum + weightOf(item), 0);
+  if (totalWeight === 0) return null;
+  return items.reduce((sum, item) => sum + valueOf(item) * weightOf(item), 0) / totalWeight;
+}
+
+function zScores(values) {
+  const finite = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
+  if (finite.length === 0) return () => null;
+  const mean = finite.reduce((a, b) => a + b, 0) / finite.length;
+  const variance = finite.reduce((a, b) => a + (b - mean) ** 2, 0) / finite.length;
+  const stdev = Math.sqrt(variance);
+  return (v) => (typeof v !== 'number' || Number.isNaN(v) || stdev === 0) ? null : (v - mean) / stdev;
+}
+
+function computeCompositeScores(cardStats, moveStats, minN) {
+  const eligible = cardStats.filter(c => c.offerCount >= minN && c.offerCount > 0);
+
+  const movesByCard = {};
+  for (const m of moveStats) {
+    (movesByCard[m.cardId] ||= []).push(m);
+  }
+  const isCreature = (cardId) => (movesByCard[cardId] || []).length > 0;
+
+  const moveTakeRollup = {};
+  const moveWinRollup = {};
+  for (const c of eligible) {
+    const moves = (movesByCard[c.cardId] || []).filter(m => m.offerCount > 0);
+    moveTakeRollup[c.cardId] = weightedMean(moves, m => m.useTakeRate.rate, m => m.offerCount);
+    moveWinRollup[c.cardId] = weightedMean(moves, m => m.winRateWhenUsed.rate, m => m.offerCount);
+  }
+
+  const zTake = zScores(eligible.map(c => c.playTakeRate.rate));
+  const zTakePerTurn = zScores(eligible.map(c => c.playTakeRatePerTurn.rate));
+  const zWinPlayed = zScores(eligible.map(c => c.winRateWhenPlayed.rate));
+  const zWinDrawn = zScores(eligible.map(c => c.winRateWhenDrawn.rate));
+  const zMoveTake = zScores(eligible.filter(c => isCreature(c.cardId)).map(c => moveTakeRollup[c.cardId]));
+  const zMoveWin = zScores(eligible.filter(c => isCreature(c.cardId)).map(c => moveWinRollup[c.cardId]));
+
+  const scores = {};
+  for (const c of eligible) {
+    const parts = [zTake(c.playTakeRate.rate), zTakePerTurn(c.playTakeRatePerTurn.rate),
+      zWinPlayed(c.winRateWhenPlayed.rate), zWinDrawn(c.winRateWhenDrawn.rate)];
+    if (isCreature(c.cardId)) {
+      parts.push(zMoveTake(moveTakeRollup[c.cardId]), zMoveWin(moveWinRollup[c.cardId]));
+    }
+    const present = parts.filter(p => p !== null);
+    scores[c.cardId] = present.length === 0 ? null : present.reduce((a, b) => a + b, 0) / present.length;
+  }
+  return scores;
+}
+
 // --- Cards / moves: outer-joined on id, sorted by |delta| descending by default -------------
 
 let cardSort = { key: 'delta', dir: -1 };
@@ -288,9 +368,31 @@ function rateCell(has_b, has_c, rd) {
     + `<td class="${cls}">${(has_b && has_c) ? signedPct(rd.delta) : '—'}</td>`;
 }
 
+// Power score has no confidence interval (it is a plain z-score average, not a Wilson/normal
+// rate) so "moved" here means |delta| clears a fixed threshold rather than two intervals failing
+// to overlap. 0.5 matches report.html's own hi/lo coloring threshold for the same score, so the
+// two pages agree on what counts as a real move for this metric.
+const POWER_SCORE_MOVE_THRESHOLD = 0.5;
+
+function powerScoreDelta(bScore, cScore) {
+  const moved = (bScore != null && cScore != null) && Math.abs(cScore - bScore) >= POWER_SCORE_MOVE_THRESHOLD;
+  const delta = (bScore != null && cScore != null) ? cScore - bScore : null;
+  return { bScore, cScore, delta, moved, direction: !moved ? 'none' : (delta > 0 ? 'up' : 'down') };
+}
+
+function powerScoreCell(rd) {
+  const cls = rd.direction === 'up' ? 'moved-up' : rd.direction === 'down' ? 'moved-down' : 'not-moved';
+  const fmt = (s) => s == null ? '—' : (s >= 0 ? '+' : '') + num(s, 2);
+  return `<td>${fmt(rd.bScore)}</td><td>${fmt(rd.cScore)}</td>`
+    + `<td class="${cls}">${rd.delta == null ? '—' : signedNum(rd.delta, 2)}</td>`;
+}
+
 function cardRows() {
   const minN = parseInt(document.getElementById('card-min-n').value, 10) || 0;
   const joined = joinById(baseline.cardStats, candidate.cardStats, x => x.cardId);
+
+  const baselineScores = computeCompositeScores(baseline.cardStats, baseline.moveStats, minN);
+  const candidateScores = computeCompositeScores(candidate.cardStats, candidate.moveStats, minN);
 
   let rows = joined
     .filter(({ b, c }) => (b?.offerCount ?? 0) >= minN || (c?.offerCount ?? 0) >= minN)
@@ -299,21 +401,28 @@ function cardRows() {
       const winPlayed = rateDelta(b, c, 'winRateWhenPlayed');
       const winDrawn = rateDelta(b, c, 'winRateWhenDrawn');
       const costPressure = rateDelta(b, c, 'costPressure');
+      const cardId = b?.cardId ?? c?.cardId;
+      const power = powerScoreDelta(baselineScores[cardId] ?? null, candidateScores[cardId] ?? null);
       return {
-        cardId: b?.cardId ?? c?.cardId,
-        b, c, take, winPlayed, winDrawn, costPressure,
+        cardId,
+        b, c, take, winPlayed, winDrawn, costPressure, power,
         thin: Math.min(take.bt.trials || 0, take.ct.trials || 0) < 20,
       };
     });
 
   if (cardMovedOnly) {
-    rows = rows.filter(r => r.take.moved || r.winPlayed.moved || r.winDrawn.moved);
+    rows = rows.filter(r => r.take.moved || r.winPlayed.moved || r.winDrawn.moved || r.power.moved);
   }
 
-  const sortField = { take: 'take', winPlayed: 'winPlayed', winDrawn: 'winDrawn' }[cardSort.key];
+  const sortField = { take: 'take', winPlayed: 'winPlayed', winDrawn: 'winDrawn', power: 'power' }[cardSort.key];
   rows.sort((x, y) => {
     let av, bv;
-    if (sortField) { av = Math.abs(x[sortField].delta); bv = Math.abs(y[sortField].delta); }
+    // Signed, not |delta| -- a click on a Δ header should put every regression on one end and
+    // every improvement on the other, not interleave a +20% mover with a -20% one because they
+    // have the same magnitude. Default landing (cardSort.dir = -1) still surfaces the biggest
+    // movers first via the initial sort key/dir below; toggling now walks from most-improved to
+    // most-regressed instead of biggest-magnitude to smallest.
+    if (sortField) { av = x[sortField].delta ?? 0; bv = y[sortField].delta ?? 0; }
     else if (cardSort.key === 'cardId') { av = x.cardId; bv = y.cardId; }
     if (av === bv) return 0;
     return (av > bv ? 1 : -1) * cardSort.dir;
@@ -321,6 +430,7 @@ function cardRows() {
 
   return rows.map(r => `<tr class="${r.thin ? 'thin-n' : ''}">
       <td>${r.cardId}</td>
+      ${powerScoreCell(r.power)}
       ${rateCell(r.b, r.c, r.take)}
       ${rateCell(r.b, r.c, r.winPlayed)}
       ${rateCell(r.b, r.c, r.winDrawn)}
@@ -331,6 +441,7 @@ function cardRows() {
 function cardHeader() {
   const cols = [
     ['cardId', 'Card'],
+    [null, 'Baseline power'], [null, 'Candidate power'], ['power', 'Δ power score'],
     [null, 'Baseline take'], [null, 'Candidate take'], ['take', 'Δ take'],
     [null, 'Baseline win (played)'], [null, 'Candidate win (played)'], ['winPlayed', 'Δ win (played)'],
     [null, 'Baseline win (drawn)'], [null, 'Candidate win (drawn)'], ['winDrawn', 'Δ win (drawn)'],
@@ -377,7 +488,9 @@ function moveRows() {
   const sortField = { take: 'take', winUsed: 'winUsed' }[moveSort.key];
   rows.sort((x, y) => {
     let av, bv;
-    if (sortField) { av = Math.abs(x[sortField].delta); bv = Math.abs(y[sortField].delta); }
+    // Signed, not |delta| -- same reasoning as cardRows' sort below: a Δ column should separate
+    // regressions from improvements, not interleave them by magnitude.
+    if (sortField) { av = x[sortField].delta; bv = y[sortField].delta; }
     else if (moveSort.key === 'moveName') { av = x.moveName; bv = y.moveName; }
     if (av === bv) return 0;
     return (av > bv ? 1 : -1) * moveSort.dir;
