@@ -60,6 +60,12 @@ internal static class CombatResolver
                 var neighbor = ctx.State.Board[new SlotIndex(targetSlot.Owner, neighborSlot)];
                 if (neighbor is not null)
                 {
+                    // Spent the moment the redirect actually happens, mirroring reflect: a second
+                    // attack this turn (or any later turn) is not redirected until the keyword is
+                    // granted again. Only reached once a neighbor is known to exist, so a grant
+                    // that cannot redirect stays armed rather than being wasted.
+                    target.ConsumeRicochet();
+
                     // The ricochet trigger fires on the REDIRECTING creature (target), not the
                     // neighbor who actually takes the damage -- Circle Bender is rewarded for
                     // its own attack being deflected, regardless of what that damage then hits.

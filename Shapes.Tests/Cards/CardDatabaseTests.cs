@@ -93,7 +93,7 @@ public class CardDatabaseTests
         var db = new CardDatabase([Creature("cadet", "Scout", "Rebound"), Creature("medic", "Mend")]);
 
         var creature = new Core.State.CreatureInstance("cadet", 2, Core.Primitives.TypeMask.Spike);
-        creature.AbsorbMerge(new Core.State.CreatureInstance("medic", 2, Core.Primitives.TypeMask.Spike));
+        creature.AbsorbMerge(new Core.State.CreatureInstance("medic", 2, Core.Primitives.TypeMask.Spike), db.MoveCountOf);
 
         var moves = db.MovesOf(creature.MergedFrom);
 

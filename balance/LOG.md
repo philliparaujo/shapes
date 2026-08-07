@@ -136,3 +136,124 @@ Reasons
   - More blowouts
   - GamesWithNoSustainedUnopposed becomes >0
   - Higher take rate signals "play every card you can" is a more viable strategy
+
+# balance
+Comparing card draw economy per turn graphs to see how card changes should generally be: making cards/spells/moves more/less expensive, more/less card draw, etc.
+
+## v1.4-baseline
+- Same ruleset as **v1.3-baseline**
+- First simulation run w/o calibration cards, using both ismcts and ismcts-heuristic, and different seed (2 instead of 1)
+
+- Not bad balance (nothing sticks out as game-breakingly OP)
+- Some resources accumulate way too much, especially late game
+  - Seems heavily dependent on draw order; as opposed to card games where drawing early game cards in the late game is a brick, now there's the added bricks of drawing the wrong resource type (that probably matches your other resources)
+- Amount of cards/resources over time seems pretty balanced -> slight ramp of resource amounts/cards over time
+- Draw/discard mechanics are very strong
+- Lack of cheap single target damage against anvils or spikes
+- With lots of excess resources, resource generation cards are weak
+- Need to make keyword expiry more consistent between end of turn, damage, and never expirations. Comparing columns and shieldbearer shows that never expiring taunt might be OP
+- Need to address how taunt resolves if multiple creatures have taunt at once
+
+### Cards (rated 1-5 on real power level)
+Qualitative meaning my opinion on some playtesting and thoughts on the meta
+Quantitative meaning power score from current report
+Draw WR meaning 'Win (drawn)%' from current report
+
+| Card | Qualitative | Power Score | Draw WR |
+| --- | --- | --- | --- |
+| Anchor | 3 | 5 | 4 |
+| Basic Circle | 4 | 2 | 3 |
+| Basic Square | 3 | 2 | 3 |
+| Basic T | 1 | 3 | 5 |
+| Bubbles | 5 | 5 | 5 |
+| Champion T | 2 | 4 | 3 |
+| Circle Bender* | 4 | 1 | 1 |
+| Circle Cadet | 2 | 4 | 4 |
+| Circle Captain* | 2 | 1 | 1 |
+| Circle Mouse* | 5 | 4 | 3 |
+| Circle Planner | 1 | 3 | 4 |
+| Circle Priest | 2 | 2 | 3 |
+| Circle Surfer | 5 | 5 | 5 |
+| Columns | 4 | 1 | 1 |
+| Def. Stance | 1 | 1 | 1 |
+| Enrage | 3 | 3 | 5 |
+| Execute | 5 | 5 | 2 |
+| Gravewarden | 2 | 2 | 2 |
+| Guardian | 5 | 4 | 3 |
+| Monk | 4 | 4 | 4 |
+| Patch Up | 1 | 5 | 1 |
+| Rally | 1 | 2 | 3 |
+| Relic | 3 | 2 | 2 |
+| Shieldbearer | 4 | 5 | 5 |
+| Siphon | 3 | 3 | 1 |
+| Suffocate | 5 | 5 | 4 |
+| T Battery | 2 | 4 | 5 |
+| T Body | 3 | 2 | 3 |
+| T Dealer | 5 | 4 | 5 |
+| T Flare | 1 | 1 | 1 |
+| T Juggler | 4 | 4 | 4 |
+| T Medic | 2 | 1 | 2 |
+| T Swarm | 2 | 3 | 4 |
+| Wave Crash | 2 | 1 | 1 |
+| Worshipper | 4 | 2 | 3 |
+| Zealot | 3 | 1 | 2 |
+
+*BUG: I believe these riccochet cards don't lose riccochet after next attack? Makes them stronger than it should be
+
+## v1.4-keywordfix
+**Changed:** Three engine fixes, no card or ruleset edits:
+1. **Ricochet is now consumed on trigger**, like reflect — it was previously permanent
+   Effect: `circle_bender`, `circle_mouse`, `circle_captain` should be weaker.
+2. **Cannot use moves a second time after merging.** 
+   Effect: merging should be slightly weaker
+3. **Merging now sums both halves' play cost.** 
+   Effect: `suffocate` should be weaker
+
+Notes
+- (1) Riccochet moves are being activated more often; `circle_captain` actually got better, while `circle_bender` and `circle_mouse` got insignificantly slightly worse
+- (2) Less moves are being used, more resources are being spent, potentially leading to shorter/more balanced games
+- (3) `suffocate` is notably weaker, while some large anvil cards are slightly better
+
+Nerf targets: execute, bubbles, circle surfer, shieldbearer, suffocate, t dealer
+Buff targets: t flare, def stance, rally, wave crash, circle captain, circle bender
+
+## v1.4-change1
+**Changed:**
+
+Nerfs
+- Execute: cost 2->3
+  - if chosen enemy is damaged: deal 6->4 damage to chosen enemy; else: deal 3->2 damage to chosen enemy
+- Bubbles: 
+  - Burst: deal 6 damage to all enemies; self-damage 3->6
+  - Fizz: cost 1->2
+- Circle Surfer:
+  - Wipeout: discard 2; deal 3 damage to all enemies -> discard 2; deal 6 damage to opposing enemy
+- Shieldbearer:
+  - Brace For Impact: next time self takes damage: draw 3->2
+  - Shield Bash: deal 2 damage to opposing; grant self taunt -> deal 2 damage to opposing; grant self taunt until next turn
+- Suffocate: cost 4->5
+- T Dealer: health 5->4
+  - Deal Out: draw up to 5->4 cards
+- T Juggler:
+  - Catch and Throw: draw 1; deal 3->2 damage to opposing
+  
+Buffs
+- T Flare:
+  - Meltdown: gain spike (source's health); destroy self -> gain spike (source's health); destroy self; draw 2 cards
+- Def. Stance: +2->+3 max health to all friendlies
+- Rally: cost 3->2
+- Wave Crash: deal 1 damage to all enemies -> deal 1 damage to all enemies; heals 1 to all friendlies
+- Circle Captain: 
+  - Wardance: grants self ricochet (left) -> grants self ricochet (left); grant left friendly reflect
+- Circle Bender: health 2->3
+  - Anticipate: next time self ricochets: gain 3 wheel -> next time self ricochets: deal 2 damage to all enemies
+  - Deflect: grant self ricochet (right); +1 max health to self
+- Gravewarden:
+  - Reap: draw 1->2 per creature destroyed this turn
+- Circle Priest:
+  - Focus Strike: deal 1->2 damage to opposing
+
+Notes
+- Some games are non-terminating
+  - Affected global changes/metrics
+  - Might need a future fatigue mechanic

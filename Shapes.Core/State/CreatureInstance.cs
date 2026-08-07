@@ -41,9 +41,11 @@ public sealed class CreatureInstance
     // turn.
     private uint _movesUsedThisTurn;
 
-    // Status keywords granted by `grant_keyword` (taunt/reflect/ricochet). Persistent
-    // until something removes them -- nothing does yet, since no card needs it. Reflect is
-    // the exception: it is consumed the first time it triggers (see ConsumeReflect).
+    // Status keywords granted by `grant_keyword` (taunt/reflect/ricochet). Taunt is persistent
+    // until something removes it (only the `until_next_turn` form expires, see
+    // ResetMovesForNewTurn). Reflect and ricochet are the exceptions: each is consumed the first
+    // time it triggers (see ConsumeReflect/ConsumeRicochet), so the move granting it stays worth
+    // re-using rather than being a once-per-game switch.
     public KeywordFlags Keywords { get; private set; }
 
     // Which side ricochet redirects to. Only meaningful while Keywords has Ricochet.
@@ -67,9 +69,10 @@ public sealed class CreatureInstance
     // The resources paid to play this card, captured when it enters the board (see
     // ActionExecutor.ApplyPlayCard). Lets an effect (destroy_refund_cost) refund a destroyed
     // creature's cost without the State/Effects layers needing a CardDatabase lookup -- the
-    // one piece of card data a creature carries about itself, set once at play time and never
-    // mutated afterward. Empty for creatures constructed directly (tests, summon) that were
-    // never "played" from a hand.
+    // one piece of card data a creature carries about itself, set once at play time and
+    // thereafter only summed by AbsorbMerge, so a merged stack carries the total paid for every
+    // card in it. Empty for creatures constructed directly (tests, summon) that were never
+    // "played" from a hand.
     public ResourcePool PlayCost { get; private set; }
 
     // True when this creature's Taunt keyword was granted with an expiry ("taunt until next
@@ -255,8 +258,8 @@ public sealed class CreatureInstance
 
     // `untilNextTurn: true` clears the keyword again at this creature's controller's next turn
     // (see ResetMovesForNewTurn) -- Columns' "taunt until next turn" needs an expiry that
-    // permanent taunt grants do not. Only meaningful for Taunt; a timed reflect or ricochet
-    // would need its own flag, but nothing needs that yet.
+    // permanent taunt grants do not. Only meaningful for Taunt; reflect and ricochet expire on
+    // use rather than on a clock, so a timed form of either would need its own flag.
     public void GrantKeyword(KeywordFlags keyword, bool untilNextTurn = false)
     {
         Keywords |= keyword;
@@ -286,6 +289,21 @@ public sealed class CreatureInstance
         }
 
         Keywords &= ~KeywordFlags.Reflect;
+        return true;
+    }
+
+    // Ricochet fires once then clears, exactly as reflect does. Note the caller only invokes
+    // this once the redirect is known to be happening: a grant whose target side has no friendly
+    // neighbor stays armed (see CombatResolver.ApplyToTarget), so the keyword is spent on a
+    // redirect that actually occurred rather than on any attack that merely arrived.
+    public bool ConsumeRicochet()
+    {
+        if (!HasKeyword(KeywordFlags.Ricochet))
+        {
+            return false;
+        }
+
+        Keywords &= ~KeywordFlags.Ricochet;
         return true;
     }
 
@@ -342,18 +360,36 @@ public sealed class CreatureInstance
     // Status/buff state carries over too, not just health/typing -- a creature merging away its
     // Reflect (or Taunt, Ricochet, stun, attack buff, one-shot pending bonuses/triggers) would be
     // a silent nerf a player has no way to see coming. Keywords union (either half having Taunt/
-    // Reflect/Ricochet means the merged creature does); AttackBuff and the one-shot bonuses sum,
+    // Reflect/Ricochet means the merged creature does), which for the two consume-on-trigger
+    // keywords carries over an unspent charge, not a permanent grant -- the merged creature still
+    // spends it on its first redirect/reflect; AttackBuff and the one-shot bonuses sum,
     // matching their existing "stacks on repeated grants" semantics; IsStunned ORs; the pending
     // triggers keep this creature's own if it has one (only one can fire per event) and otherwise
     // adopt other's rather than dropping it.
-    public void AbsorbMerge(CreatureInstance other)
+    //
+    // `moveCountOf` is needed because the once-per-turn bitmask indexes into the CONCATENATED
+    // move list, so other's used-move bits have to shift by however many moves this creature
+    // already contributes before they are OR-ed in -- see MoveIndexOffset for that layout.
+    // Without the shift a merge silently refreshed the source's spent moves, and since merging
+    // is free and does not end the turn (ActionExecutor.ApplyMerge), that was a repeatable
+    // extra activation: use A's move, use B's move, merge B into A, use B's move again.
+    public void AbsorbMerge(CreatureInstance other, Func<string, int> moveCountOf)
     {
         ArgumentNullException.ThrowIfNull(other);
+        ArgumentNullException.ThrowIfNull(moveCountOf);
+
+        // Computed before _mergedFrom grows, so it counts only this creature's own moves.
+        var shift = 0;
+        foreach (var id in _mergedFrom)
+        {
+            shift += moveCountOf(id);
+        }
 
         Health += other.Health;
         MaxHealth += other.MaxHealth;
         Types = Types.Union(other.Types);
         _mergedFrom.AddRange(other._mergedFrom);
+        _movesUsedThisTurn |= other._movesUsedThisTurn << shift;
 
         if (other.Keywords.HasFlag(KeywordFlags.Ricochet) && !Keywords.HasFlag(KeywordFlags.Ricochet))
         {
@@ -368,6 +404,11 @@ public sealed class CreatureInstance
         NextDamageTakenBonus += other.NextDamageTakenBonus;
         PendingOnNextDamageTaken ??= other.PendingOnNextDamageTaken;
         PendingOnNextRicochet ??= other.PendingOnNextRicochet;
+
+        // Sums, so destroy_refund_cost refunds what was actually paid for the whole stack rather
+        // than only the surviving half's card. A merged creature costs both cards to build and
+        // is one creature to destroy; refunding half of that undervalued the loss.
+        PlayCost = PlayCost.Add(other.PlayCost);
 
         // Token-ness is contagious: MergedFrom now holds at least one id that names no card, so
         // the stack can no longer be discarded as a set of cards on death. Tainting the whole

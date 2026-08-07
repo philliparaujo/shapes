@@ -19,6 +19,25 @@ public static class EffectText
             : string.Join("; ", effects.Select(DescribeNode));
     }
 
+    // A move's gate plus its effects. A move-level `condition` decides whether the move can be
+    // used at all (ConditionEvaluator, via legal-action generation) rather than branching inside
+    // the effect list, so Describe(move.Effects) alone silently omits it -- and the omission is
+    // invisible in a way a missing effect is not: "deal 1 damage to opposing" reads as a complete,
+    // and badly underpowered, 1-cost move rather than a conditional one. Same phrasing as the
+    // `conditional` op's own rendering, so the two forms read alike wherever they appear.
+    public static string DescribeMove(EffectNode? condition, IReadOnlyList<EffectNode> effects)
+    {
+        var text = Describe(effects);
+        if (condition is null)
+        {
+            return text;
+        }
+
+        return text.Length == 0
+            ? $"only if {DescribeCondition(condition)}"
+            : $"only if {DescribeCondition(condition)}: {text}";
+    }
+
     private static string DescribeNode(EffectNode node)
     {
         var args = node.Args;

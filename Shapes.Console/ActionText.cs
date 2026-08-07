@@ -44,7 +44,7 @@ public static class ActionText
                 {
                     var move = moves[useMove.MoveIndex];
                     var at = useMove.ChosenTarget is { } chosen ? $" targeting {chosen}" : string.Empty;
-                    var effects = EffectText.Describe(move.Effects);
+                    var effects = EffectText.DescribeMove(move.Condition, move.Effects);
                     var text =
                         $"{move.Name} [{ResourceIcons.DescribeCost(move.Cost)}] from {useMove.SourceSlot}{at}";
                     return effects.Length == 0 ? text : $"{text} ({effects})";

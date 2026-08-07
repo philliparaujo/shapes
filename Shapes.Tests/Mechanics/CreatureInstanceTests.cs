@@ -9,6 +9,10 @@ public class CreatureInstanceTests
     private static CreatureInstance Cadet(int maxHealth = 3, int? health = null) =>
         new("cadet", maxHealth, TypeMask.Wheel, health);
 
+    // Default move-count lookup for merges whose test does not care about move indices. Tests
+    // that DO care declare their own local MoveCount with per-card counts.
+    private static int AnyMoveCount(string cardId) => 2;
+
     [Fact]
     public void New_creature_starts_at_full_health()
     {
@@ -113,7 +117,7 @@ public class CreatureInstanceTests
         var wheel = new CreatureInstance("cadet", 3, TypeMask.Wheel);
         var spike = new CreatureInstance("medic", 2, TypeMask.Spike);
 
-        wheel.AbsorbMerge(spike);
+        wheel.AbsorbMerge(spike, AnyMoveCount);
 
         Assert.Equal(5, wheel.Health);
         Assert.Equal(5, wheel.MaxHealth);
@@ -131,7 +135,7 @@ public class CreatureInstanceTests
         var a = new CreatureInstance("cadet", 3, TypeMask.Wheel);
         var b = new CreatureInstance("cadet", 3, TypeMask.Wheel);
 
-        a.AbsorbMerge(b);
+        a.AbsorbMerge(b, AnyMoveCount);
 
         Assert.Equal(TypeMask.Wheel, a.Types);
         Assert.False(a.Types.IsMultiType);
@@ -145,7 +149,7 @@ public class CreatureInstanceTests
         var healthy = new CreatureInstance("a", 4, TypeMask.Wheel);
         var hurt = new CreatureInstance("b", 4, TypeMask.Spike, health: 1);
 
-        healthy.AbsorbMerge(hurt);
+        healthy.AbsorbMerge(hurt, AnyMoveCount);
 
         Assert.Equal(5, healthy.Health);
         Assert.Equal(8, healthy.MaxHealth);
@@ -158,7 +162,7 @@ public class CreatureInstanceTests
         // Moves are static card data looked up by id, not stored per creature, so MergedFrom
         // IS the move list: cards[a].Moves then cards[b].Moves. Order is the contract.
         var a = new CreatureInstance("cadet", 3, TypeMask.Wheel);
-        a.AbsorbMerge(new CreatureInstance("medic", 2, TypeMask.Spike));
+        a.AbsorbMerge(new CreatureInstance("medic", 2, TypeMask.Spike), AnyMoveCount);
 
         Assert.Equal(["cadet", "medic"], a.MergedFrom);
     }
@@ -170,7 +174,7 @@ public class CreatureInstanceTests
         // and Medic 2-4. If these overlapped, two different moves would share a
         // once-per-turn bit -- a bug that is nearly invisible in play.
         var creature = new CreatureInstance("cadet", 3, TypeMask.Wheel);
-        creature.AbsorbMerge(new CreatureInstance("medic", 2, TypeMask.Spike));
+        creature.AbsorbMerge(new CreatureInstance("medic", 2, TypeMask.Spike), MoveCount);
 
         int MoveCount(string id) => id switch { "cadet" => 2, "medic" => 3, _ => 0 };
 
@@ -192,7 +196,7 @@ public class CreatureInstanceTests
     {
         // Using Cadet's move 0 must not mark Medic's move 0 (index 2) as used.
         var creature = new CreatureInstance("cadet", 3, TypeMask.Wheel);
-        creature.AbsorbMerge(new CreatureInstance("medic", 2, TypeMask.Spike));
+        creature.AbsorbMerge(new CreatureInstance("medic", 2, TypeMask.Spike), MoveCount);
 
         int MoveCount(string id) => id switch { "cadet" => 2, "medic" => 3, _ => 0 };
 
@@ -200,6 +204,44 @@ public class CreatureInstanceTests
 
         Assert.True(creature.HasUsedMove(0));
         Assert.False(creature.HasUsedMove(creature.MoveIndexOffset(1, MoveCount) + 0));
+    }
+
+    [Fact]
+    public void Merging_carries_over_the_sources_spent_moves_shifted_into_their_new_indices()
+    {
+        // Regression: the used-move bitmask was dropped on merge, so a creature that had already
+        // acted came back refreshed inside the merged stack. Merging is free and does not end the
+        // turn, which made it a repeatable extra activation: use A's move, use B's move, merge B
+        // into A, use B's move again the same turn.
+        var target = new CreatureInstance("cadet", 3, TypeMask.Wheel);
+        var source = new CreatureInstance("medic", 2, TypeMask.Spike);
+        target.MarkMoveUsed(0);   // cadet's first move
+        source.MarkMoveUsed(0);   // medic's first move, index 0 while it stands alone
+
+        target.AbsorbMerge(source, MoveCount);
+
+        int MoveCount(string id) => id switch { "cadet" => 2, "medic" => 3, _ => 0 };
+
+        Assert.True(target.HasUsedMove(0));                                    // cadet's, unmoved
+        Assert.True(target.HasUsedMove(target.MoveIndexOffset(1, MoveCount))); // medic's, shifted to 2
+        Assert.False(target.HasUsedMove(1));                                   // cadet's untouched move
+        Assert.False(target.HasUsedMove(target.MoveIndexOffset(1, MoveCount) + 1));
+    }
+
+    [Fact]
+    public void Merging_sums_the_play_costs_of_both_halves()
+    {
+        // destroy_refund_cost refunds PlayCost, and a merged creature cost both cards to build,
+        // so refunding only the surviving half undervalued the stack.
+        var target = new CreatureInstance(
+            "cadet", 3, TypeMask.Wheel, playCost: ResourcePool.Of(ResourceType.Wheel, 2));
+        var source = new CreatureInstance(
+            "medic", 2, TypeMask.Spike, playCost: ResourcePool.Of(ResourceType.Spike, 3));
+
+        target.AbsorbMerge(source, AnyMoveCount);
+
+        Assert.Equal(2, target.PlayCost.Wheel);
+        Assert.Equal(3, target.PlayCost.Spike);
     }
 
     [Fact]
@@ -212,7 +254,7 @@ public class CreatureInstanceTests
         var source = new CreatureInstance("medic", 2, TypeMask.Spike);
         source.GrantKeyword(KeywordFlags.Reflect);
 
-        target.AbsorbMerge(source);
+        target.AbsorbMerge(source, AnyMoveCount);
 
         Assert.True(target.HasKeyword(KeywordFlags.Reflect));
     }
@@ -225,7 +267,7 @@ public class CreatureInstanceTests
         var source = new CreatureInstance("medic", 2, TypeMask.Spike);
         source.GrantRicochet(RicochetDirection.Right);
 
-        target.AbsorbMerge(source);
+        target.AbsorbMerge(source, AnyMoveCount);
 
         Assert.True(target.HasKeyword(KeywordFlags.Taunt));
         Assert.True(target.HasKeyword(KeywordFlags.Ricochet));
@@ -242,7 +284,7 @@ public class CreatureInstanceTests
         source.AddAttackBuff(3);
         source.SetNextDamageTakenBonus(4);
 
-        target.AbsorbMerge(source);
+        target.AbsorbMerge(source, AnyMoveCount);
 
         Assert.Equal(4, target.AttackBuff);
         Assert.Equal(2, target.ConsumeNextAttackBonus());
@@ -269,10 +311,10 @@ public class CreatureInstanceTests
     public void Clone_copies_the_merge_list_rather_than_sharing_it()
     {
         var original = new CreatureInstance("a", 3, TypeMask.Wheel);
-        original.AbsorbMerge(new CreatureInstance("b", 3, TypeMask.Spike));
+        original.AbsorbMerge(new CreatureInstance("b", 3, TypeMask.Spike), AnyMoveCount);
 
         var copy = original.Clone();
-        copy.AbsorbMerge(new CreatureInstance("c", 3, TypeMask.Anvil));
+        copy.AbsorbMerge(new CreatureInstance("c", 3, TypeMask.Anvil), AnyMoveCount);
 
         Assert.Equal(2, original.MergeDepth);
         Assert.Equal(3, copy.MergeDepth);

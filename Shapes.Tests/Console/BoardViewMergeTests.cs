@@ -31,7 +31,7 @@ public class BoardViewMergeTests
     {
         var creature = new CreatureInstance(TestCards.Striker, maxHealth: 2, TypeMask.Wheel);
         var second = new CreatureInstance(TestCards.TwoMove, maxHealth: 3, TypeMask.Spike);
-        creature.AbsorbMerge(second);
+        creature.AbsorbMerge(second, Cards.MoveCountOf);
 
         var state = new StateBuilder()
             .P1(p => p.Slot(0, creature))

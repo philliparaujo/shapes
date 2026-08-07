@@ -82,7 +82,8 @@ public sealed class MoveInfo
                     MoveName = move.Name,
                     Cost = move.Cost,
                     AttackType = move.AttackType,
-                    EffectText = Shapes.Core.Effects.EffectText.Describe(move.Effects),
+                    EffectText = Shapes.Core.Effects.EffectText.DescribeMove(
+                        move.Condition, move.Effects),
                 };
             }
         }

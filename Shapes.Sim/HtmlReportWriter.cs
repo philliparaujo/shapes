@@ -225,6 +225,59 @@ public static class HtmlReportWriter
   <div class="grid" id="resource-charts"></div>
 </div>
 
+<h2>Resource types</h2>
+<p class="hint" id="by-resource-unavailable" style="display:none">
+  Needs card cost data, which a saved metrics file does not carry — regenerate the report from a
+  live run (not <code>--from-metrics-json</code>) to populate this section.
+</p>
+<div id="by-resource-body">
+  <p class="hint">
+    The Economy panel above reads resources as things players <em>hold</em>; this reads them as the
+    three card pools they buy from. A type whose cards are uniformly weak, or clustered at one
+    cost, or whose creatures outclass its spells, is a content problem no per-card row shows —
+    those rows are sorted against the whole field, so a systematically weak type reads as a dozen
+    unrelated mediocre cards. Cards are grouped by <strong>cost type</strong> (what you pay), which
+    for every current card equals its attack type; a hypothetical mixed-cost card would count once
+    per type it costs, and a free card appears under none.
+  </p>
+  <div class="grid" id="resource-summary"></div>
+
+  <p class="hint" style="margin-top:16px; margin-bottom:6px">
+    <strong>Cost distribution.</strong> How many cards each type offers at each total cost, split
+    creature / spell. Read down a column to compare types at the same price point: a type with no
+    cheap creatures cannot contest the board early, and one whose curve stops short has no
+    late-game payoff to spend a full pool on.
+  </p>
+  <table class="resource-table" id="resource-cost-table">
+    <thead></thead>
+    <tbody></tbody>
+  </table>
+
+  <p class="hint" style="margin-top:16px; margin-bottom:6px">
+    <strong>Average metrics per type</strong>, over cards passing the min-n filter below. Power
+    score is the same z-score rollup the Cards table uses — z-scored against the whole field, so
+    these averages are directly comparable across types: a type averaging below zero is
+    underperforming the field, not merely different from it. Spell and creature means are split
+    because the score's creature half includes a move rollup spells have no counterpart for.
+  </p>
+  <div class="controls">
+    <label>Min n (offers): <input type="number" id="resource-min-n" value="0" min="0"></label>
+  </div>
+  <table class="resource-table" id="resource-metrics-table">
+    <thead></thead>
+    <tbody></tbody>
+  </table>
+
+  <p class="hint" style="margin-top:16px; margin-bottom:6px">
+    <strong>Strongest and weakest per type.</strong> Cards rank by power score, moves by take
+    rate/turn — a move has no play/draw win rate to roll up, and take rate/turn is the closest
+    per-move equivalent of "chosen when it could have been." Moves are attributed to their own cost
+    type, which need not match the creature's: a wheel creature with an anvil move counts that move
+    under anvil.
+  </p>
+  <div class="grid" id="resource-extremes"></div>
+</div>
+
 <h2>Cards</h2>
 <p class="hint">
   <strong>Power score</strong> is an opinionated rollup, not a replacement for the columns beside
@@ -599,6 +652,152 @@ function computeCompositeScores(cards, minN) {
   return scores;
 }
 
+// -- Resource types ---------------------------------------------------------------------------
+// Everything below joins cardInfo/moveInfo (cost data) onto the metrics, so the whole section
+// hides itself when the report was built without a CardDatabase -- see renderByResource.
+const RES_KEYS = ['spike', 'anvil', 'wheel'];
+const RES_LABEL = { spike: 'Spike △', anvil: 'Anvil ▢', wheel: 'Wheel ◯' };
+
+function totalCost(cost) {
+  if (!cost) return 0;
+  return (cost.spike || 0) + (cost.anvil || 0) + (cost.wheel || 0);
+}
+
+// Which resource pools a cost draws on. Returns every type with a nonzero component rather than
+// one "primary" -- picking a single type would have to invent a tiebreak for mixed costs, and
+// counting such a card under both pools is the honest reading of "what this type has to offer."
+function costTypes(cost) {
+  if (!cost) return [];
+  return RES_KEYS.filter(k => (cost[k] || 0) > 0);
+}
+
+function cardsOfType(res) {
+  return metrics.cardStats.filter(c => costTypes(cardInfo[c.cardId]?.cost).includes(res));
+}
+
+function mean(values) {
+  const present = values.filter(v => typeof v === 'number' && !Number.isNaN(v));
+  return present.length ? present.reduce((a, b) => a + b, 0) / present.length : null;
+}
+
+function renderResourceSummary(scores, minN) {
+  document.getElementById('resource-summary').innerHTML = RES_KEYS.map(res => {
+    const cards = cardsOfType(res).filter(c => c.offerCount >= minN);
+    const creatures = cards.filter(c => cardInfo[c.cardId]?.kind === 'creature');
+    const spells = cards.filter(c => cardInfo[c.cardId]?.kind === 'spell');
+    const avg = mean(cards.map(c => scores[c.cardId]));
+    const costs = cards.map(c => totalCost(cardInfo[c.cardId]?.cost));
+    return statTile(RES_LABEL[res],
+      `${cards.length} cards (${creatures.length}c / ${spells.length}s)`
+      + `<div class="hint" style="margin:2px 0 0">avg power ${avg === null ? '—' : num(avg)}`
+      + ` · avg cost ${costs.length ? num(mean(costs), 1) : '—'}</div>`);
+  }).join('');
+}
+
+function renderResourceCostTable() {
+  const all = metrics.cardStats
+    .map(c => cardInfo[c.cardId])
+    .filter(Boolean);
+  const maxCost = Math.max(1, ...all.map(i => totalCost(i.cost)));
+  const costCols = [];
+  for (let n = 1; n <= maxCost; n++) costCols.push(n);
+
+  document.querySelector('#resource-cost-table thead').innerHTML =
+    `<tr><th>Type</th><th>Kind</th>${costCols.map(n => `<th>${n}</th>`).join('')}<th>Total</th></tr>`;
+
+  const rows = [];
+  for (const res of RES_KEYS) {
+    for (const kind of ['creature', 'spell']) {
+      const cards = cardsOfType(res).filter(c => cardInfo[c.cardId]?.kind === kind);
+      const counts = costCols.map(n =>
+        cards.filter(c => totalCost(cardInfo[c.cardId].cost) === n).length);
+      rows.push(`<tr>
+        <td>${kind === 'creature' ? resChip(res) + ' ' + RES_LABEL[res] : ''}</td>
+        <td>${kind}</td>
+        ${counts.map(n => `<td>${n || '<span class="res-none">·</span>'}</td>`).join('')}
+        <td>${cards.length}</td>
+      </tr>`);
+    }
+  }
+  document.querySelector('#resource-cost-table tbody').innerHTML = rows.join('');
+}
+
+function renderResourceMetricsTable(scores, minN) {
+  document.querySelector('#resource-metrics-table thead').innerHTML =
+    '<tr><th>Type</th><th>Kind</th><th>n</th><th>Power score</th><th>Take%</th>'
+    + '<th>Take%/turn</th><th>Win (played)</th><th>Win (drawn)</th><th>Cost pressure</th></tr>';
+
+  const rows = [];
+  for (const res of RES_KEYS) {
+    for (const kind of ['creature', 'spell']) {
+      const cards = cardsOfType(res)
+        .filter(c => cardInfo[c.cardId]?.kind === kind && c.offerCount >= minN && c.offerCount > 0);
+      if (cards.length === 0) continue;
+      const avgScore = mean(cards.map(c => scores[c.cardId]));
+      rows.push(`<tr>
+        <td>${kind === 'creature' ? resChip(res) + ' ' + RES_LABEL[res] : ''}</td>
+        <td>${kind}</td>
+        <td>${cards.length}</td>
+        <td>${avgScore === null ? '—' : num(avgScore)}</td>
+        <td>${pct(mean(cards.map(c => c.playTakeRate.rate)))}</td>
+        <td>${pct(mean(cards.map(c => c.playTakeRatePerTurn.rate)))}</td>
+        <td>${pct(mean(cards.map(c => c.winRateWhenPlayed.rate)))}</td>
+        <td>${pct(mean(cards.map(c => c.winRateWhenDrawn.rate)))}</td>
+        <td>${pct(mean(cards.map(c => c.costPressure.rate)))}</td>
+      </tr>`);
+    }
+  }
+  document.querySelector('#resource-metrics-table tbody').innerHTML = rows.join('');
+}
+
+function renderResourceExtremes(scores, minN) {
+  const movesAll = metrics.moveStats.filter(m => m.offerCount >= minN && m.offerCount > 0);
+
+  document.getElementById('resource-extremes').innerHTML = RES_KEYS.map(res => {
+    const cards = cardsOfType(res)
+      .filter(c => c.offerCount >= minN && c.offerCount > 0 && scores[c.cardId] !== null
+        && scores[c.cardId] !== undefined)
+      .sort((a, b) => scores[b.cardId] - scores[a.cardId]);
+
+    const moves = movesAll
+      .filter(m => costTypes(moveInfo[m.cardId + '::' + m.moveName]?.cost).includes(res))
+      .sort((a, b) => b.useTakeRatePerTurn.rate - a.useTakeRatePerTurn.rate);
+
+    const cardLine = c => `<div>${c.cardId} <span class="hint" style="margin:0">${num(scores[c.cardId])}</span></div>`;
+    const moveLine = m => `<div>${m.moveName} <span class="hint" style="margin:0">(${m.cardId}) ${pct(m.useTakeRatePerTurn.rate)}</span></div>`;
+
+    return `<div class="stat">
+      <div class="label">${resChip(res)} ${RES_LABEL[res]}</div>
+      <div class="hint" style="margin:6px 0 2px">Strongest cards</div>
+      ${cards.slice(0, 3).map(cardLine).join('') || '<div class="res-none">—</div>'}
+      <div class="hint" style="margin:6px 0 2px">Weakest cards</div>
+      ${cards.slice(-3).reverse().map(cardLine).join('') || '<div class="res-none">—</div>'}
+      <div class="hint" style="margin:6px 0 2px">Most-used moves</div>
+      ${moves.slice(0, 3).map(moveLine).join('') || '<div class="res-none">—</div>'}
+      <div class="hint" style="margin:6px 0 2px">Least-used moves</div>
+      ${moves.slice(-3).reverse().map(moveLine).join('') || '<div class="res-none">—</div>'}
+    </div>`;
+  }).join('');
+}
+
+function renderByResource() {
+  // cardInfo is empty when the report was rebuilt from a saved metrics file (no CardDatabase to
+  // join costs from), and every panel here is keyed on cost -- so the whole section steps aside
+  // with an explanation rather than rendering three empty tables.
+  if (Object.keys(cardInfo).length === 0) {
+    document.getElementById('by-resource-unavailable').style.display = '';
+    document.getElementById('by-resource-body').style.display = 'none';
+    return;
+  }
+
+  const minN = parseInt(document.getElementById('resource-min-n').value, 10) || 0;
+  const scores = computeCompositeScores(metrics.cardStats, minN);
+  renderResourceSummary(scores, minN);
+  renderResourceCostTable();
+  renderResourceMetricsTable(scores, minN);
+  renderResourceExtremes(scores, minN);
+}
+
 function intervalBar(interval, refLine, deltaInterval) {
   const low = interval.low * 100, high = interval.high * 100, rate = interval.rate * 100;
   const width = Math.max(high - low, 0.5);
@@ -811,12 +1010,15 @@ document.getElementById('baseline-input').addEventListener('change', (e) => {
   reader.readAsText(file);
 });
 
+document.getElementById('resource-min-n').addEventListener('input', renderByResource);
+
 renderProvenance();
 renderSummary();
 renderMarginChart();
 renderHandChart();
 renderBoardPresenceCharts();
 renderEconomy();
+renderByResource();
 renderCardTable();
 renderMoveTable();
 </script>

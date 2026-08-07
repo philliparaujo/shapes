@@ -39,7 +39,7 @@ public class ActionTextTests
         // single card's move list.
         var creature = new CreatureInstance(TestCards.Striker, maxHealth: 2, TypeMask.Wheel);
         var second = new CreatureInstance(TestCards.TwoMove, maxHealth: 3, TypeMask.Spike);
-        creature.AbsorbMerge(second);
+        creature.AbsorbMerge(second, Cards.MoveCountOf);
 
         var state = new StateBuilder()
             .ActivePlayer(PlayerId.One)

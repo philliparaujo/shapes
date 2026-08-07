@@ -46,6 +46,10 @@ public class HtmlReportWriterTests
             Assert.Contains("id=\"resource-charts\"", text, StringComparison.Ordinal);
             Assert.Contains("id=\"resource-table\"", text, StringComparison.Ordinal);
             Assert.Contains("id=\"board-presence-charts\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"resource-summary\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"resource-cost-table\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"resource-metrics-table\"", text, StringComparison.Ordinal);
+            Assert.Contains("id=\"resource-extremes\"", text, StringComparison.Ordinal);
 
             // No external references -- no CDN script/link, no server needed to view it.
             Assert.DoesNotContain("http://", text, StringComparison.Ordinal);
@@ -76,6 +80,60 @@ public class HtmlReportWriterTests
             var closingTagCount = System.Text.RegularExpressions.Regex.Matches(
                 text, "</script>", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
             Assert.Equal(4, closingTagCount);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Resource_type_section_keys_moves_the_same_way_the_move_info_lookup_does()
+    {
+        // The by-resource panel groups moves by their own cost, which means joining moveStats to
+        // moveInfo on "cardId::moveName". MoveKey.Of owns that separator, so a change to it would
+        // silently empty the move half of every resource group -- the join is checked here rather
+        // than trusted, since an empty group renders as a legitimate-looking "no moves".
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            HtmlReportWriter.Write(path, metrics, TestCards.Database);
+            var text = File.ReadAllText(path);
+
+            Assert.Contains("moveInfo[m.cardId + '::' + m.moveName]", text, StringComparison.Ordinal);
+
+            var sample = metrics.MoveStats[0];
+            Assert.Contains(
+                $"\"{MoveKey.Of(sample.CardId, sample.MoveName)}\"", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Resource_type_section_steps_aside_when_there_is_no_card_data_to_group_by()
+    {
+        // --from-metrics-json rebuilds a report with no CardDatabase, so every cost-keyed panel in
+        // the resource section would render empty. The page is expected to say why instead.
+        var result = SmallBatch();
+        var metrics = MetricsReport.From(result.AllGames);
+        var path = Path.GetTempFileName();
+        try
+        {
+            HtmlReportWriter.Write(path, metrics);
+            var text = File.ReadAllText(path);
+
+            Assert.Contains("id=\"by-resource-unavailable\"", text, StringComparison.Ordinal);
+
+            // The empty lookup is what the page's guard actually keys on.
+            Assert.Contains(
+                "<script id=\"card-info-data\" type=\"application/json\">{}</script>",
+                text,
+                StringComparison.Ordinal);
         }
         finally
         {

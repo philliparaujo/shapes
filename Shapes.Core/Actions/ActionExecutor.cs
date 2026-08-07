@@ -33,7 +33,7 @@ public static class ActionExecutor
                 ApplyUseMove(state, cards, move);
                 break;
             case MergeAction merge:
-                ApplyMerge(state, merge);
+                ApplyMerge(state, cards, merge);
                 break;
             case DiscardAction discard:
                 ApplyDiscard(state, discard);
@@ -117,7 +117,7 @@ public static class ActionExecutor
             move.AttackType);
     }
 
-    private static void ApplyMerge(GameState state, MergeAction action)
+    private static void ApplyMerge(GameState state, CardDatabase cards, MergeAction action)
     {
         var source = state.Board[action.SourceSlot]
             ?? throw new InvalidOperationException($"No creature in {action.SourceSlot} to merge.");
@@ -127,8 +127,9 @@ public static class ActionExecutor
 
         // Health and max health sum, typings union, move lists concatenate in merge order --
         // CreatureInstance.AbsorbMerge owns all of that. Removing the source is this layer's
-        // job, since it owns the board.
-        target.AbsorbMerge(source);
+        // job, since it owns the board. The move-count lookup is what lets AbsorbMerge shift the
+        // source's spent-move bits into their new indices in the concatenated list.
+        target.AbsorbMerge(source, cards.MoveCountOf);
         state.Board.Remove(action.SourceSlot);
 
         // Merging is free and does not consume the turn: no cost paid, no phase change. The

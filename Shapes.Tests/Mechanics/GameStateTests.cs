@@ -9,6 +9,10 @@ namespace Shapes.Tests.Mechanics;
 // flagged for Phase 4 measurement.
 public class GameStateTests
 {
+    // These tests merge only to exercise income/scoring, never move indices, so the exact counts
+    // do not matter -- AbsorbMerge just needs some lookup to shift the used-move bitmask by.
+    private static int MoveCount(string cardId) => 2;
+
     // RuleSet has no with-support (plain class, not a record); this rebuilds Default with only
     // IncomePerCreatureType overridden, for the tests that specifically exercise per-creature
     // income now that the shipping default has it switched off.
@@ -201,7 +205,7 @@ public class GameStateTests
         // with a 2x defensive exposure.
         var rules = WithIncomePerCreatureType(1);
         var merged = new CreatureInstance("a", 3, TypeMask.Spike);
-        merged.AbsorbMerge(new CreatureInstance("b", 3, TypeMask.Wheel));
+        merged.AbsorbMerge(new CreatureInstance("b", 3, TypeMask.Wheel), MoveCount);
 
         var state = new StateBuilder()
             .WithRuleSet(rules)

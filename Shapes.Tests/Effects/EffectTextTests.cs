@@ -80,6 +80,30 @@ public class EffectTextTests
     }
 
     [Fact]
+    public void Move_text_states_the_gate_a_move_level_condition_imposes()
+    {
+        // Circle Priest's Focus Strike: "deal 1 damage to opposing" alone reads as a complete and
+        // badly overpriced 1-cost move. The condition is what makes it a real card, and it lives
+        // on the move rather than in the effect list, so Describe(effects) cannot see it.
+        var text = Shapes.Core.Effects.EffectText.DescribeMove(
+            Eff.Node("creature_state", ("target", "self"), ("check", "full_health")),
+            [Eff.Node("damage", ("target", "opposing"), ("amount", 1))]);
+
+        Assert.Contains("full health", text, StringComparison.Ordinal);
+        Assert.Contains("deal 1 damage to opposing", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Move_text_without_a_condition_is_unchanged()
+    {
+        var effects = new[] { Eff.Node("damage", ("target", "opposing"), ("amount", 2)) };
+
+        Assert.Equal(
+            Shapes.Core.Effects.EffectText.Describe(effects),
+            Shapes.Core.Effects.EffectText.DescribeMove(null, effects));
+    }
+
+    [Fact]
     public void Unknown_op_falls_back_to_its_raw_name_rather_than_throwing()
     {
         // A new op landing without a synthesizer case should degrade to something readable, not

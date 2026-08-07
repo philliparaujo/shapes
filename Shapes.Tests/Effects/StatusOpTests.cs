@@ -157,6 +157,53 @@ public class StatusOpTests
     }
 
     [Fact]
+    public void Ricochet_is_consumed_after_one_trigger()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "neighbor", TypeMask.Anvil, maxHealth: 10)
+                      .Slot(1, "ricochet_target", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        state.Board[new SlotIndex(PlayerId.Two, 1)]!.GrantRicochet(RicochetDirection.Left);
+
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 3)),
+            ctx.WithChosenTarget(new SlotIndex(PlayerId.Two, 1)));
+        EffectInterpreter.Apply(
+            Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 2)),
+            ctx.WithChosenTarget(new SlotIndex(PlayerId.Two, 1)));
+
+        // Second hit is not redirected: the target takes it itself, the neighbor is untouched
+        // by it. Without the consume the grant was a once-per-game switch that made every later
+        // attack free to deflect too.
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.Two, 1)]!.Health);
+        Assert.Equal(7, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
+    }
+
+    [Fact]
+    public void Ricochet_stays_armed_when_it_could_not_redirect_for_want_of_a_neighbor()
+    {
+        // The keyword is spent on a redirect that actually happened, not on any attack that
+        // merely arrived -- so a grant made while the target side is empty survives until a
+        // neighbor exists to receive the hit.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "attacker", TypeMask.Wheel))
+            .P2(p => p.Slot(1, "ricochet_target", TypeMask.Anvil, maxHealth: 5))
+            .Build();
+        var target = state.Board[new SlotIndex(PlayerId.Two, 1)]!;
+        target.GrantRicochet(RicochetDirection.Left);
+
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(
+            Eff.Node("damage", ("target", "chosen_enemy"), ("amount", 3)),
+            ctx.WithChosenTarget(new SlotIndex(PlayerId.Two, 1)));
+
+        Assert.Equal(2, target.Health); // took it itself
+        Assert.True(target.HasKeyword(KeywordFlags.Ricochet)); // but the charge is still there
+    }
+
+    [Fact]
     public void Stun_prevents_moves_and_clears_on_the_next_turn_reset()
     {
         var state = new StateBuilder()

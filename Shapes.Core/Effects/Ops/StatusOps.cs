@@ -9,7 +9,8 @@ namespace Shapes.Core.Effects.Ops;
 // Ricochet requires a "direction" arg (left/right); taunt and reflect ignore it.
 // "until_next_turn" is taunt-only (Columns: "taunt until next turn") -- see
 // CreatureInstance.GrantKeyword/ResetMovesForNewTurn for the expiry itself. Omitted or false
-// means permanent, matching every other keyword grant.
+// means the grant does not expire on a clock, which for taunt means permanent; reflect and
+// ricochet instead expire on use, consumed by the first trigger (see CombatResolver).
 internal sealed class GrantKeywordOp : EffectOp
 {
     public override string Name => "grant_keyword";

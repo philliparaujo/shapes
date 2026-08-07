@@ -38,6 +38,12 @@ public class CardConservationTests
 
     private static RuleSet Rules => RuleSet.Default;
 
+    // These tests use synthetic card ids ("base", "folded", "token", ...) that deliberately do
+    // not exist in Cards, so they can exercise discard accounting without depending on real card
+    // data. AbsorbMerge only needs move counts to shift the used-move bitmask, which none of them
+    // assert on -- Cards.MoveCountOf would throw on the made-up ids.
+    private static int AnyMoveCount(string cardId) => 2;
+
     // -- The rule itself, stated directly -------------------------------------------------------
 
     [Fact]
@@ -101,7 +107,7 @@ public class CardConservationTests
         // instance's CardId would lose the other -- the merge-shaped version of the same leak,
         // and the reason DestroyCreature iterates MergedFrom rather than reading CardId.
         var merged = new CreatureInstance("base", 3, TypeMask.Spike);
-        merged.AbsorbMerge(new CreatureInstance("folded", 3, TypeMask.Anvil));
+        merged.AbsorbMerge(new CreatureInstance("folded", 3, TypeMask.Anvil), AnyMoveCount);
 
         var state = new StateBuilder()
             .P1(p => p.Slot(0, "caster", TypeMask.Wheel))
@@ -149,7 +155,7 @@ public class CardConservationTests
         // per-id provenance to tell them apart at death. Tainting the stack is the conservative
         // reading: better to under-count a player's discard than to put a non-card id in it.
         var merged = new CreatureInstance("real_card", 3, TypeMask.Spike);
-        merged.AbsorbMerge(new CreatureInstance("token", 1, TypeMask.Anvil, isToken: true));
+        merged.AbsorbMerge(new CreatureInstance("token", 1, TypeMask.Anvil, isToken: true), AnyMoveCount);
 
         Assert.True(merged.IsToken);
 
@@ -171,8 +177,10 @@ public class CardConservationTests
         // destroying it. Its card is not gone -- it lives on inside the merged creature's
         // MergedFrom, and will be discarded when that creature dies. Discarding here would
         // double-count it.
+        // Real card ids here, unlike the synthetic ones elsewhere in this file: this goes through
+        // ActionExecutor, which looks the merged creature's cards up to shift its used-move bits.
         var state = new StateBuilder()
-            .P1(p => p.Slot(0, "a", TypeMask.Spike).Slot(1, "b", TypeMask.Spike))
+            .P1(p => p.Slot(0, "basic_t", TypeMask.Spike).Slot(1, "t_body", TypeMask.Spike))
             .Build();
 
         ActionExecutor.Apply(
@@ -181,7 +189,7 @@ public class CardConservationTests
 
         Assert.Empty(state[PlayerId.One].Discard);
         Assert.Equal(
-            ["b", "a"],
+            ["t_body", "basic_t"],
             state.Board[new SlotIndex(PlayerId.One, 1)]!.MergedFrom);
     }
 
