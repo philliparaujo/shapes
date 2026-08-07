@@ -1,0 +1,25 @@
+{
+  "id": "worshipper",
+  "name": "Worshipper",
+  "kind": "creature",
+  "cost": { "anvil": 1 },
+  "health": 2,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Blessing",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "grant_keyword", "target": "left_friendly", "keyword": "reflect" }
+      ]
+    },
+    {
+      "name": "Channel",
+      "cost": { "anvil": 2 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "selector_health",
+          "health_source": "left_friendly", "multiplier": 1 }
+      ]
+    }
+  ]
+}

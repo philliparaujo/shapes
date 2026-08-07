@@ -1,0 +1,25 @@
+{
+  "id": "champion_t",
+  "name": "Champion T",
+  "kind": "creature",
+  "cost": { "spike": 3 },
+  "health": 6,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Barrage",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "resource", "resource_type": "spike", "multiplier": 1 }
+      ]
+    },
+    {
+      "name": "Unopposed Growth",
+      "cost": { "spike": 2 },
+      "condition": { "op": "creature_state", "target": "self", "check": "unopposed" },
+      "effects": [
+        { "op": "buff_max_health", "target": "self", "amount": 3 }
+      ]
+    }
+  ]
+}

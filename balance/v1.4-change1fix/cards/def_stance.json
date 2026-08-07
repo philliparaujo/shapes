@@ -1,0 +1,9 @@
+{
+  "id": "def_stance",
+  "name": "Def. Stance",
+  "kind": "spell",
+  "cost": { "anvil": 2 },
+  "effects": [
+    { "op": "buff_max_health", "target": "all_friendlies", "amount": 3 }
+  ]
+}

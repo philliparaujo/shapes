@@ -1,0 +1,25 @@
+{
+  "id": "circle_bender",
+  "name": "Circle Bender",
+  "kind": "creature",
+  "cost": { "wheel": 2 },
+  "health": 3,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Exhale",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 },
+        { "op": "heal", "target": "self", "amount": 2 }
+      ]
+    },
+    {
+      "name": "Inhale",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "attack_buff", "target": "self", "amount": 2 }
+      ]
+    }
+  ]
+}

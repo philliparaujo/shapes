@@ -1,0 +1,25 @@
+{
+  "id": "t_dealer",
+  "name": "T Dealer",
+  "kind": "creature",
+  "cost": { "spike": 3 },
+  "health": 4,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Deal Out",
+      "cost": { "spike": 2 },
+      "effects": [
+        { "op": "draw_up_to", "amount": 4 }
+      ]
+    },
+    {
+      "name": "Ace",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "discard", "amount": 1 },
+        { "op": "damage", "target": "opposing", "amount": 4 }
+      ]
+    }
+  ]
+}

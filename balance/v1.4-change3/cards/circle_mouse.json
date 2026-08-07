@@ -1,0 +1,24 @@
+{
+  "id": "circle_mouse",
+  "name": "Circle Mouse",
+  "kind": "creature",
+  "cost": { "wheel": 2 },
+  "health": 4,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Evasive",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "grant_keyword", "target": "self", "keyword": "ricochet", "direction": "right" }
+      ]
+    },
+    {
+      "name": "Splash",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "damage", "target": "all_enemies", "amount": 2 }
+      ]
+    }
+  ]
+}

@@ -257,3 +257,149 @@ Notes
 - Some games are non-terminating
   - Affected global changes/metrics
   - Might need a future fatigue mechanic
+
+## v1.4-change1fix
+**Changed:**
+- Fatigue mechanic - 1 point against at start of turn if deck empty guarantees no ties
+- Zealot:
+  - Martyrdom: next time self takes damage: gain 2->3 anvil
+- Circle Bender:
+  - Anticipate (cost 1): next time self ricochets: deal 2 damage to all enemies -> Exhale (cost 1): deal 2 damage to opposing; heal self for 2
+  - Deflect (cost 1): grant self ricochet (right); +1 max health to self -> Inhale (cost 1): +2 attack to self (persistent) 
+- Monk:
+  - Recover: only if self is damaged: +4->3 max health to self
+
+Direct balance successes:
+- Execute: nerf worked, now balanced
+- Bubbles: nerf worked, still good
+- Circle Surfer: nerf worked, now balanced
+- Shieldbearer: nerf worked, now balanced
+- T Dealer: nerf worked, now balanced 
+- Circle Captain: buff worked, now balanced
+- Circle Bender: rework worked, now balanced
+- Gravewarden: buff worked, now strong
+- Circle Priest: buff worked, now balanced
+
+Direct balance change fails:
+- T Flare: nerf worked, still bad; massive move imbalance
+- T Juggler: nerf did not work, still good; spike economy still seems too strong
+- Def. Stance: buff did not work, still bad
+- Rally: buff did not work, still bad; perhaps no change needed with nerfed spike economy
+- Wave Crash: buff did not work, still bad
+- Zealot: rework did not work, now very weak
+- Monk: rework worked, now weak
+
+Indirect balance change issues:
+- Basic Square: super weak
+- Circle Planner: too weak
+- T Body: too strong
+
+Overall notes to address:
+- 58.3% win rate is still quite high
+- 21.8 turn length after fatigue is still very high, 37 cards drawn per game is high
+- Spike economy is too strong
+
+## v1.4-change2
+**Changed:**
+Nerfs:
+- T Juggler:
+  - Toss: discard 1; gain 3->2 spike
+- T Body:
+  - Overclock: self-damage 1->2: gain 3 spike
+  - Piston: if opposing is damaged: deal 8 damage to opposing; else: deal 4 damage to opposing -> deal 2 damage to opposing; deal 2 damage to opposing
+- T Flare: health 3->4
+  - Meltdown: cost 1->2
+
+Buffs:
+- Def. Stance: cost 2->1; +3->2 max health to all friendlies
+- Basic Square: health 3->2
+  - Fortify: +1 max health to self -> +1 max health to self; heal self for 1
+
+Results:
+- T Juggler: nerf worked, now balanced
+- T Body: nerf worked, now balanced
+- T Flare: nerf failed, now super strong and moves still imbalanced
+- Def. Stance: buff worked, now balanced
+- Basic Square: buff did not work, still weak
+- Wheel resources too little, spike resources still too much
+
+## v1.4-change3, v1.4-change3rerun
+v1.4-change3: seed=2
+v1.4-change3rerun: seed=3
+
+**Changed:**
+Nerfs:
+- T Flare:
+  - Meltdown: gain spike (source's health); destroy self; draw 2->1
+- Champion T: health 6->5
+- Enrage: cost 1->2
+
+Buffs:
+- Basic Square: health 2->3
+- Basic T:
+  - Finish: if opposing is damaged: deal 3->4 damage to opposing
+- Circle Bender:
+  - Exhale: deal 2->1 damage to opposing; heal self for 2
+  - Inhale: +2->3 attack to self (persistent)
+- Circle Captain: health 4->5
+
+Results:
+- Everything seems pretty balanced, changes were all generally better
+- Future balance changes will address game length / seat 1 advantage
+- First run had anvils as weakest, second had spikes as weakest and anvils as strongest... (hopefully all resource types are about equal)
+
+## Overall Results
+**22 of 36 cards changed** across four card passes (change1 → change1fix → change2 → change3),
+plus the three engine fixes in keywordfix and the fatigue rule in change1fix. Card changes
+compared to **v1.4-baseline**:
+
+Nerfs
+- (z +1.12 -> +1.03) **Bubbles**:
+  - Fizz: cost 1->2
+  - Burst: deal 6 damage to all enemies; self-damage 3->6
+- (z +1.25 -> +0.58) **Suffocate**: cost 4->5
+- (z +0.37 -> +0.15) **Monk**:
+  - Recover: only if self is damaged: +4->3 max health to self
+- (z +0.72 -> +0.27) **Shieldbearer**:
+  - Brace For Impact: next time self takes damage: draw 3->2
+  - Shield Bash: grant self taunt -> grant self taunt until next turn
+- (z +0.33 -> +0.73) **Champion T**: health 6->5
+- (z +0.21 -> -0.58) **Enrage**: cost 1->2
+- (z +1.03 -> +0.37) **Execute**: cost 2->3
+  - if chosen enemy is damaged: deal 6->4 damage; else: deal 3->2 damage
+- (z -0.15 -> -0.09) **T Body**:
+  - Piston: if opposing is damaged: deal 8 else 4 -> deal 2 damage; deal 2 
+- (z +0.32 -> -0.52) **T Dealer**: health 5->4
+  - Deal Out: draw up to 5->4 cardsdamage
+  - Overclock: self-damage 1->2; gain 3 spike
+- (z +0.46 -> +0.07) **T Juggler**:
+  - Toss: discard 1; gain 3->2 spike
+  - Catch and Throw: draw 1; deal 3->2 damage to opposing
+
+Buffs
+- (z -1.03 -> +0.44) **Circle Captain**: health 4->5
+  - Wardance: grant self ricochet (left) -> grant self ricochet (left); grant left friendly reflect
+- (z -0.26 -> -0.70) **Circle Priest**:
+  - Focus Strike: deal 1->2 damage to opposing
+- (z -1.18 -> -1.46) **Wave Crash**:
+  - deal 1 damage to all enemies -> deal 1 damage to all enemies; heal all friendlies for 1
+- (z -0.26 -> -0.95) **Basic Square**:
+  - Fortify: +1 max health to self -> +1 max health to self; heal self for 1
+- (z -1.48 -> -0.66) **Def. Stance**: cost 2->1; +2 max health to all friendlies (unchanged net)
+- (z -0.39 -> +0.01) **Gravewarden**:
+  - Reap: draw 1->2 per creature destroyed this turn
+- (z -0.57 -> -0.54) **Zealot**:
+  - Martyrdom: next time self takes damage: gain 2->3 anvil
+- (z +0.22 -> -0.11) **Basic T**:
+  - Finish: if opposing is damaged: deal 3->4 damage to opposing
+- (z -0.45 -> -0.35) **Rally**: cost 3->2
+- (z -1.51 -> -0.45) **T Flare**: health 3->4
+  - Meltdown: cost 1->2; gain spike (source's health); destroy self; **+draw 1**
+
+Reworks
+- (z -1.73 -> +0.02) **Circle Bender**: health 2->3
+  - Anticipate (next time self ricochets: gain 3 wheel) -> **Exhale**: deal 1 damage to opposing;
+    heal self for 2
+  - Deflect (grant self ricochet (right)) -> **Inhale**: +3 attack to self (persistent)
+- (z +0.69 -> +0.42) **Circle Surfer**:
+  - Wipeout: discard 2; deal 3 damage to all enemies -> discard 2; deal 6 damage to opposing
