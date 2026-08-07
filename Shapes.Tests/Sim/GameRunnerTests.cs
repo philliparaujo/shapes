@@ -13,6 +13,75 @@ public class GameRunnerTests
 {
     private static readonly RuleSet Rules = RuleSet.Default;
 
+    // A ruleset that burns through the deck fast enough for fatigue (PLAN.md step 5b) to actually
+    // fire inside a normal game: a high draw rate empties the deck, and a high score threshold
+    // keeps the game running long enough to get there. Fatigue never triggers under the shipping
+    // rules at TestCards' deck size -- games end around turn 14, well before a deck runs out --
+    // so exercising the plumbing at all needs a deliberately fast-draw ruleset.
+    private static readonly RuleSet FastDrawRules = new(
+        "fatigue-probe",
+        RuleSet.Default.StartingHandSize,
+        cardsDrawnPerTurn: 8,
+        RuleSet.Default.HandLimit,
+        RuleSet.Default.BaseIncome,
+        RuleSet.Default.IncomePerCreatureType,
+        RuleSet.Default.PointsPerUnopposedCreature,
+        scoreToWin: 60,
+        RuleSet.Default.MergeEnabled,
+        RuleSet.Default.MergeRequiresAdjacent,
+        RuleSet.Default.MergeCostsAction,
+        RuleSet.Default.MaxMergeDepth,
+        RuleSet.Default.DeckMode,
+        RuleSet.Default.CopiesPerCard,
+        RuleSet.Default.DeckSize,
+        RuleSet.Default.MaxCopiesPerCard,
+        RuleSet.Default.TypeChart,
+        RuleSet.Default.ScoreByCreatureDelta,
+        fatigueScorePerTurn: 1);
+
+    [Fact]
+    public void Fatigue_is_recorded_per_seat_when_a_deck_runs_out()
+    {
+        var result = GameRunner.Play(
+            "greedy", "greedy", seed: 4, TestCards.Database, FastDrawRules, iterations: 10);
+
+        // Both seats draw at the same rate from identical decks, so both exhaust.
+        Assert.True(result.FatigueTurnsOne > 0);
+        Assert.True(result.FatigueTurnsTwo > 0);
+
+        // The first fatigue turn is recorded, and it is not turn zero -- a deck has to be drawn
+        // down before it can be empty.
+        Assert.NotNull(result.FirstFatigueTurnOne);
+        Assert.True(result.FirstFatigueTurnOne > 1);
+
+        // Gained by one seat is conceded by the other, at one point per fatigued turn.
+        Assert.Equal(result.FatigueTurnsTwo, result.FatigueScoreGainedOne);
+        Assert.Equal(result.FatigueTurnsOne, result.FatigueScoreGainedTwo);
+    }
+
+    [Fact]
+    public void Fatigue_metrics_aggregate_across_a_batch()
+    {
+        var games = new[] { 4UL, 5UL, 6UL }
+            .Select(s => GameRunner.Play(
+                "greedy", "greedy", s, TestCards.Database, FastDrawRules, iterations: 10))
+            .ToList();
+        var metrics = MetricsReport.From(games);
+
+        Assert.True(metrics.DeckExhaustionRateSeatOne.Rate > 0);
+        Assert.True(metrics.FirstFatigueTurnSeatOne.Count > 0);
+        Assert.Equal(
+            games.Sum(g => g.FatigueScoreGainedTwo), metrics.FatigueScoreConcededSeatOne);
+
+        // The distribution reports the same games the mean does, and its median sits inside the
+        // observed range -- the cheap sanity check that percentiles are not off by a sort.
+        Assert.Equal(metrics.GameLength.Count, metrics.GameLengthDistribution.Count);
+        Assert.InRange(
+            metrics.GameLengthDistribution.P50,
+            metrics.GameLengthDistribution.Min,
+            metrics.GameLengthDistribution.Max);
+    }
+
     [Fact]
     public void A_game_always_produces_a_winner()
     {
@@ -296,6 +365,11 @@ public class GameRunnerTests
         // The identity is score == slot-turns x PointsPerUnopposedCreature; stated as a
         // multiplication rather than assuming the default's value of 1, so a ruleset sweep that
         // changes the points per creature reveals a real regression here instead of a false one.
+        //
+        // Fatigue (step 5b) is the game's second score source, so it is subtracted out rather
+        // than folded in: the point of this cross-check is that UNOPPOSED-slot sampling
+        // reconciles exactly, and a fatigue point is not a slot-turn. Deducting the seat's
+        // fatigue gains keeps the identity about the thing it was written to verify.
         var points = Rules.PointsPerUnopposedCreature;
 
         foreach (var seed in new ulong[] { 3, 5, 13, 21 })
@@ -303,8 +377,12 @@ public class GameRunnerTests
             var result = GameRunner.Play(
                 "greedy", "greedy", seed, TestCards.Database, Rules, iterations: 10);
 
-            Assert.Equal(result.ScoreOne, result.UnopposedSlotTurnsOne * points);
-            Assert.Equal(result.ScoreTwo, result.UnopposedSlotTurnsTwo * points);
+            Assert.Equal(
+                result.ScoreOne - result.FatigueScoreGainedOne,
+                result.UnopposedSlotTurnsOne * points);
+            Assert.Equal(
+                result.ScoreTwo - result.FatigueScoreGainedTwo,
+                result.UnopposedSlotTurnsTwo * points);
         }
     }
 

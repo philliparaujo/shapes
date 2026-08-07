@@ -27,6 +27,7 @@ internal sealed class RuleSetDto
     public int? PointsPerUnopposedCreature { get; set; }
     public bool? ScoreByCreatureDelta { get; set; }
     public int? ScoreToWin { get; set; }
+    public int? FatigueScorePerTurn { get; set; }
 
     public bool? MergeEnabled { get; set; }
     public bool? MergeRequiresAdjacent { get; set; }

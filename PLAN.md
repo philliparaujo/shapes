@@ -10,17 +10,22 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 9 / 10     |
+| 4 — AI-driven balance                    | 10 / 11    |
 | 5 — Godot client                         | 0 / 12     |
 
-876 tests passing. **Phases 1, 2, and 3 are complete.**
+892 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 6** — sweep card changes in symmetric decks. Steps 2b/2c gave the metrics
+**Next up: Phase 4 step 6** — sweep card changes in symmetric decks, now against a ruleset that
+always terminates. Step 5b (done) added fatigue after the card sweep surfaced a non-terminating
+game and traced it to the scoring rule rather than to any card: with score gated on killing
+something, any board where defense meets offense stops scoring forever, and 7 of 26 creatures
+stalemate their own mirror. Card-level fixes would have meant banning self-heal and permanent
+health buffs outright, so the fix was structural. Steps 2b/2c gave the metrics
 the denominators, intervals, and diagnostic splits a sweep needs to rank on; 2d made that output
 readable and diffable; 2e checked the detectors against a known-wrong answer and found take rate
 alone is not reliable for economy/tempo-neutral cards — cost pressure is. Step 3 (done) carried
@@ -598,6 +603,60 @@ step 10, so every number here reflects genuinely stable content.
   `GameResult.SlotsOccupiedByTurn*`/`CombinedHealthByTurn*`, aggregated in `MetricsReport` via the
   same `ComputeSeriesByTurn` used everywhere else in this family, rendered as two more
   `twoSeatLineChart`s in a new "Board presence by turn" panel ahead of Economy.
+- [x] **5b. Fatigue — a structural tiebreak, so termination stops depending on removal.** The
+  step-6 sweep found a `NonTerminating` game (seed 6909709552674346015, 501 turns, score frozen at
+  9-9, last card played on turn 43) and reading it exposed a design coupling rather than a card
+  bug: **score requires an unopposed creature, unopposed requires a kill, so any board where
+  defense ≥ offense stops scoring permanently.** Nothing else in the game can end it. A sweep of
+  all 26 creatures in an isolated 1v1 self-mirror found five outright stalemates under optimal
+  play — `columns` (Brace +2 max health/turn vs. Slam 2 damage/turn, an exact tie, both a1),
+  `circle_priest` (Mend is `heal_to_full`, strictly unkillable), `basic_square` and `circle_cadet`
+  (both hold a "damage 1 + heal self 1" move that cancels in the mirror), `zealot` (Smite deals 1
+  and buffs itself +1) — plus two by mutual impotence (`guardian`'s mutual reflect makes attacking
+  strictly losing; `circle_bender` has *no* way to damage anything in a lane where its ricochet has
+  no friendly neighbor to redirect to). That is 7 of 26 before considering the 26x26 cross-pairings
+  or merged stacks, so this is a property of the scoring rule, not a handful of mispriced cards —
+  and patching it card-by-card would mean banning self-heal and permanent `buff_max_health` as
+  mechanics, which is a real cost to the design space for a problem that is not actually about
+  those cards. Deck exhaustion currently has **zero consequence**, which is the specific gap: in
+  the stalled game both players simply stopped playing cards on turn 43 and nothing changed for the
+  next 458 turns.
+  **The rule: at the start of a player's turn, if their deck is empty, their opponent gains 1
+  score.** Chosen over fatigue-as-damage (Hearthstone/MTG style) deliberately — damage resolves the
+  *board*, but this game's failure mode is a board that cannot be resolved at all, and a new damage
+  source would interact with all 26 creatures' health/heal/buff surface. Scoring bypasses the board
+  entirely, which is exactly the point: it is a path to victory that no defensive card can answer.
+  It also **guarantees no draws** — the two players exhaust their decks on different turns (or, if
+  simultaneously, the score gap that has already accrued breaks the tie), so score strictly
+  diverges once fatigue starts and `scoreToWin` is always reached. `EndingType.NonTerminating`
+  should become unreachable in practice; `GameRunner`'s 500-turn cap stays as a harness guard, and
+  a `NonTerminating` result after this lands is a bug report, not a balance finding.
+  Implementation sits on existing seams — `PlayerState.DeckIsEmpty` already exists, and
+  `GameState.AdvanceToActions()` already sequences score→income→draw, so fatigue belongs in the
+  score step it already owns. `RuleSet` gets the knob (`fatigueScorePerTurn`, default 1; 0 disables
+  it, so every pre-5b balance run stays reproducible).
+  **Metrics** — fatigue is only meaningful if it is measured, and it changes what draw effects are
+  worth: `t_dealer`, `circle_surfer`, and `shieldbearer` are currently three of the strongest cards
+  in the set and all of them accelerate deck exhaustion, so this may reprice them without any card
+  edit. Track, per seat: **deck-exhaustion rate** (share of games where that seat ever drew its
+  deck empty), **turn of first exhaustion** (a `MeanEstimate`, so "does this happen at turn 40 in a
+  long game or turn 20 routinely" is answerable), **total fatigue score conceded**, and **share of
+  games decided by fatigue** — a game where the winner's final margin is no larger than the fatigue
+  points they were handed was decided by the timer, not by play, and if that share is large the
+  rule is too aggressive. Read the first two against `CardsDrawnWinners`/`CardsDrawnLosers`, which
+  already exist.
+  **Game-length distribution, not just its mean.** The stalled game also exposed that
+  `GameLength.Mean` alone is actively misleading — one 501-turn outlier moved the reported mean from
+  21.3 to 26.7 and the standard deviation from 9.0 to 30.2, and it dragged every end-of-game
+  resource average with it (total unspent resources appeared to rise 132% when the per-turn levels
+  had not moved at all). A single mean cannot show a bimodal or long-tailed length distribution,
+  which is exactly the shape a termination problem produces. Add **percentiles** (p5/p25/p50/p75/
+  p95, plus min/max) to the length report and render a **histogram** in the HTML explorer, so a
+  fat right tail is visible directly rather than inferred from a suspiciously large standard
+  deviation. This is the metric that would have caught the stall on the run that introduced it.
+  **Sequencing:** land this as its own `v1.5-fatigue` run against the *current* card set and
+  compare to `v1.4-keywordfix`, not on top of the `v1.4-change1` card edits — those are still
+  unevaluated and mixing them would confound a rules change with 15 card changes.
 - [ ] **6. Sweep card changes** in symmetric decks — the per-card pass step 3's rules sweep was
   deliberately sequenced ahead of, since a rules change shifts every card's take rate and doing
   card-level tuning first would mean redoing it. Watch for never-played/auto-include cards,

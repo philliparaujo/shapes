@@ -166,9 +166,12 @@ public class GameStateTests
     [Fact]
     public void ApplyScoring_adds_to_the_active_players_score()
     {
+        // The deck is stocked only so fatigue (step 5b) stays out of this test's way -- an empty
+        // deck would hand P2 a point in the same step and make the P2 assertion below about
+        // fatigue rather than about unopposed scoring.
         var state = new StateBuilder()
             .ActivePlayer(PlayerId.One)
-            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Score(3))
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Score(3).Deck("basic_t"))
             .Build();
 
         state.ApplyScoring();
@@ -176,6 +179,134 @@ public class GameStateTests
         Assert.Equal(4, state[PlayerId.One].Score);
         Assert.Equal(0, state[PlayerId.Two].Score);
     }
+
+    // -- Fatigue (PLAN.md step 5b) --------------------------------------------------------------
+
+    [Fact]
+    public void Fatigue_scores_for_the_OPPONENT_of_the_player_who_ran_out_of_cards()
+    {
+        // Running out of cards is a cost, not a reward -- the seat that decked out hands score to
+        // the other one. Getting this backwards would still terminate games, which is exactly why
+        // it is worth pinning: the bug would look like the feature working.
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Score(0))
+            .P2(p => p.Score(0))
+            .Build();
+
+        Assert.True(state[PlayerId.One].DeckIsEmpty);
+
+        state.ApplyScoring();
+
+        Assert.Equal(0, state[PlayerId.One].Score);
+        Assert.Equal(1, state[PlayerId.Two].Score);
+    }
+
+    [Fact]
+    public void Fatigue_stacks_with_normal_unopposed_scoring_rather_than_replacing_it()
+    {
+        // Both score sources resolve in the same step; fatigue is additive, not an alternative.
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel))
+            .Build();
+
+        state.ApplyScoring();
+
+        Assert.Equal(1, state[PlayerId.One].Score);  // its own unopposed creature
+        Assert.Equal(1, state[PlayerId.Two].Score);  // P1's empty deck
+    }
+
+    [Fact]
+    public void A_player_with_cards_left_concedes_no_fatigue()
+    {
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .P1(p => p.Deck("basic_t", "basic_t"))
+            .Build();
+
+        Assert.False(state.IsFatigued(PlayerId.One));
+
+        state.ApplyScoring();
+
+        Assert.Equal(0, state[PlayerId.Two].Score);
+    }
+
+    [Fact]
+    public void Fatigue_score_of_zero_disables_the_rule_entirely()
+    {
+        // Every balance run before step 5b was played without fatigue, so those rulesets have to
+        // stay reproducible rather than silently gaining a new score source.
+        var state = new StateBuilder()
+            .WithRuleSet(WithFatigue(0))
+            .ActivePlayer(PlayerId.One)
+            .Build();
+
+        Assert.True(state[PlayerId.One].DeckIsEmpty);
+        Assert.False(state.IsFatigued(PlayerId.One));
+
+        state.ApplyScoring();
+
+        Assert.Equal(0, state[PlayerId.Two].Score);
+    }
+
+    [Fact]
+    public void Fatigue_logs_the_seat_that_ran_out_not_the_seat_that_scored()
+    {
+        // The batch runner reads this event to build per-seat deck-exhaustion rates, so which
+        // seat it names is the whole meaning of the metric.
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.Two)
+            .Build();
+
+        state.ApplyScoring();
+
+        var fatigue = state.TurnEvents.Where(e => e.Kind == TurnEventKind.Fatigued).ToList();
+        Assert.Single(fatigue);
+        Assert.Equal(PlayerId.Two, fatigue[0].Player);
+    }
+
+    [Fact]
+    public void Fatigue_eventually_ends_a_game_neither_player_can_score_in()
+    {
+        // The reason the rule exists: an empty board scores nothing under the unopposed rule, so
+        // without fatigue this state would loop forever (PLAN.md step 5b's 501-turn game). Driving
+        // the real turn loop rather than asserting on the rule in isolation is the point.
+        var state = new StateBuilder()
+            .ActivePlayer(PlayerId.One)
+            .Build();
+
+        var guard = 0;
+        while (!state.IsOver && guard++ < 500)
+        {
+            state.AdvanceToActions();
+            state.EndTurn();
+        }
+
+        Assert.True(state.IsOver);
+        Assert.NotNull(state.Winner);
+    }
+
+    private static RuleSet WithFatigue(int fatigueScorePerTurn) => new(
+        RuleSet.Default.Name,
+        RuleSet.Default.StartingHandSize,
+        RuleSet.Default.CardsDrawnPerTurn,
+        RuleSet.Default.HandLimit,
+        RuleSet.Default.BaseIncome,
+        RuleSet.Default.IncomePerCreatureType,
+        RuleSet.Default.PointsPerUnopposedCreature,
+        RuleSet.Default.ScoreToWin,
+        RuleSet.Default.MergeEnabled,
+        RuleSet.Default.MergeRequiresAdjacent,
+        RuleSet.Default.MergeCostsAction,
+        RuleSet.Default.MaxMergeDepth,
+        RuleSet.Default.DeckMode,
+        RuleSet.Default.CopiesPerCard,
+        RuleSet.Default.DeckSize,
+        RuleSet.Default.MaxCopiesPerCard,
+        RuleSet.Default.TypeChart,
+        RuleSet.Default.ScoreByCreatureDelta,
+        fatigueScorePerTurn);
 
     [Fact]
     public void Base_income_arrives_with_an_empty_board()

@@ -448,9 +448,13 @@ public class DiscardTests
     [Fact]
     public void A_real_cards_discard_gates_play_and_resolves_its_other_effects_first()
     {
-        // T Juggler's "Toss": discard 1, then gain 3 spike. Uses the real card set rather than
+        // T Juggler's "Toss": discard 1, then gain spike. Uses the real card set rather than
         // synthetic ones, because the ordering guarantee only matters for cards that actually
         // pair a discard with something else -- and all three shipped users of `discard` do.
+        //
+        // The gain amount is read from the card rather than hard-coded: this test is about the
+        // ORDERING (gain resolves now, discard is owed later), and a balance pass retuning Toss's
+        // payout should not read as an ordering regression.
         //
         // The resource gain must land immediately: the debt is a separate, later choice, so an
         // effect list is never left half-resolved waiting on the player.
@@ -467,10 +471,14 @@ public class DiscardTests
             .OfType<UseMoveAction>()
             .First(a => a.SourceSlot == new SlotIndex(PlayerId.One, 0) && a.MoveIndex == 0);
 
+        var tossMove = cards.Get("t_juggler").Moves[0];
+        var gain = tossMove.Effects.Single(e => e.Op == "gain_resource").Args.Int("amount");
+        var cost = tossMove.Cost[ResourceType.Spike];
+
         ActionExecutor.Apply(state, cards, toss);
 
-        // The gain resolved (5 - 1 cost + 3 gained), and the discard is now owed.
-        Assert.Equal(7, state[PlayerId.One].Resources[ResourceType.Spike]);
+        // The gain resolved (5 - cost + gain), and the discard is now owed.
+        Assert.Equal(5 - cost + gain, state[PlayerId.One].Resources[ResourceType.Spike]);
         Assert.True(state.AwaitingDiscard);
 
         // Play is gated on paying it: two cards in hand, two ways to pay, nothing else offered.

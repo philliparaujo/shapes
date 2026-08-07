@@ -52,9 +52,16 @@ public static class GameRunner
             (playerId == PlayerId.One ? cardsDrawnOne : cardsDrawnTwo).AddRange(openingHand);
         }
 
+        // Indexed by PlayerId.ToIndex(), so HarvestDrawEvents can bump whichever seat fatigued
+        // without a conditional `ref` -- same reason mergeOffersOne/Two below are arrays.
+        var fatigueTurns = new int[2];
+        var firstFatigueTurn = new int?[2];
+
         state.AdvanceToActions();
         var harvestedEventCount = 0;
-        HarvestDrawEvents(state, cardsDrawnOne, cardsDrawnTwo, ref harvestedEventCount);
+        HarvestDrawEvents(
+            state, cardsDrawnOne, cardsDrawnTwo, ref harvestedEventCount, fatigueTurns,
+            firstFatigueTurn);
 
         var actionCount = 0;
         var actionCountsByKind = new Dictionary<ActionKind, int>();
@@ -219,7 +226,7 @@ public static class GameRunner
             // Harvesting after every Apply, not just EndTurn, catches a draw from a card effect
             // mid-turn (e.g. Gravewarden's draw_scaled) as well as the turn-start draw -- both
             // append to the same TurnEvents list Apply may have just grown.
-            HarvestDrawEvents(state, cardsDrawnOne, cardsDrawnTwo, ref harvestedEventCount);
+            HarvestDrawEvents(state, cardsDrawnOne, cardsDrawnTwo, ref harvestedEventCount, fatigueTurns, firstFatigueTurn);
             HarvestCreatureEvents(state, trackers, scoringStep, ref harvestedCreatureEvents);
 
             // Sample once per turn boundary, driven by TurnNumber changing rather than by
@@ -283,6 +290,15 @@ public static class GameRunner
             MergeCountTwo = mergeCountTwo,
             FinalResourcesOne = state[PlayerId.One].Resources,
             FinalResourcesTwo = state[PlayerId.Two].Resources,
+            FatigueTurnsOne = fatigueTurns[0],
+            FatigueTurnsTwo = fatigueTurns[1],
+            FirstFatigueTurnOne = firstFatigueTurn[0],
+            FirstFatigueTurnTwo = firstFatigueTurn[1],
+
+            // Gained, not conceded: seat one's gain is seat two's fatigue. Multiplied by the rule
+            // rather than counted separately so a ruleset awarding 2/turn reports real score.
+            FatigueScoreGainedOne = fatigueTurns[1] * rules.FatigueScorePerTurn,
+            FatigueScoreGainedTwo = fatigueTurns[0] * rules.FatigueScorePerTurn,
             CardOffersOne = cardOffersOne,
             CardOffersTwo = cardOffersTwo,
             MoveOffersOne = moveOffersOne,
@@ -461,7 +477,8 @@ public static class GameRunner
     // new turn's first event (cursor stale-high) or re-adds an already-counted one
     // (cursor stale-low).
     private static void HarvestDrawEvents(
-        GameState state, List<string> drawnOne, List<string> drawnTwo, ref int alreadyHarvested)
+        GameState state, List<string> drawnOne, List<string> drawnTwo, ref int alreadyHarvested,
+        int[] fatigueTurns, int?[] firstFatigueTurn)
     {
         var events = state.TurnEvents;
         for (var i = alreadyHarvested; i < events.Count; i++)
@@ -470,6 +487,16 @@ public static class GameRunner
             if (turnEvent.Kind == TurnEventKind.CardDrawn)
             {
                 (turnEvent.Player == PlayerId.One ? drawnOne : drawnTwo).Add(turnEvent.CardId);
+            }
+            else if (turnEvent.Kind == TurnEventKind.Fatigued)
+            {
+                // Player on a Fatigued event is the seat that ran out of cards, so these index by
+                // the CONCEDING seat. The turn is read from the live state rather than the event
+                // because a TurnEvent carries no turn number and fatigue is resolved in the score
+                // step of the turn being counted.
+                var seat = turnEvent.Player.ToIndex();
+                fatigueTurns[seat]++;
+                firstFatigueTurn[seat] ??= state.TurnNumber;
             }
         }
 

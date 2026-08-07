@@ -227,6 +227,30 @@ var marginVerdict = metrics.FinalScoreMargin.Excludes()
 Console.WriteLine($"Score margin P1-P2 {metrics.FinalScoreMargin}  -> {marginVerdict}");
 Console.WriteLine($"Decisiveness |m|   {metrics.AbsoluteScoreMargin}");
 Console.WriteLine($"Game length        {metrics.GameLength} turns");
+
+// The distribution, not just the mean: one non-terminating game moves the mean and standard
+// deviation far more than the median, so a mean well above p50 is the signal that some games are
+// not ending rather than that all games got longer (PLAN.md step 5b).
+Console.WriteLine($"                   {metrics.GameLengthDistribution}");
+
+var fatigueOne = metrics.DeckExhaustionRateSeatOne;
+var fatigueTwo = metrics.DeckExhaustionRateSeatTwo;
+if (fatigueOne.Successes > 0 || fatigueTwo.Successes > 0)
+{
+    Console.WriteLine();
+    Console.WriteLine("-- Fatigue (empty deck at turn start scores for the opponent) -------------");
+    Console.WriteLine(
+        $"Decked out         P1 {fatigueOne}   first at turn {metrics.FirstFatigueTurnSeatOne}");
+    Console.WriteLine(
+        $"                   P2 {fatigueTwo}   first at turn {metrics.FirstFatigueTurnSeatTwo}");
+    Console.WriteLine(
+        $"Score conceded     P1 {metrics.FatigueScoreConcededSeatOne}  "
+        + $"P2 {metrics.FatigueScoreConcededSeatTwo}");
+
+    // The watch item: fatigue is meant to be a backstop that rarely decides anything. A large
+    // share here means the timer has become the win condition.
+    Console.WriteLine($"Decided by fatigue {metrics.GamesDecidedByFatigue}");
+}
 Console.WriteLine(
     $"Move usage         {metrics.MoveUsageCount} of {result.AllGames.Sum(g => g.ActionCount)} "
     + $"actions ({metrics.MoveUsageRate:P1})");

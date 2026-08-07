@@ -11,6 +11,7 @@
   "pointsPerUnopposedCreature": 1,
   "scoreByCreatureDelta": false,
   "scoreToWin": 10,
+  "fatigueScorePerTurn": 1,
 
   "mergeEnabled": true,
   "mergeRequiresAdjacent": true,

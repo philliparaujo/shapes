@@ -306,6 +306,44 @@ public sealed class MetricsReport
 
     public required MeanEstimate GameLength { get; init; }
 
+    // The same lengths as a distribution rather than a centre. Read the median and p95 first: a
+    // mean well above the median means a long right tail, which for game length means some games
+    // are not ending rather than all games being longer. See Distribution.
+    //
+    // NOT `required`, unlike every field above it, and neither are the fatigue fields below --
+    // deliberately. `--compare` reads two saved --metrics-json files, and the whole point of that
+    // command is diffing a run against an OLDER baseline; every report written before step 5b
+    // lacks these properties, and a `required` member makes System.Text.Json reject the file
+    // outright rather than defaulting it. A missing distribution is a real, expected state ("this
+    // run predates the metric"), not malformed input, so it defaults and the compare report
+    // renders those rows as absent. The alternative -- rewriting every archived balance/ report --
+    // would destroy the provenance those files exist to preserve.
+    public Distribution GameLengthDistribution { get; init; }
+
+    // FATIGUE (PLAN.md step 5b), per seat. DeckExhaustionRate is the share of games where that
+    // seat ever started a turn with an empty deck; FirstFatigueTurn is when it first happened,
+    // over only the games where it happened at all (so it reads as "when it fires, it fires
+    // around turn N," not diluted by games that never reached it).
+    public Interval DeckExhaustionRateSeatOne { get; init; }
+
+    public Interval DeckExhaustionRateSeatTwo { get; init; }
+
+    public MeanEstimate FirstFatigueTurnSeatOne { get; init; }
+
+    public MeanEstimate FirstFatigueTurnSeatTwo { get; init; }
+
+    // Total fatigue score conceded by each seat across the batch -- the raw magnitude behind the
+    // rates above.
+    public int FatigueScoreConcededSeatOne { get; init; }
+
+    public int FatigueScoreConcededSeatTwo { get; init; }
+
+    // Games where the winner's final margin was no larger than the fatigue score they were handed
+    // -- i.e. games the timer decided rather than play. The rule is meant to be a backstop that
+    // rarely matters; a large share here means it has become the win condition, which is the
+    // specific way this change could go wrong.
+    public Interval GamesDecidedByFatigue { get; init; }
+
     public required IReadOnlyList<CardStat> CardStats { get; init; }
 
     public required IReadOnlyList<MoveStat> MoveStats { get; init; }
@@ -460,6 +498,26 @@ public sealed class MetricsReport
             CombinedHealthByTurnOne = ComputeSeriesByTurn(games, g => g.CombinedHealthByTurnOne),
             CombinedHealthByTurnTwo = ComputeSeriesByTurn(games, g => g.CombinedHealthByTurnTwo),
             GameLength = MeanEstimate.From(games.Select(g => (double)g.TurnCount)),
+            GameLengthDistribution = Distribution.From(games.Select(g => (double)g.TurnCount)),
+            DeckExhaustionRateSeatOne =
+                Interval.Wilson(games.Count(g => g.FatigueTurnsOne > 0), games.Count),
+            DeckExhaustionRateSeatTwo =
+                Interval.Wilson(games.Count(g => g.FatigueTurnsTwo > 0), games.Count),
+
+            // Conditioned on it happening: a game that never exhausted contributes no sample
+            // rather than a zero, so this reads "when a seat decks out, it decks out around turn
+            // N." Averaging in the games that never got there would pull it toward zero and make
+            // an early-fatigue format look identical to one where fatigue is rare.
+            FirstFatigueTurnSeatOne = MeanEstimate.From(
+                games.Where(g => g.FirstFatigueTurnOne is not null)
+                     .Select(g => (double)g.FirstFatigueTurnOne!.Value)),
+            FirstFatigueTurnSeatTwo = MeanEstimate.From(
+                games.Where(g => g.FirstFatigueTurnTwo is not null)
+                     .Select(g => (double)g.FirstFatigueTurnTwo!.Value)),
+            FatigueScoreConcededSeatOne = games.Sum(g => g.FatigueScoreGainedTwo),
+            FatigueScoreConcededSeatTwo = games.Sum(g => g.FatigueScoreGainedOne),
+            GamesDecidedByFatigue =
+                Interval.Wilson(games.Count(DecidedByFatigue), games.Count),
             CardStats = cardStats,
             MoveStats = moveStats,
             MoveUsageCount = moveUsageCount,
@@ -582,6 +640,26 @@ public sealed class MetricsReport
     // plateau that no game actually played, and bias the tail toward whatever decided the
     // shortest games. Shared by ScoreMarginByTurn and HandSizeByTurn* -- same transpose, applied
     // to whichever per-game series the caller selects.
+    // Whether the winner's margin was no larger than the fatigue score they were handed -- i.e.
+    // remove the fatigue points and the game was tied or lost. That is the honest reading of
+    // "decided by the timer": not merely that fatigue fired, but that it was load-bearing.
+    //
+    // A drawn/non-terminating game has no winner and cannot have been decided by anything, so it
+    // is excluded rather than counted either way.
+    private static bool DecidedByFatigue(GameResult game)
+    {
+        if (game.Winner is not { } winner)
+        {
+            return false;
+        }
+
+        var winnerIsOne = winner == PlayerId.One;
+        var margin = winnerIsOne ? game.ScoreOne - game.ScoreTwo : game.ScoreTwo - game.ScoreOne;
+        var fatigueGained = winnerIsOne ? game.FatigueScoreGainedOne : game.FatigueScoreGainedTwo;
+
+        return fatigueGained > 0 && margin <= fatigueGained;
+    }
+
     private static IReadOnlyList<MeanEstimate> ComputeSeriesByTurn(
         IReadOnlyList<GameResult> games, Func<GameResult, IReadOnlyList<int>> series) =>
         ComputeSeriesByTurn(games, g => series(g), v => v);

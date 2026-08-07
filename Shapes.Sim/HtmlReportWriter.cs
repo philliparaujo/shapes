@@ -115,6 +115,13 @@ public static class HtmlReportWriter
   .res-none { opacity: 0.5; }
   td.take.hi { color: #2f9e5e; font-weight: 700; }
   td.take.lo { color: #d14343; font-weight: 700; }
+  /* The field-average row lives in <thead> so it stays put while the body sorts, and is styled
+     as a summary rather than as data -- it is a reference line, not a card. */
+  tr.avg-row td {
+    background: color-mix(in srgb, CanvasText 7%, transparent);
+    font-weight: 600; font-size: 12px; opacity: 0.85;
+    border-bottom: 2px solid color-mix(in srgb, CanvasText 25%, transparent);
+  }
   .resource-table td, .resource-table th { padding: 4px 12px; }
   .resource-table th:first-child, .resource-table td:first-child { padding-left: 0; }
   svg.margin-chart { display: block; }
@@ -139,6 +146,13 @@ public static class HtmlReportWriter
 <div class="panel">
   <h2 style="margin-top:0">Batch summary</h2>
   <div class="grid" id="summary-grid"></div>
+  <p class="hint" style="margin:14px 0 4px">
+    <strong>Game length distribution.</strong> The mean alone cannot tell "every game got longer"
+    apart from "one game never ended" — a single non-terminating game moves the mean and the
+    standard deviation far more than the median. Read the p50/p95 marks: a long right tail past
+    p95 means games are failing to resolve, which is a rules problem rather than a pacing one.
+  </p>
+  <div id="length-histogram"></div>
 </div>
 
 <div class="panel">
@@ -392,7 +406,8 @@ function renderSummary() {
     statTile('Seat 2 win rate', pct(m.seatTwoWinRate.rate) + ` [${pct(m.seatTwoWinRate.low)}, ${pct(m.seatTwoWinRate.high)}]`),
     statTile('Score margin (P1-P2)', num(m.finalScoreMargin.mean) + ` [${num(m.finalScoreMargin.low)}, ${num(m.finalScoreMargin.high)}]`, marginFlag),
     statTile('Decisiveness |margin|', num(m.absoluteScoreMargin.mean)),
-    statTile('Game length', num(m.gameLength.mean) + ' turns'),
+    statTile('Game length', num(m.gameLength.mean) + ' turns'
+      + `<div class="hint" style="margin:2px 0 0">median ${num(m.gameLengthDistribution.p50, 0)} · p95 ${num(m.gameLengthDistribution.p95, 0)} · max ${num(m.gameLengthDistribution.max, 0)}</div>`),
     statTile('Move usage rate', pct(m.moveUsageRate)),
     statTile('Merges/game', num(m.mergesPerGame)),
     statTile('Merge take rate', pct(m.mergeTakeRate.rate)),
@@ -402,7 +417,60 @@ function renderSummary() {
     statTile('Cards drawn/game (winners)', num(m.cardsDrawnWinners.mean) + ` [${num(m.cardsDrawnWinners.low)}, ${num(m.cardsDrawnWinners.high)}]`),
     statTile('Cards drawn/game (losers)', num(m.cardsDrawnLosers.mean) + ` [${num(m.cardsDrawnLosers.low)}, ${num(m.cardsDrawnLosers.high)}]`),
   ];
+
+  // Fatigue tiles only appear when the rule actually fired -- a run with fatigue disabled (or one
+  // where no deck ever emptied) would otherwise show three permanent zeroes that read as a
+  // finding rather than as "not applicable".
+  if (m.deckExhaustionRateSeatOne.successes > 0 || m.deckExhaustionRateSeatTwo.successes > 0) {
+    tiles.push(
+      statTile('Decked out (P1 / P2)',
+        `${pct(m.deckExhaustionRateSeatOne.rate)} / ${pct(m.deckExhaustionRateSeatTwo.rate)}`
+        + `<div class="hint" style="margin:2px 0 0">first at turn ${num(m.firstFatigueTurnSeatOne.mean, 0)} / ${num(m.firstFatigueTurnSeatTwo.mean, 0)}</div>`),
+      statTile('Fatigue score conceded',
+        `P1 ${m.fatigueScoreConcededSeatOne} · P2 ${m.fatigueScoreConcededSeatTwo}`),
+      // Flagged red past a quarter: fatigue is a backstop, and a large share here means the
+      // timer decides games rather than play doing so.
+      statTile('Games decided by fatigue', pct(m.gamesDecidedByFatigue.rate),
+        m.gamesDecidedByFatigue.rate > 0.25));
+  }
+
   grid.innerHTML = tiles.join('');
+  renderLengthHistogram();
+}
+
+// Game-length histogram. A mean and a standard deviation cannot show a bimodal or long-tailed
+// distribution, which is the shape a termination problem produces -- this makes a fat right tail
+// visible directly instead of inferred from a suspiciously large standard deviation.
+function renderLengthHistogram() {
+  const d = metrics.gameLengthDistribution;
+  const el = document.getElementById('length-histogram');
+  if (!el || !d || !d.histogram || d.histogram.length === 0) return;
+
+  const w = 620, h = 130, padL = 34, padB = 22, padT = 6;
+  const max = Math.max(...d.histogram, 1);
+  const bw = (w - padL - 6) / d.histogram.length;
+  const bars = d.histogram.map((count, i) => {
+    const bh = (h - padB - padT) * (count / max);
+    const x = padL + (i * bw);
+    const y = h - padB - bh;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(bw - 1, 1).toFixed(1)}" height="${bh.toFixed(1)}" fill="currentColor" opacity="0.55"><title>${(d.histogramMin + (i * d.bucketWidth)).toFixed(0)}-${(d.histogramMin + ((i + 1) * d.bucketWidth)).toFixed(0)} turns: ${count} games</title></rect>`;
+  }).join('');
+
+  // Percentile ticks, so the tail is readable as "p95 sits here" rather than as a bare shape.
+  const xOf = v => padL + ((v - d.histogramMin) / Math.max(d.bucketWidth * d.histogram.length, 1e-9)) * (w - padL - 6);
+  const marks = [['p50', d.p50], ['p95', d.p95]].map(([label, v]) => {
+    const x = Math.min(Math.max(xOf(v), padL), w - 6);
+    return `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${h - padB}" stroke="currentColor" stroke-dasharray="3 2" opacity="0.7"/>`
+      + `<text x="${x.toFixed(1)}" y="${padT + 9}" font-size="10" text-anchor="middle" opacity="0.8">${label}</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg class="margin-chart" viewBox="0 0 ${w} ${h}" width="100%" height="${h}">
+    <text x="0" y="${padT + 9}" font-size="10" opacity="0.7">${max}</text>
+    <line x1="${padL}" y1="${h - padB}" x2="${w - 6}" y2="${h - padB}" stroke="currentColor" opacity="0.3"/>
+    ${bars}${marks}
+    <text x="${padL}" y="${h - 2}" font-size="10" opacity="0.7">${num(d.min, 0)}</text>
+    <text x="${w - 6}" y="${h - 2}" font-size="10" text-anchor="end" opacity="0.7">${num(d.max, 0)} turns</text>
+  </svg>`;
 }
 
 function renderEconomy() {
@@ -811,16 +879,26 @@ function intervalBar(interval, refLine, deltaInterval) {
   return `<div class="bar-wrap"><div class="bar" style="left:${low}%; width:${width}%"></div>${extra}</div>`;
 }
 
+// The rows the card table is currently showing, after the min-n filter and the outliers-only
+// toggle but before sorting. Extracted so the field-average row averages exactly what is on
+// screen rather than re-deriving the filter and silently drifting out of step with it.
+function visibleCardRows() {
+  const fieldMedian = median(metrics.cardStats.filter(c => c.offerCount > 0).map(c => c.playTakeRate.rate));
+  const minN = parseInt(document.getElementById('card-min-n').value, 10) || 0;
+  let rows = metrics.cardStats.filter(c => c.offerCount >= minN);
+  if (cardOutliersOnly && !baseline) {
+    rows = rows.filter(c => c.offerCount > 0 && excludes(c.playTakeRate, fieldMedian));
+  }
+  return rows;
+}
+
 function cardRows() {
   const fieldMedian = median(metrics.cardStats.filter(c => c.offerCount > 0).map(c => c.playTakeRate.rate));
   const minN = parseInt(document.getElementById('card-min-n').value, 10) || 0;
   const baselineById = baseline ? Object.fromEntries(baseline.cardStats.map(c => [c.cardId, c])) : null;
   const composite = computeCompositeScores(metrics.cardStats, minN);
 
-  let rows = metrics.cardStats.filter(c => c.offerCount >= minN);
-  if (cardOutliersOnly && !baseline) {
-    rows = rows.filter(c => c.offerCount > 0 && excludes(c.playTakeRate, fieldMedian));
-  }
+  let rows = visibleCardRows();
 
   rows = [...rows].sort((a, b) => {
     const get = (c) => cardSort.key === 'composite'
@@ -905,8 +983,51 @@ function cardHeader() {
   }).join('') + '</tr>';
 }
 
+// Field averages for the numeric columns, rendered as a pinned row under the header.
+//
+// The reason it lives here rather than in the reader's head: every rate in these tables is only
+// meaningful RELATIVE to the field (a 38% take rate is high or low depending on what the other 35
+// cards did), and the composite power score is already z-scored against exactly this mean. Having
+// the baseline on screen turns "is this card an outlier" from a memory exercise into a comparison.
+//
+// Unweighted mean over the SAME rows the table is currently showing -- so it respects the min-n
+// filter and the outliers-only toggle, and re-computes when either changes. Each card counts once
+// regardless of how many games it appeared in: this is "the average card," not "the average
+// play," which is the question a per-card table is asking.
+function averageRow(rows, columns) {
+  const mean = (get) => {
+    const vals = rows.map(get).filter(v => typeof v === 'number' && !Number.isNaN(v));
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  const cells = columns.map(col => {
+    if (!col) return '<td></td>';
+    const v = mean(col.get);
+    return `<td>${v === null ? '—' : col.fmt(v)}</td>`;
+  });
+  return `<tr class="avg-row"><td>field average</td>${cells.join('')}</tr>`;
+}
+
 function renderCardTable() {
-  document.querySelector('#card-table thead').innerHTML = cardHeader();
+  const rows = visibleCardRows();
+  const composite = computeCompositeScores(
+    metrics.cardStats, parseInt(document.getElementById('card-min-n').value, 10) || 0);
+  const cols = [
+    null, null, null, null,                                             // type, cost, health, effect
+    { get: c => composite[c.cardId], fmt: v => (v >= 0 ? '+' : '') + num(v, 2) },
+    { get: c => c.playTakeRate.rate, fmt: pct },
+    null,                                                               // interval bar
+    ...(baseline ? [null] : []),                                        // delta
+    { get: c => c.offerCount, fmt: v => num(v, 0) },
+    { get: c => c.playCount, fmt: v => num(v, 0) },
+    { get: c => c.playTakeRatePerTurn.rate, fmt: pct },
+    { get: c => c.offeredInTurns, fmt: v => num(v, 0) },
+    { get: c => c.winRateWhenPlayed.rate, fmt: pct },
+    { get: c => c.winRateWhenDrawn.rate, fmt: pct },
+    { get: c => c.costPressure.rate, fmt: pct },
+    { get: c => c.survivalSteps.count > 0 ? c.survivalSteps.mean : null, fmt: v => num(v, 1) },
+    { get: c => c.survivalSteps.count > 0 ? c.scoredWhileAliveRate.rate : null, fmt: pct },
+  ];
+  document.querySelector('#card-table thead').innerHTML = cardHeader() + averageRow(rows, cols);
   document.querySelector('#card-table tbody').innerHTML = cardRows();
   document.querySelectorAll('#card-table th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
@@ -933,9 +1054,15 @@ function moveRows() {
     const takeClass = m.offerCount === 0 ? '' : excludes(m.useTakeRate, fieldMedian)
       ? (m.useTakeRate.rate > fieldMedian ? 'hi' : 'lo')
       : '';
+    // The move's OWN cost sits beside its creature's play cost deliberately: the design
+    // expectation is that a more expensive creature earns better moves, and that trend is only
+    // readable with both numbers on the same row. A cheap creature whose moves out-take an
+    // expensive one's is the shape worth catching.
+    const parent = cardInfo[m.cardId];
     return `<tr class="${thin ? 'thin-n' : ''}">
       <td>${m.moveName}</td>
       <td>${m.cardId}</td>
+      <td>${parent ? costText(parent.cost) : '—'}</td>
       <td>${info ? resChip(info.attackType) : '—'}</td>
       <td>${info ? costText(info.cost) : '—'}</td>
       <td class="effect-text">${info ? info.effectText : ''}</td>
@@ -954,8 +1081,9 @@ function moveHeader() {
   const cols = [
     ['moveName', 'Move'],
     ['cardId', 'Card'],
+    [null, 'Creature cost'],
     [null, 'Type'],
-    [null, 'Cost'],
+    [null, 'Move cost'],
     [null, 'Effect'],
     ['useTakeRate.rate', 'Take rate'],
     [null, 'Interval'],
@@ -973,7 +1101,20 @@ function moveHeader() {
 }
 
 function renderMoveTable() {
-  document.querySelector('#move-table thead').innerHTML = moveHeader();
+  const minN = parseInt(document.getElementById('move-min-n').value, 10) || 0;
+  const rows = metrics.moveStats.filter(m => m.offerCount >= minN);
+  const cols = [
+    null, null, null, null,                                     // card, creature cost, type, move cost
+    null,                                                       // effect
+    { get: m => m.useTakeRate.rate, fmt: pct },
+    null,                                                       // interval bar
+    { get: m => m.offerCount, fmt: v => num(v, 0) },
+    { get: m => m.useCount, fmt: v => num(v, 0) },
+    { get: m => m.useTakeRatePerTurn.rate, fmt: pct },
+    { get: m => m.offeredInTurns, fmt: v => num(v, 0) },
+    { get: m => m.winRateWhenUsed.rate, fmt: pct },
+  ];
+  document.querySelector('#move-table thead').innerHTML = moveHeader() + averageRow(rows, cols);
   document.querySelector('#move-table tbody').innerHTML = moveRows();
   document.querySelectorAll('#move-table th[data-key]').forEach(th => {
     th.addEventListener('click', () => {

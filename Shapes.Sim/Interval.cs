@@ -150,3 +150,105 @@ public readonly record struct MeanEstimate
     public override string ToString() =>
         Count == 0 ? "n/a (0 samples)" : $"{Mean:F2} [{Low:F2}, {High:F2}] sd={StandardDeviation:F2} n={Count}";
 }
+
+// The shape of a sample, not just its centre: min/max, quartiles, and the 5th/95th percentiles.
+//
+// Exists because a mean and a standard deviation cannot show a long tail, and a long tail is
+// exactly what a termination problem produces (PLAN.md step 5b). One 501-turn game in a 400-game
+// batch moved the reported mean game length from 21.3 to 26.7 and the standard deviation from 9.0
+// to 30.2 -- the mean looked like "games got longer," when the median had barely moved and a
+// single game had failed to end. A median plus a p95 separates those two readings immediately;
+// nothing derived from the mean can.
+//
+// Percentiles use the nearest-rank method (no interpolation): P50 of an even-length sample is the
+// upper of the two middle values rather than their average. That keeps every reported value an
+// actual observed game length, which is what makes "p95 = 62" directly checkable against the raw
+// results, and avoids inventing a 26.5-turn game that was never played.
+public readonly record struct Distribution
+{
+    public required double Min { get; init; }
+
+    public required double P5 { get; init; }
+
+    public required double P25 { get; init; }
+
+    public required double P50 { get; init; }
+
+    public required double P75 { get; init; }
+
+    public required double P95 { get; init; }
+
+    public required double Max { get; init; }
+
+    public required int Count { get; init; }
+
+    // Bucket counts for a histogram, paired with the bucket width so a renderer can label the
+    // axis without re-deriving it. Aggregated here rather than in the HTML writer so the CSV and
+    // JSON exports carry the same distribution the page draws.
+    public required IReadOnlyList<int> Histogram { get; init; }
+
+    public required double BucketWidth { get; init; }
+
+    public required double HistogramMin { get; init; }
+
+    public static Distribution From(IEnumerable<double> values, int buckets = 20)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        ArgumentOutOfRangeException.ThrowIfLessThan(buckets, 1);
+
+        var sorted = values.ToList();
+        sorted.Sort();
+
+        if (sorted.Count == 0)
+        {
+            return new Distribution
+            {
+                Min = 0, P5 = 0, P25 = 0, P50 = 0, P75 = 0, P95 = 0, Max = 0, Count = 0,
+                Histogram = [], BucketWidth = 0, HistogramMin = 0,
+            };
+        }
+
+        var min = sorted[0];
+        var max = sorted[^1];
+
+        // A degenerate range (every game the same length) would make the bucket width zero and
+        // every sample land in bucket 0 -- correct, but only if the width is not used as a
+        // divisor. Widening to 1 keeps the arithmetic well-defined and the single bar honest.
+        var range = max - min;
+        var width = range <= 0 ? 1.0 : range / buckets;
+        var counts = new int[buckets];
+        foreach (var value in sorted)
+        {
+            var index = range <= 0 ? 0 : (int)((value - min) / width);
+
+            // The maximum lands exactly on the upper edge, which would index one past the end.
+            counts[Math.Min(index, buckets - 1)]++;
+        }
+
+        return new Distribution
+        {
+            Min = min,
+            P5 = Percentile(sorted, 0.05),
+            P25 = Percentile(sorted, 0.25),
+            P50 = Percentile(sorted, 0.50),
+            P75 = Percentile(sorted, 0.75),
+            P95 = Percentile(sorted, 0.95),
+            Max = max,
+            Count = sorted.Count,
+            Histogram = counts,
+            BucketWidth = width,
+            HistogramMin = min,
+        };
+    }
+
+    private static double Percentile(IReadOnlyList<double> sorted, double fraction)
+    {
+        var rank = (int)Math.Ceiling(fraction * sorted.Count) - 1;
+        return sorted[Math.Clamp(rank, 0, sorted.Count - 1)];
+    }
+
+    public override string ToString() =>
+        Count == 0
+            ? "n/a (0 samples)"
+            : $"min={Min:F0} p5={P5:F0} p25={P25:F0} p50={P50:F0} p75={P75:F0} p95={P95:F0} max={Max:F0} n={Count}";
+}

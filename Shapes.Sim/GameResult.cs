@@ -118,6 +118,28 @@ public sealed class GameResult
 
     public required ResourcePool FinalResourcesTwo { get; init; }
 
+    // FATIGUE (PLAN.md step 5b). Per seat: how many times this seat started a turn with an empty
+    // deck and handed its opponent score, and the turn number the first one happened on (null if
+    // it never did). Two numbers rather than one because "did this seat ever deck out" and "how
+    // long did the game run after it started" are different questions: a rule firing once in a
+    // long game is a tiebreak working as intended, one firing from turn 20 routinely is a timer
+    // deciding games.
+    public required int FatigueTurnsOne { get; init; }
+
+    public required int FatigueTurnsTwo { get; init; }
+
+    public required int? FirstFatigueTurnOne { get; init; }
+
+    public required int? FirstFatigueTurnTwo { get; init; }
+
+    // Score handed to each seat BY the opponent's fatigue -- what this seat gained, not conceded.
+    // Lets MetricsReport ask whether a win was decided by the timer rather than by play: a winner
+    // whose final margin is no larger than the fatigue points they were given did not out-play
+    // their opponent, they outlasted them.
+    public required int FatigueScoreGainedOne { get; init; }
+
+    public required int FatigueScoreGainedTwo { get; init; }
+
     // OPPORTUNITY DENOMINATORS (PLAN.md step 4.3's "rank outliers" needs these, not raw counts).
     //
     // How many distinct decision points offered this card as a legal play, per seat -- counted

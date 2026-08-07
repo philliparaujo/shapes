@@ -51,6 +51,13 @@ public class HtmlReportWriterTests
             Assert.Contains("id=\"resource-metrics-table\"", text, StringComparison.Ordinal);
             Assert.Contains("id=\"resource-extremes\"", text, StringComparison.Ordinal);
 
+            // Field-average rows sit in <thead> so they survive a body sort, and the moves table
+            // carries the parent creature's cost beside each move's own.
+            Assert.Contains("function averageRow", text, StringComparison.Ordinal);
+            Assert.Contains("field average", text, StringComparison.Ordinal);
+            Assert.Contains("Creature cost", text, StringComparison.Ordinal);
+            Assert.Contains("Move cost", text, StringComparison.Ordinal);
+
             // No external references -- no CDN script/link, no server needed to view it.
             Assert.DoesNotContain("http://", text, StringComparison.Ordinal);
             Assert.DoesNotContain("https://", text, StringComparison.Ordinal);

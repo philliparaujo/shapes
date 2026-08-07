@@ -61,7 +61,11 @@ public class MetricsReportTests
         IReadOnlyList<CreatureLifetime>? creatureSurvivalOne = null,
         IReadOnlyList<CreatureLifetime>? creatureSurvivalTwo = null,
         IReadOnlyDictionary<string, int>? cardsBlockedByCostOne = null,
-        IReadOnlyDictionary<string, int>? cardsBlockedByCostTwo = null) =>
+        IReadOnlyDictionary<string, int>? cardsBlockedByCostTwo = null,
+        int fatigueTurnsOne = 0,
+        int fatigueTurnsTwo = 0,
+        int? firstFatigueTurnOne = null,
+        int? firstFatigueTurnTwo = null) =>
         new()
         {
             AgentOne = "random",
@@ -90,6 +94,15 @@ public class MetricsReportTests
             MergeCountTwo = mergeCountTwo,
             FinalResourcesOne = finalOne ?? ResourcePool.Empty,
             FinalResourcesTwo = finalTwo ?? ResourcePool.Empty,
+            FatigueTurnsOne = fatigueTurnsOne,
+            FatigueTurnsTwo = fatigueTurnsTwo,
+            FirstFatigueTurnOne = firstFatigueTurnOne,
+            FirstFatigueTurnTwo = firstFatigueTurnTwo,
+
+            // Gained by one = conceded by two, matching GameRunner's own derivation at the default
+            // FatigueScorePerTurn of 1.
+            FatigueScoreGainedOne = fatigueTurnsTwo,
+            FatigueScoreGainedTwo = fatigueTurnsOne,
             CardOffersOne = cardOffersOne ?? new Dictionary<string, int>(),
             CardOffersTwo = cardOffersTwo ?? new Dictionary<string, int>(),
             MoveOffersOne = moveOffersOne ?? new Dictionary<string, int>(),

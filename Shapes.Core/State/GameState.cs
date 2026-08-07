@@ -31,6 +31,14 @@ public enum TurnEventKind
     // per-card "drawn this game" signal -- e.g. draw win-rate correlation -- without re-deriving
     // it from hand/deck diffs.
     CardDrawn = 3,
+
+    // A player started their turn with an empty deck, handing their opponent fatigue score
+    // (RuleSet.FatigueScorePerTurn). Player is the FATIGUED seat -- the one who ran out of cards
+    // -- not the one who scored, so "how often did this seat deck out" reads directly off the log.
+    // Logged rather than counted on a field because the event list already survives Clone() and is
+    // already harvested per turn by the batch runner; a new mutable counter would have to be
+    // threaded through the search's clone path for a number only the runner reads.
+    Fatigued = 4,
 }
 
 // One notable thing that happened this turn: a creature entering or leaving the board. Exists
@@ -249,9 +257,29 @@ public sealed class GameState
         return income;
     }
 
+    // True when the active player's empty deck is about to hand their opponent fatigue score.
+    // Pure, so a caller can preview it the same way PendingScore/PendingIncome allow.
+    public bool IsFatigued(PlayerId player) =>
+        Rules.FatigueScorePerTurn > 0 && this[player].DeckIsEmpty;
+
     public void ApplyScoring()
     {
         Active.AddScore(PendingScore(ActivePlayer));
+
+        // Fatigue resolves in the score step because that is the step it awards score in, and it
+        // is checked BEFORE the draw that would have emptied the deck this turn -- "you started
+        // your turn with no deck," not "you failed to draw." The opponent scores, not the active
+        // player, so running out of cards is a cost rather than a reward.
+        //
+        // This is the game's only score source that does not require winning a slot, which is the
+        // whole point: a board where neither side can kill anything stops scoring forever
+        // otherwise (see RuleSet.FatigueScorePerTurn).
+        if (IsFatigued(ActivePlayer))
+        {
+            this[ActivePlayer.Opponent()].AddScore(Rules.FatigueScorePerTurn);
+            RecordTurnEvent(TurnEventKind.Fatigued, ActivePlayer, default, string.Empty);
+        }
+
         Phase = TurnPhase.Income;
     }
 

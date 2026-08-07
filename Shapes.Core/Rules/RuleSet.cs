@@ -60,6 +60,22 @@ public sealed class RuleSet
     public bool ScoreByCreatureDelta { get; }
     public int ScoreToWin { get; }
 
+    // Fatigue: at the start of a player's turn, if their deck is empty, their OPPONENT gains this
+    // much score. 0 disables it entirely, which is what every pre-step-5b balance run used, so
+    // those runs stay reproducible against this ruleset.
+    //
+    // Score rather than damage, deliberately. Scoring here is gated on holding an unopposed
+    // creature, so it requires killing something -- which means any board where defence meets
+    // offence stops scoring permanently and the game cannot end (PLAN.md step 5b: 7 of 26
+    // creatures stalemate their own mirror, and one sweep game ran 501 turns frozen at 9-9).
+    // Fatigue-as-damage would resolve the BOARD, but the failure mode is a board that cannot be
+    // resolved at all; awarding score bypasses it entirely, so no defensive card can answer it.
+    //
+    // This also guarantees no draws: the two decks empty on different turns (and if on the same
+    // turn, the score already accrued breaks the tie), so once fatigue starts the score strictly
+    // diverges and ScoreToWin is always reached.
+    public int FatigueScorePerTurn { get; }
+
     // Merging
     public bool MergeEnabled { get; }
     public bool MergeRequiresAdjacent { get; }
@@ -94,7 +110,8 @@ public sealed class RuleSet
         int deckSize,
         int maxCopiesPerCard,
         TypeChart typeChart,
-        bool scoreByCreatureDelta = false)
+        bool scoreByCreatureDelta = false,
+        int fatigueScorePerTurn = 1)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -105,6 +122,9 @@ public sealed class RuleSet
         ArgumentOutOfRangeException.ThrowIfNegative(cardsDrawnPerTurn);
         ArgumentOutOfRangeException.ThrowIfNegative(incomePerCreatureType);
         ArgumentOutOfRangeException.ThrowIfNegative(pointsPerUnopposedCreature);
+
+        // Negative would hand score to the player who ran out of cards.
+        ArgumentOutOfRangeException.ThrowIfNegative(fatigueScorePerTurn);
 
         // A hand limit below the starting hand size would force a discard before the first
         // turn is played -- almost certainly a typo rather than an intent.
@@ -150,6 +170,7 @@ public sealed class RuleSet
         MaxCopiesPerCard = maxCopiesPerCard;
         TypeChart = typeChart;
         ScoreByCreatureDelta = scoreByCreatureDelta;
+        FatigueScorePerTurn = fatigueScorePerTurn;
     }
 
     // The shipping rules, matching Shapes.Content/rulesets/default.json. Tests and tools use
@@ -172,7 +193,8 @@ public sealed class RuleSet
         deckSize: 0,
         maxCopiesPerCard: 0,
         typeChart: TypeChart.Default,
-        scoreByCreatureDelta: false);
+        scoreByCreatureDelta: false,
+        fatigueScorePerTurn: 1);
 
     public override string ToString() => Name;
 }

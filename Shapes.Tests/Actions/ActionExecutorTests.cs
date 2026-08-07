@@ -488,7 +488,12 @@ public class ActionExecutorTests
 
         Apply(state, new EndTurnAction(PlayerId.One));
 
-        Assert.Empty(state.TurnEvents);
+        // The log is cleared on handover, but EndTurn then runs score->income->draw for the
+        // INCOMING seat, and those steps legitimately log their own events (a draw, or a Fatigued
+        // event once step 5b's empty-deck rule fires). So the assertion is that nothing belonging
+        // to the seat that just ended its turn survived -- not that the log is bare, which would
+        // pin an accident of which fixture happens to generate no incoming-turn events.
+        Assert.DoesNotContain(state.TurnEvents, e => e.Player == PlayerId.One);
     }
 
     [Fact]
