@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 6 / 17     |
+| 5 — Godot client                         | 7 / 17     |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -694,15 +694,163 @@ lands.
     eating drag dispatch (round 1), `CustomMinimumSize`/`ScrollContainer` sizing being a floor
     rather than a cap (rounds 2–3), and a fixed percentage split between two panels whose content
     height isn't actually fixed.
-- [ ] **B1a2. Hover detail view — the debt B1a's compacting left behind.** B1a's round 3 removed
+- [x] **B1a2. Hover detail view — the debt B1a's compacting left behind.** B1a's round 3 removed
   full move text from hand cards (name+cost only) and `CardDetailPanel` entirely, promising "shown
   on hover" as the replacement each time (see B1a's own notes) without ever scheduling it — this
   closes that loop rather than leaving it a dangling comment. Desktop-only by nature (mobile has no
-  hover), so it's additive over B1a's tap/drag model, not a replacement for it: hovering a hand
-  card or board slot shows a panel with the same full `CardText`/`EffectText` rendering
-  `CardDetailPanel` used to do, and dismisses on mouse-out. Also the natural home for B1b's status
-  detail (a hovered creature can show *why* a badge is showing — which effect granted the taunt,
-  how many turns left) once B1b lands, rather than needing a second hover mechanism later.
+  hover, and Godot never dispatches `MouseEntered`/`MouseExited` without a mouse), so it's additive
+  over B1a's tap/drag model, not a replacement for it: hovering a hand card or board slot shows
+  `HoverDetailPanel` (new scene/script) with the same full name/cost/stats/spell-effects/move-text
+  rendering `CardDetailPanel` used to, minus the Play button (`mouse_filter = Ignore` throughout so
+  the tooltip itself is never a click target — a hoverable tooltip that could be clicked would blur
+  "inspecting" vs. "acting"), and dismisses on mouse-out. `CardFace` and `SlotView` raise
+  `HoverStarted`/`HoverEnded`, forwarded through `PlayerPanel`; `BoardView` owns the panel and
+  wires those events directly rather than bubbling through `GameRoot`, since hover never submits a
+  `GameAction` and there's nothing for `GameRoot` to decide. **Two different payload shapes, kept
+  separate rather than forced together:** a `CardFace`'s hand card is exactly one
+  `CardDefinition`'s `CardText`; a `SlotView`'s board creature shows the *merged* move list
+  (`MovesOf` across every card folded in via `MergedFrom`), which isn't any single card's
+  `CardText` — `HoverDetailPanel.Show` takes plain fields so each caller hands over what it
+  actually has, with a `CardText`-shaped overload as a convenience for `CardFace`'s exact case.
+  Also clamps itself inside the viewport a frame after showing (`CallDeferred`, since the panel's
+  real laid-out size isn't known until layout settles), so a slot in the last column/row doesn't
+  render its tooltip off-screen. Also the natural home for B1b's status detail (a hovered creature
+  can show *why* a badge is showing — which effect granted the taunt, how many turns left) once
+  B1b lands, rather than needing a second hover mechanism later.
+  - **First real playtest (2/5 items passed clean): drag-drop, hover-shows, hover-dismiss, and
+    board slot readability all confirmed working.** Two real gaps found: (1) the merged board-slot
+    hover was accurate but redundant, since board moves are already always-visible (`MoveButtonFactory`,
+    step B1a) — the useful case for this step turned out to be hand cards, where full text isn't
+    otherwise visible; (2) the tooltip rendered off the bottom of the screen for hand cards, since
+    they sit near the bottom row and the panel only ever grew downward from the hovered control's
+    top edge.
+  - **Fix: upward expansion + horizontal reflow + matching font size, plus the layout regrouping
+    the user asked for alongside it.** `HoverDetailPanel.Show` gained `hoveredSize`/`expandUpward`
+    parameters — hand cards always expand upward (anchor the panel's *bottom* to the card's top,
+    not top-to-top) since every hand card lives in the bottom row; board slots keep the original
+    downward anchor since they aren't pinned to an edge. Positioning also now centers horizontally
+    over the hovered control (`hoveredSize.X`) rather than left-aligning, and the font size dropped
+    to match `MoveButtonFactory`'s 11pt so a full tooltip actually fits. **Sibling reflow, not
+    resizing the hovered card itself:** the first instinct (grow the hovered `CardFace`'s own
+    `CustomMinimumSize` on hover) was rejected before shipping — resizing the control the cursor is
+    over moves its edges out from under a cursor that hasn't moved, risking a
+    `MouseExited`/`MouseEntered` flicker loop. Fixed instead with zero-width spacer `Control`s
+    between every hand card (and before the first/after the last), each pair straddling a card and
+    widened only on that card's hover — `PlayerPanel.RenderHand` tracks a running "spacer before
+    this card" local across the loop so adjacent cards share the spacer between them.
+  - **Status bar consolidated and rebalanced, per explicit request alongside the hover fix rather
+    than a separate pass.** Score/resources moved out of each `PlayerPanel` (which no longer owns
+    or renders them) into one `StatusBar` row at the very top of `BoardView`, alongside the turn
+    label, cancel-targeting button, and end-turn button — previously scattered across two
+    per-panel `Info` rows plus a separate middle `TurnBar`. `OpponentPanel`/`SelfPanel` now split
+    remaining vertical space 35/65 (`size_flags_stretch_ratio`) rather than an even 50/50, since
+    only the self panel needs room for a full hand row. `SlotView`'s fixed height also tightened
+    (260→230, tighter internal separation) freeing top/bottom margin for the new split.
+  - **Scene-file note:** `HoverDetailPanel.tscn` was resaved by the Godot editor between rounds,
+    which reassigned its `uid://` and stripped the hand-authored child nodes down to the bare root
+    — rebuilt with the editor's new UID kept (not reverted) and the full `Panel`/`Layout`/label
+    tree restored, since the UID is now the authoritative one Godot itself assigned.
+  - **Second playtest of the round-2 fixes found three more real bugs, none of them guesswork —
+    each traced to a specific cause:**
+    1. **Opponent's `"N card(s)"` label floated in a large empty gap below their slots**, because
+       `Hand` (inside `HandScroll`) had `size_flags_vertical = 3` and the opponent panel — now
+       getting 35% of a maximized window while showing only 3 short slots and one label — had far
+       more space than that content needed, so the expand-fill stretched `Hand` (and vertically
+       centered its lone child) across all the leftover room. Fixed by removing `Hand`'s vertical
+       expand flag (sizes to natural content height) and adding an explicit `Spacer` `Control`
+       between `Slots` and `HandScroll` in `PlayerPanel.tscn` to absorb the leftover space instead
+       — `HandScroll` now sits at a fixed height pinned toward the bottom of the panel's share.
+    2. **Hand-card tooltips still expanded downward for creatures specifically, not spells** — not
+       a code-path difference (both go through the same `Show(CardText, ...)` overload) but a
+       *size* one: the fix that reduces move-list-label font size to 11pt had only been applied to
+       `EffectsLabel` (spells) and missed the dynamically-created move labels (creatures only, since
+       spells have no `MoveList` entries) in `HoverDetailPanel.Show`. A creature's taller
+       still-oversized panel pushed `globalPosition.Y - size.Y` negative, which the viewport clamp
+       then snapped to `Y = 0` (top of screen) — visually indistinguishable from "expanding
+       downward from the top" even though the anchor logic itself was correct. Fixed by applying
+       `MoveListFontSize` (11pt, matching `MoveButtonFactory`) to the move-list labels too; once the
+       panel is short enough the upward math stays positive and the clamp never engages.
+    3. **Sibling reflow was "very buggy"** — a real race, not a one-off: two adjacent cards share
+       the spacer between them, so a fast mouse move from card N to card N+1 could fire N+1's
+       `HoverStarted` (widening the shared spacer) before N's `HoverEnded` fires and narrows that
+       same spacer back to zero — leaving it collapsed while N+1 was still actively hovered. Fixed
+       with an owner-token per spacer (`_spacerOwner`, keyed by an incrementing per-`CardFace`
+       token, not the card id, since a hand can hold duplicate cards): a narrow-back only applies
+       if the card ending its hover is still the one that most recently widened that spacer.
+  - **Third playtest of the round-3 fixes found the font-size fix hadn't actually closed the
+    sizing gap, plus the opponent's dead space was still visible.** Root cause of the sizing
+    miss: `HoverDetailPanel.Show` measured `_panel.Size` via `CallDeferred` on the theory that
+    Godot's container-sort pass would have committed by then, but `AddChild`-ing the move-list
+    labels the same call also schedules its own deferred layout work, and there was no guarantee
+    those two deferred calls ran in the order needed — the read could still land on a stale size,
+    producing tooltips with text overflowing the bottom edge or a width that never grew to fit a
+    wrapped line. **Fixed by dropping `CallDeferred` entirely**: `Show` now calls
+    `_panel.GetCombinedMinimumSize()` (computes the required size synchronously from current
+    children, not from whatever Godot's own schedule last committed) and `ResetSize()` to force
+    the container to adopt it immediately, then does the position math against that value in the
+    same call. **Opponent dead space:** the 35/65 split was still a fixed ratio regardless of the
+    opponent panel's actual (small) content — tightened further to 20/80, a deliberate choice to
+    keep a predictable fixed split rather than switch to content-based natural sizing, which would
+    have made the self panel's height jump around whenever the opponent's board briefly grew tall
+    (e.g. mid-turn move buttons).
+  - **Sibling-shift-on-hover dropped entirely, not fixed a third time.** The owner-token fix
+    (previous round) closed the stuck-collapsed race, but a structural issue remained underneath
+    it: widening a spacer moves the *next* card's position, and if that shift lands the now-moved
+    card under a still-stationary cursor, it can itself fire a fresh `HoverStarted` and cascade —
+    the same class of self-interference `CardFace`'s own note already ruled out resizing the
+    hovered card itself for, just relocated to a neighbor instead of eliminated. Removed rather
+    than chased further: the sizing/positioning fix above already removes most of the visual
+    overlap that motivated shifting neighbors in the first place, and a mouse-transparent,
+    correctly-sized tooltip needs no layout cooperation from its neighbors to read cleanly.
+  - **Fourth playtest: the round-4 sizing fix worked (board-slot tooltips called "decent"), the
+    opponent-gap fix didn't (spacer still sat *before* the label instead of after it), and the
+    anchored-tooltip model itself was reconsidered.** Two closing changes, one a bug fix and one
+    a design change made deliberately rather than chased as a bug:
+    - **Opponent gap, actually fixed this time:** the fixed `Spacer` scene node always sat between
+      `Slots` and `HandScroll` regardless of content, so even after tightening the panel ratio the
+      opponent's collapsed `"N card(s)"` line still rendered *after* an always-expanding gap
+      instead of right under their slots. `PlayerPanel` now holds a reference to `Spacer` and sets
+      its `SizeFlagsVertical` per-render: `ExpandFill` (push the hand row down) only when
+      `isActiveHand`, `Fill` (collapse to nothing) for the opponent's count-label case — the
+      previous fix changed the ratio the gap could grow *within* without ever addressing that the
+      gap existed unconditionally in the wrong place.
+    - **Anchored-to-hover replaced with a fixed screen position, per explicit direction, not a
+      bug fix.** Every prior round's tooltip bugs (round 2's downward-only growth, round 3's
+      upward-math-vs-clamp interaction, round 4's stale-size overflow) were symptoms of the same
+      root choice: a tooltip that repositions itself based on what's hovered has to get that
+      repositioning right against every screen edge, hovered-control shape, and content-size
+      combination, and each fix successfully closed one case while the next playtest found
+      another. Replaced entirely with one fixed box in the bottom-left corner of the screen
+      (`HoverDetailPanel.tscn`'s root anchored `anchors_preset = 2`, offsets pinning a 252×260
+      box 12px from the left/bottom edges) that never moves regardless of whether the hovered
+      element is a hand card, one of your board creatures, or one of the opponent's — `SlotView`/
+      `CardFace` now only say *what* to show (`HoverDetailPanel.Show` dropped `hoveredSize`/
+      `expandUpward`/all position math entirely), never *where*. `PlayerPanel.RenderHand` adds a
+      left-padding spacer (`HoverPanelClearanceWidth`, 280px) before the first hand card so it
+      doesn't render underneath the now-permanent corner box; the box is `mouse_filter = Ignore`
+      throughout regardless, so it was never able to block a click or drag, only visually sit in
+      front of a card.
+  - **Fifth playtest: the fixed-position tooltip and clearance padding both confirmed working;
+    two real gaps left.** (1) The hand-count relocation request had actually meant the status
+    bar, not just closer spacing within `PlayerPanel` — moved for real this time: `BoardView`'s
+    `StatusBar`/`OpponentInfo` gained `OpponentHandCountLabel` next to the opponent's
+    score/resources, set from `state[waiting].Hand.Count` in `BoardView.Render`;
+    `PlayerPanel.RenderHand`'s `!isActiveHand` branch now renders nothing at all (the count
+    lived nowhere else in `PlayerPanel` once this moved, so the whole branch collapsed to an
+    early return). (2) **Hovering an opponent's board creature showed no moves** — traced to
+    `RenderSlots` only ever computing a move list `if (slot.Owner == state.ActivePlayer)`, a
+    check that was correct for board *buttons* (opponent moves aren't actionable, showing
+    buttons for them would be noise) but got applied to the *hover* data too, which shares the
+    same source list. The two are different questions — "can this be clicked" vs. "what can
+    this creature do" — and hover only ever needs the second one, regardless of ownership. Fixed
+    by decoupling: `SlotView.Render` gained an optional `hoverMoves` parameter (defaults to the
+    button list when omitted, the active-player case where the two happen to be the same data);
+    `PlayerPanel.RenderSlots` now always computes the creature's full move list for hover and
+    only additionally builds the owner-gated button list on top of it.
+  - **Not editor-verified beyond the five playtests above** — this sixth round has not itself
+    been played yet. Same standing limitation as every Godot-side step this phase (no editor/CLI
+    available here); verified by `dotnet build` (clean) and the full 951-test suite (`Shapes.Core`
+    untouched), not by hovering/playing again.
 - [ ] **B1b. Status/keyword display on the board slot, at a glance, no tap required.** A compact
   icon row under health: shield=taunt, mirror=reflect, arrow=ricochet (oriented by
   `RicochetDirection`), lightning=stun, each distinguishing persistent vs. `_tauntExpiresNextTurn`

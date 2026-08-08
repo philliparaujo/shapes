@@ -6,34 +6,25 @@
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_override_constants/separation = 2
 script = ExtResource("1_playerpanel")
-
-[node name="Info" type="HBoxContainer" parent="."]
-layout_mode = 2
-
-[node name="ScoreLabel" type="Label" parent="Info"]
-layout_mode = 2
-text = "Score 0"
-
-[node name="ResourceLabel" type="Label" parent="Info"]
-layout_mode = 2
-size_flags_horizontal = 3
-horizontal_alignment = 2
-text = "△0 ▢0 ◯0"
 
 [node name="Slots" type="HBoxContainer" parent="."]
 layout_mode = 2
 size_flags_horizontal = 3
 alignment = 1
 
+[node name="Spacer" type="Control" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
 [node name="HandScroll" type="ScrollContainer" parent="."]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
 horizontal_scroll_mode = 2
 vertical_scroll_mode = 0
 
 [node name="Hand" type="HBoxContainer" parent="HandScroll"]
 layout_mode = 2
-size_flags_vertical = 3
+theme_override_constants/separation = 8

@@ -41,6 +41,12 @@ public partial class SlotView : Button
     public event Action<string>? HandCardDropped;
     public event Action<SlotIndex>? CreatureDropped;
 
+    // PLAN.md B1a2: a board creature's hover payload is its full MERGED move list (MovesOf
+    // across every card folded into it), which isn't any single CardDefinition's CardText -- see
+    // HoverDetailPanel's header for why that rules out reusing CardFace's CardText-shaped event.
+    public event Action<string, IReadOnlyList<MoveText>>? HoverStarted;
+    public event Action? HoverEnded;
+
     [Export] public NodePath NameLabelPath { get; set; } = "Layout/NameLabel";
     [Export] public NodePath HealthLabelPath { get; set; } = "Layout/HealthLabel";
     [Export] public NodePath TypeLabelPath { get; set; } = "Layout/TypeLabel";
@@ -53,6 +59,8 @@ public partial class SlotView : Button
 
     private SlotIndex _slot;
     private bool _hasFriendlyDraggableCreature;
+    private string? _hoverStatLine;
+    private IReadOnlyList<MoveText>? _hoverMoves;
 
     public override void _Ready()
     {
@@ -62,11 +70,20 @@ public partial class SlotView : Button
         _moveList = GetNode<VBoxContainer>(MoveListPath);
         ToggleMode = false;
         Pressed += () => Tapped?.Invoke();
+        MouseEntered += () =>
+        {
+            if (_hoverStatLine is { } line && _hoverMoves is { } moves)
+            {
+                HoverStarted?.Invoke(line, moves);
+            }
+        };
+        MouseExited += () => HoverEnded?.Invoke();
     }
 
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,
-        IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves)
+        IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves,
+        IReadOnlyList<MoveText>? hoverMoves = null)
     {
         _slot = slot;
         _hasFriendlyDraggableCreature = creature is not null && isDraggable;
@@ -83,14 +100,26 @@ public partial class SlotView : Button
             _typeLabel!.Text = string.Empty;
             Disabled = false; // empty slots stay tappable for merge/placement targeting
             TooltipText = string.Empty;
+            _hoverStatLine = null;
+            _hoverMoves = null;
             return;
         }
 
         var name = cards.TryGet(creature.CardId, out var card) ? card!.Name : creature.CardId;
-        _nameLabel!.Text = creature.IsMerged ? $"{name}+" : name;
+        var displayName = creature.IsMerged ? $"{name}+" : name;
+        _nameLabel!.Text = displayName;
         _healthLabel!.Text = $"{creature.Health}/{creature.MaxHealth}";
         _typeLabel!.Text = ResourceIcons.Describe(creature.Types);
         Disabled = false;
+
+        // Hover always shows the creature's full move list regardless of whose turn it is or
+        // who owns it -- board buttons (below) stay restricted to the active player's own
+        // creatures (moves aren't actionable otherwise and would just be board noise), but
+        // reading what an opponent's creature CAN do is exactly what hover is for. Falls back to
+        // `moves` itself when the caller didn't supply a separate hover list (the active
+        // player's own creature, where the two lists are the same thing anyway).
+        _hoverStatLine = $"{displayName}  {creature.Health}/{creature.MaxHealth} HP  {ResourceIcons.Describe(creature.Types)}";
+        _hoverMoves = hoverMoves ?? [.. moves.Select(m => m.Text)];
 
         foreach (var (index, text, isUsable) in moves)
         {

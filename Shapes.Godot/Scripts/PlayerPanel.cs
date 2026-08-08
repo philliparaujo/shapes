@@ -10,10 +10,11 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// One player's slice of the board: 3 slots, resource/score readout, and hand row. Used for
-// both the opponent (top, hidden hand) and self (bottom, visible hand, discard-eligible) --
-// which one it is is passed into Render each frame, not baked into the scene, so the same
-// scene works for either seat.
+// One player's slice of the board: 3 slots and a hand row. Used for both the opponent (top,
+// hidden hand) and self (bottom, visible hand, discard-eligible) -- which one it is is passed
+// into Render each frame, not baked into the scene, so the same scene works for either seat.
+// Score/resources moved out to BoardView's consolidated top status bar (grouping request) --
+// this panel no longer owns or displays them.
 public partial class PlayerPanel : Control
 {
     public event Action<SlotIndex>? SlotTapped;
@@ -27,14 +28,19 @@ public partial class PlayerPanel : Control
     public event Action<SlotIndex, SlotIndex>? CreatureDroppedOnSlot;
     public event Action<string>? SpellDroppedOnSelfArea;
 
-    [Export] public NodePath ScoreLabelPath { get; set; } = "Info/ScoreLabel";
-    [Export] public NodePath ResourceLabelPath { get; set; } = "Info/ResourceLabel";
+    // PLAN.md B1a2 hover events, forwarded from whichever child raised them. HoverDetailPanel is
+    // fixed in one screen corner (see its own header on why), so unlike every drag/drop event
+    // above these carry no position -- only what to show.
+    public event Action<CardText>? HandCardHoverStarted;
+    public event Action<string, IReadOnlyList<MoveText>>? SlotHoverStarted;
+    public event Action? HoverEnded;
+
     [Export] public NodePath SlotContainerPath { get; set; } = "Slots";
+    [Export] public NodePath SpacerPath { get; set; } = "Spacer";
     [Export] public NodePath HandContainerPath { get; set; } = "HandScroll/Hand";
 
-    private Label? _scoreLabel;
-    private Label? _resourceLabel;
     private HBoxContainer? _slotContainer;
+    private Control? _spacer;
     private HBoxContainer? _handContainer;
     private readonly Dictionary<SlotIndex, SlotView> _slotViews = new();
 
@@ -46,9 +52,8 @@ public partial class PlayerPanel : Control
 
     public override void _Ready()
     {
-        _scoreLabel = GetNode<Label>(ScoreLabelPath);
-        _resourceLabel = GetNode<Label>(ResourceLabelPath);
         _slotContainer = GetNode<HBoxContainer>(SlotContainerPath);
+        _spacer = GetNode<Control>(SpacerPath);
         _handContainer = GetNode<HBoxContainer>(HandContainerPath);
     }
 
@@ -56,14 +61,17 @@ public partial class PlayerPanel : Control
         GameState state, CardDatabase cards, PlayerId player, bool isActiveHand,
         IReadOnlyList<GameAction> legalActions)
     {
-        var playerState = state[player];
-        _scoreLabel!.Text = $"Score {playerState.Score}";
-        _resourceLabel!.Text = ResourceIcons.Describe(playerState.Resources);
-
         // A targetless spell can be dropped anywhere on the active player's own panel, not a
         // specific slot -- only offered on the self panel while it's that player's turn.
         _acceptsSpellDrop = isActiveHand && legalActions.OfType<PlayCardAction>()
             .Any(a => a.TargetSlot is null && a.ChosenTarget is null);
+
+        // The spacer between Slots and HandScroll only earns its keep when there's a real hand
+        // row to push toward the bottom of the panel's share -- the opponent's collapsed
+        // "N card(s)" line has nothing to gain from that and everything to lose, since an
+        // always-expanding spacer here just floats the label in the middle of a big empty gap
+        // instead of it sitting right under their slots.
+        _spacer!.SizeFlagsVertical = isActiveHand ? SizeFlags.ExpandFill : SizeFlags.Fill;
 
         RenderSlots(state, cards, player, legalActions);
         RenderHand(state, cards, player, isActiveHand, legalActions);
@@ -84,28 +92,39 @@ public partial class PlayerPanel : Control
             _slotContainer.AddChild(slotView);
             var creature = state.Board[slot];
 
-            // Every move on the creature renders, not just the currently-usable ones (PLAN.md
-            // B1a) -- only computed for the active player's own creatures, since the opponent's
-            // moves are never actionable and showing them would just be board noise.
+            // Board buttons: every move on the creature, not just the currently-usable ones
+            // (PLAN.md B1a) -- only populated for the active player's own creatures, since the
+            // opponent's moves are never actionable and showing buttons for them would just be
+            // board noise. Hover (PLAN.md B1a2) is a separate concern from board buttons: it
+            // always shows a creature's full move list regardless of owner, since reading what an
+            // opponent's creature CAN do is exactly what hover is for.
+            List<MoveText>? hoverMoves = null;
             var moves = new List<(int Index, MoveText Text, bool IsUsable)>();
-            if (creature is not null && slot.Owner == state.ActivePlayer)
+            if (creature is not null)
             {
                 var moveDefs = cards.MovesOf(creature.MergedFrom);
-                for (var i = 0; i < moveDefs.Count; i++)
+                hoverMoves = [.. moveDefs.Select(MoveText.Of)];
+
+                if (slot.Owner == state.ActivePlayer)
                 {
-                    var isUsable = legalActions.OfType<UseMoveAction>().Any(a => a.SourceSlot == slot && a.MoveIndex == i);
-                    moves.Add((i, MoveText.Of(moveDefs[i]), isUsable));
+                    for (var i = 0; i < moveDefs.Count; i++)
+                    {
+                        var isUsable = legalActions.OfType<UseMoveAction>().Any(a => a.SourceSlot == slot && a.MoveIndex == i);
+                        moves.Add((i, hoverMoves[i], isUsable));
+                    }
                 }
             }
 
             var isDraggable = creature is not null && legalActions.OfType<MergeAction>()
                 .Any(a => a.SourceSlot == slot);
 
-            slotView.Render(slot, creature, cards, isDraggable, moves);
+            slotView.Render(slot, creature, cards, isDraggable, moves, hoverMoves);
             slotView.Tapped += () => SlotTapped?.Invoke(slot);
             slotView.MoveChosen += index => MoveChosen?.Invoke(slot, index);
             slotView.HandCardDropped += cardId => CardDroppedOnSlot?.Invoke(cardId, slot);
             slotView.CreatureDropped += source => CreatureDroppedOnSlot?.Invoke(source, slot);
+            slotView.HoverStarted += (statLine, moveTexts) => SlotHoverStarted?.Invoke(statLine, moveTexts);
+            slotView.HoverEnded += () => HoverEnded?.Invoke();
             _slotViews[slot] = slotView;
         }
     }
@@ -121,19 +140,23 @@ public partial class PlayerPanel : Control
 
         var hand = state[player].Hand;
 
-        // Waiting seat's hand renders as a count, never contents -- PLAN.md's console
-        // precedent (step 2.5) carried over verbatim: hiding is done by suppressing what
-        // this view shows, not by handing it a narrowed ObservedState, so --reveal-style
-        // debugging stays possible later without restructuring this method.
+        // Waiting seat's hand renders as nothing here -- PLAN.md's console precedent (step 2.5)
+        // carried over: hiding is done by suppressing what this view shows, not by handing it a
+        // narrowed ObservedState, so --reveal-style debugging stays possible later without
+        // restructuring this method. The card count itself lives in BoardView's status bar now,
+        // next to the opponent's score/resources, not in the hand row.
         if (!isActiveHand)
         {
-            var countLabel = new Label { Text = $"{hand.Count} card(s)" };
-            _handContainer.AddChild(countLabel);
             return;
         }
 
         var playableIds = legalActions.OfType<PlayCardAction>().Select(a => a.CardId).ToHashSet();
         var discardableIds = legalActions.OfType<DiscardAction>().Select(a => a.CardId).ToHashSet();
+
+        // Left padding so the first card or two doesn't render underneath HoverDetailPanel's
+        // fixed bottom-left box (PLAN.md B1a2) -- the tooltip is mouse-transparent so it never
+        // blocks a click/drag, but it can still visually sit in front of a card there.
+        _handContainer.AddChild(new Control { CustomMinimumSize = new Vector2(HoverPanelClearanceWidth, 0) });
 
         foreach (var cardId in hand)
         {
@@ -158,6 +181,9 @@ public partial class PlayerPanel : Control
                     }
                 };
             }
+
+            face.HoverStarted += text => HandCardHoverStarted?.Invoke(text);
+            face.HoverEnded += () => HoverEnded?.Invoke();
         }
     }
 
@@ -181,6 +207,10 @@ public partial class PlayerPanel : Control
             SpellDroppedOnSelfArea?.Invoke(cardId);
         }
     }
+
+    // Matches (with a little breathing room past) HoverDetailPanel's fixed bottom-left box width
+    // -- see RenderHand's own note on why the hand row needs to clear it.
+    private const float HoverPanelClearanceWidth = 280f;
 
     private static readonly PackedScene SlotViewScene = GD.Load<PackedScene>("res://Scenes/SlotView.tscn");
     private static readonly PackedScene CardFaceScene = GD.Load<PackedScene>("res://Scenes/CardFace.tscn");

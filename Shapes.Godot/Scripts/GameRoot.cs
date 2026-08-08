@@ -19,8 +19,9 @@ namespace Shapes.Godot.Scripts;
 // GameActions and never mutates state" boundary, extended down to the scene tree.
 //
 // PLAN.md B1a: playing a card is drag-only now -- there is no tap-to-play fallback and no
-// card-detail inspect panel. A per-card hand detail view (e.g. shown on hover) is planned as
-// its own later piece rather than kept as a tap-triggered panel in the meantime.
+// card-detail inspect panel. Full card/move detail is available on hover instead (PLAN.md
+// B1a2, HoverDetailPanel) -- BoardView owns showing/hiding it directly since hover never
+// submits a GameAction, so GameRoot never sees those events at all.
 public partial class GameRoot : Control
 {
     [Export] public NodePath BoardViewPath { get; set; } = "BoardView";

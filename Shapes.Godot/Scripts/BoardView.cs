@@ -21,7 +21,9 @@ namespace Shapes.Godot.Scripts;
 // events below); using a move is a tap on that move's always-visible button on the board
 // (MoveChosen), not a drag -- a drag alone can't disambiguate a creature with 2+ legal moves.
 // SlotTapped survives only for A5's chosen-target resolution now; there is no tap-to-play
-// fallback and no card-detail inspect panel (CardDetailPanel was removed with this step).
+// fallback (CardDetailPanel was removed with this step). PLAN.md B1a2 replaced it with
+// HoverDetailPanel (fixed in one screen corner -- see its own header), owned directly here
+// rather than bubbled up to GameRoot since hover never submits a GameAction -- see _Ready below.
 public partial class BoardView : Control
 {
     public event Action<SlotIndex>? SlotTapped;
@@ -34,17 +36,29 @@ public partial class BoardView : Control
 
     [Export] public NodePath OpponentPanelPath { get; set; } = "Layout/OpponentPanel";
     [Export] public NodePath SelfPanelPath { get; set; } = "Layout/SelfPanel";
-    [Export] public NodePath TurnLabelPath { get; set; } = "Layout/TurnBar/TurnLabel";
-    [Export] public NodePath EndTurnButtonPath { get; set; } = "Layout/TurnBar/EndTurnButton";
-    [Export] public NodePath CancelTargetingButtonPath { get; set; } = "Layout/TurnBar/CancelTargetingButton";
+    [Export] public NodePath OpponentScoreLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentScoreLabel";
+    [Export] public NodePath OpponentResourceLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentResourceLabel";
+    [Export] public NodePath OpponentHandCountLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentHandCountLabel";
+    [Export] public NodePath SelfScoreLabelPath { get; set; } = "Layout/StatusBar/SelfInfo/SelfScoreLabel";
+    [Export] public NodePath SelfResourceLabelPath { get; set; } = "Layout/StatusBar/SelfInfo/SelfResourceLabel";
+    [Export] public NodePath TurnLabelPath { get; set; } = "Layout/StatusBar/TurnLabel";
+    [Export] public NodePath EndTurnButtonPath { get; set; } = "Layout/StatusBar/EndTurnButton";
+    [Export] public NodePath CancelTargetingButtonPath { get; set; } = "Layout/StatusBar/CancelTargetingButton";
     [Export] public NodePath GameOverPanelPath { get; set; } = "GameOverPanel";
+    [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
 
     private PlayerPanel? _opponentPanel;
     private PlayerPanel? _selfPanel;
+    private Label? _opponentScoreLabel;
+    private Label? _opponentResourceLabel;
+    private Label? _opponentHandCountLabel;
+    private Label? _selfScoreLabel;
+    private Label? _selfResourceLabel;
     private Label? _turnLabel;
     private Button? _endTurnButton;
     private Button? _cancelTargetingButton;
     private GameOverPanel? _gameOverPanel;
+    private HoverDetailPanel? _hoverDetailPanel;
 
     private IReadOnlyList<GameAction>? _pendingTargetActions;
 
@@ -52,10 +66,16 @@ public partial class BoardView : Control
     {
         _opponentPanel = GetNode<PlayerPanel>(OpponentPanelPath);
         _selfPanel = GetNode<PlayerPanel>(SelfPanelPath);
+        _opponentScoreLabel = GetNode<Label>(OpponentScoreLabelPath);
+        _opponentResourceLabel = GetNode<Label>(OpponentResourceLabelPath);
+        _opponentHandCountLabel = GetNode<Label>(OpponentHandCountLabelPath);
+        _selfScoreLabel = GetNode<Label>(SelfScoreLabelPath);
+        _selfResourceLabel = GetNode<Label>(SelfResourceLabelPath);
         _turnLabel = GetNode<Label>(TurnLabelPath);
         _endTurnButton = GetNode<Button>(EndTurnButtonPath);
         _cancelTargetingButton = GetNode<Button>(CancelTargetingButtonPath);
         _gameOverPanel = GetNode<GameOverPanel>(GameOverPanelPath);
+        _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
 
         foreach (var panel in new[] { _opponentPanel!, _selfPanel! })
         {
@@ -64,6 +84,15 @@ public partial class BoardView : Control
             panel.CardDroppedOnSlot += (id, slot) => CardDroppedOnSlot?.Invoke(id, slot);
             panel.CreatureDroppedOnSlot += (source, target) => CreatureDroppedOnSlot?.Invoke(source, target);
             panel.SpellDroppedOnSelfArea += id => SpellDroppedOnSelfArea?.Invoke(id);
+
+            // PLAN.md B1a2: hover never submits a GameAction, so unlike every other gesture in
+            // this file it terminates here rather than bubbling up to GameRoot -- there is
+            // nothing for GameRoot to decide. HoverDetailPanel is fixed in one screen corner (see
+            // its own header), so every source just says what to show, never where.
+            panel.HandCardHoverStarted += text => _hoverDetailPanel!.Show(text);
+            panel.SlotHoverStarted += (statLine, moves) =>
+                _hoverDetailPanel!.Show(string.Empty, string.Empty, statLine, string.Empty, moves);
+            panel.HoverEnded += () => _hoverDetailPanel!.Hide();
         }
 
         _selfPanel.DiscardRequested += id => DiscardRequested?.Invoke(id);
@@ -80,6 +109,16 @@ public partial class BoardView : Control
 
         _opponentPanel!.Render(state, cards, waiting, isActiveHand: false, legalActions);
         _selfPanel!.Render(state, cards, active, isActiveHand: true, legalActions);
+
+        // Score/resources live in the consolidated status bar now (grouping request), not in
+        // each PlayerPanel -- read directly off GameState the same way PlayerPanel used to.
+        var waitingState = state[waiting];
+        var activeState = state[active];
+        _opponentScoreLabel!.Text = $"Opponent — Score {waitingState.Score}";
+        _opponentResourceLabel!.Text = ResourceIcons.Describe(waitingState.Resources);
+        _opponentHandCountLabel!.Text = $"{waitingState.Hand.Count} card(s)";
+        _selfScoreLabel!.Text = $"You — Score {activeState.Score}";
+        _selfResourceLabel!.Text = ResourceIcons.Describe(activeState.Resources);
 
         // RenderSlots rebuilds every SlotView from scratch, which would silently drop
         // targeting highlights applied by BeginTargeting -- reapply them here so a Render
