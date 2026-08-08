@@ -20,39 +20,9 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 5** — the Godot client. **Phase 4 is closed**: all four exit criteria met and
-re-confirmed at `v1.7-final` after step 9's card pass. **Card balance was settled** at step 6 and
-re-established at step 9 against the shipped rules (23 of 36 cards changed, take rate/turn 23–46%
-with no card outside it), **game length** at step 7 (`scoreToWin` 7 plus a global card-cost increase
-took the median from 19 turns to 14) and defended at step 9 after two passes drifted the p95 out to
-55, **first-player advantage** at step 8 — a seat-2 compensation of 1/1/1 resources plus one card
-took the score margin from +0.79 [+0.39, +1.18] to **−0.32 [−0.68, +0.04]** at the same 400-game
-sample. Step 9 also settled two properties that were never exit criteria and had never previously
-been met: resource-type power parity (0.06 z spread) and unspent-resource parity (0.25 spread).
-**The one thing Phase 4 did not fully close** is that seat-2 edge at large samples — the 4000-game
-rerun reads −0.28 [−0.40, −0.16], excluding zero, where the 400-game criterion straddles it. That
-is a ruleset knob (step 8's compensation is slightly over-generous now that games are ~2 turns
-shorter), and Phase 5's custom decks will move it again, so it is re-checked there rather than
-re-tuned here.
-
-Step 5b (done) added fatigue after the card sweep surfaced a
-non-terminating game and traced it to the scoring rule rather than to any card: with score gated on
-killing
-something, any board where defense meets offense stops scoring forever, and 7 of 26 creatures
-stalemate their own mirror. Card-level fixes would have meant banning self-heal and permanent
-health buffs outright, so the fix was structural. Steps 2b/2c gave the metrics
-the denominators, intervals, and diagnostic splits a sweep needs to rank on; 2d made that output
-readable and diffable; 2e checked the detectors against a known-wrong answer and found take rate
-alone is not reliable for economy/tempo-neutral cards — cost pressure is. Step 3 (done) carried
-that forward into the rules-level sweep — economy, hand size/draw, and scoring-threshold variants,
-logged in `balance/LOG.md`. Step 4 (done) closed the console-side tooling gap it surfaced — bare
-`Move #N`, no move/spell effect text, merged creatures showing only their primary card's name.
-Step 5 (done) closed the metrics-side gap: a per-turn take rate (`CardStat.PlayTakeRatePerTurn`/
-`MoveStat.UseTakeRatePerTurn`) alongside the existing per-decision rates, and cost/health/resource
-type/effect text joined onto every card and move row in the HTML explorer, the CSV exports, and
-the console's card/move listings, plus conditional coloring on take-rate outliers in the HTML
-report. Agents are frozen at Phase 3's final tuned configuration (step 7's matrix); cards/rules
-vary from here instead.
+**Next up: Phase 5** — the Godot client. Content is settled at `v1.7-final` and the balance record
+lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only at
+large samples (see that phase's closing note).
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -329,7 +299,7 @@ No win rate is asserted anywhere in this phase — see the note below.
 > observation, not a result — a rate against a weak opponent partly measures the opponent, and
 > every number is relative to card balance, which Phase 4 will change.
 
-### Phase 3 — Agent measurement & optimization
+### Phase 3 — Agent measurement & optimization ✅ complete (9/9)
 
 **Goal:** make the AI strong and *prove* each change helped. Cards/rules **frozen** all phase —
 that's the whole reason this is a separate phase from Phase 4. Everything is gated on step 1: an
@@ -371,550 +341,102 @@ margin than `GreedyAgent` does (the *ordering* is what proves search adds value)
 completes in target wall-clock (~≤2s desktop); every optimization has a same-seed before/after;
 agent configuration is frozen and recorded.
 
-### Phase 4 — AI-driven balance
+### Phase 4 — AI-driven balance ✅ complete (14/14)
 
-**Agents frozen** this phase — the mirror image of Phase 3. Cards/rules were untouched since Phase
-1 step 10 through step 2e, so the metrics work below was built against stable content; steps 3, 5b,
-and 6 then varied rules and cards deliberately, each as a same-seed A/B against the run before it.
+**Agents frozen** this phase — the mirror image of Phase 3. Every step below is a same-seed A/B
+against the run before it; the full experiment record, every variant tried and why it was kept or
+rejected, lives in `balance/LOG.md`.
 
-- [x] **1. Metrics** — `MetricsReport.From` aggregates a whole `BatchResult` (never per-pairing,
-  same "don't pool seats" rule as `PairingSummary`): win rate by seat, avg game length, per-card
-  play-count/win-rate-when-played **and** win-rate-when-drawn, per-move use-count/win-rate,
-  merge frequency (both raw and normalized as merges-per-creature-played, so a bare count can't
-  hide whether merging is common or rare relative to opportunity), average unspent resources at
-  game end, and ending-type counts. Card draws are tracked via a new `TurnEventKind.CardDrawn`
-  logged at the one choke point every draw already goes through (`GameState.DrawWithBurn`); a
-  card counts as "drawn" from the opening hand onward, and multiple copies drawn in one game
-  count that game once toward the win-rate denominator (matches how play win-rate already
-  worked). Rates here were bare doubles; step 2b replaced them with interval-carrying types and
-  added the opportunity denominators this step's counts turned out to need. Moves are keyed by
-  `(CardId, MoveName)`, not by `UseMoveAction.MoveIndex` (only
-  meaningful relative to one creature's merge-concatenated move list) or bare `MoveDefinition.Name`
-  alone (two cards can share a move name; `GameRunner.ResolveMove` walks `MergedFrom` to find which
-  source card actually declared the move at that index, since a merged creature's move can belong
-  to either half of the merge). `GameRunner` caps a
-  game at 500 turns so a stalled game reports as `EndingType.NonTerminating` (a countable batch
-  outcome) instead of hanging the run — step 4.5's "non-terminating games" watch item, now
-  enforced rather than assumed. Score curves were tried and dropped here: a flattened per-turn
-  score series added size and noise to the JSON output without pulling its weight next to the
-  other metrics. Step 2b brought back the form that does pull its weight — a per-turn *margin*
-  (one int per turn, aggregated into means rather than stored per game), which is what the
-  income-compounding question actually needs. `Shapes.Sim`'s console output, `--json`, and
-  `--metrics-json` all surface the report.
-- [x] **2. Answered the two flagged design questions directly as behaviour measurements** (24
-  self-play games each, 200 iterations, both `ismcts` and `ismcts-heuristic` since the heuristic
-  playout is stronger and closer to optimal play): **merge is declined, not auto-taken** —
-  `ismcts` merged in 33.2% of opportunities (declined 66.8%), `ismcts-heuristic` in 38.8%
-  (declined 61.2%), with a declined merge in 95.8% of games for both. The tradeoff is real, not
-  priced as a free strictly-better action. **Unopposed-creature income compounding is real and
-  strong** — longest-unopposed-streak vs. final score margin: Pearson r = 0.729 (`ismcts`), 0.480
-  (`ismcts-heuristic`); a player who never sustained an unopposed creature 2+ turns running won 0
-  games in-sample at either configuration. Confirms both flagged concerns as genuine,
-  non-degenerate design issues for step 3/4 to address, not null results — though the sample is
-  smaller than Phase 3's 30-game convention and shows correlation, not causal isolation, so a
-  larger confirmatory run is worth doing before it drives a specific ruleset change.
-- [x] **2b. Made the metrics able to carry step 3** — a review of the step 1 report against what
-  a sweep actually needs found four gaps, all now closed. **(a) Confidence intervals on every
-  rate** (`Interval`, Wilson score — not the normal approximation, which reports a 0/4 card as
-  "0% ± 0", the most confident-looking and least justified number available; `MeanEstimate`, the
-  continuous counterpart, for margins and lengths). A rate without its sample size cannot be
-  ranked, which is step 3's entire job. **(b) Opportunity denominators** — `CardStat.PlayTakeRate`
-  and `MoveStat.UseTakeRate` divide plays/uses by the decision points where that play was *legal*,
-  counted from the same `ActionGenerator.Generate` list the agent chose from, deduped per
-  (decision, card) so targeting-flexible cards don't get inflated denominators. This is the
-  card-level analogue of `MergesPerCreaturePlayed` and is **the primary balance signal**, because
-  raw `PlayCount` conflates draw luck, affordability, and preference — only the third is about
-  the card. It also separates step 5's two watch items directly: near-zero take rate = dead card,
-  near-one = auto-include. `MergeTakeRate` makes step 2's bespoke merge measurement a standing
-  metric. **(c) Score margin** (`FinalScoreMargin`, `AbsoluteScoreMargin`, `ScoreMarginByTurn`)
-  plus per-turn resource sampling split winner/loser and by seat — game-end resource levels
-  averaged both seats together, mixing the winner (just spent everything to close) with the loser
-  (starved for turns) and reporting a midpoint describing neither. Margin matters because it is a
-  far lower-variance estimator than binary win rate: pinned by test, 100 games at a 56% seat win
-  rate give a win-rate interval of [46%, 65%] (cannot call it) and a margin interval of
-  [0.31, 1.29] (excludes zero) — same games, one metric resolves and the other doesn't.
-  **(d) `RunProvenance`** (ruleset name, card-set content hash, agent config, seed, timestamp) —
-  step 4's compare loop is undoable across a `balance/` directory of otherwise anonymous reports.
-  Bug found on the way: `MoveOffers*` keyed by the `(CardId, MoveName)` tuple threw at `--json`
-  write time (`System.Text.Json` refuses tuple object keys) — now `MoveKey`'s delimited string,
-  with a named regression test, since "just use the tuple, it's the same identity" is the natural
-  edit that reintroduces it.
-- [x] **2c. Closed the three remaining detect-but-not-diagnose gaps.** Step 2b made outliers
-  *visible*; these make three of them *actionable*. **(a) Unopposed-slot occupancy** —
-  `UnopposedSlotRate`, `UnopposedCreaturesPerStep`, `LongestUnopposedStreak`,
-  `GamesWithNoSustainedUnopposed`. Separates the two opposite fixes for a runaway score that the
-  score itself conflates: a *low* rate means unopposed slots are hard to get and each is worth a
-  lot (tune `PointsPerUnopposedCreature`), a *high* rate means they come easily and the points
-  follow (tune board size, removal, durability). Also makes step 2's streak finding a standing
-  metric instead of bespoke instrumentation. **(b) Creature survival** —
-  `CardStat.SurvivalSteps` (scoring steps held before dying) plus `ScoredWhileAliveRate`. Take
-  rate reports "played constantly and dies instantly" identically to "played constantly and
-  sticks"; these are opposite problems. `ScoredWhileAliveRate` then splits a blocker (holds a
-  contested lane) from a scorer (converts presence into points). Censored samples (alive at game
-  end) are dropped rather than counted short — counting them would drag the mean down for
-  precisely the creatures that survive best — so read it as a floor, not an estimate.
-  **(c) Affordability pressure** — `CostPressure`, batch-level and per-card. Makes the resource
-  numbers diagnosable: high unspent resources with *low* pressure means income exceeds what there
-  is to buy (an income-level problem), high unspent with *high* pressure means players hold the
-  wrong resource *types* (a type-chart/cost-distribution problem). Same two numbers today, and
-  they would have been indistinguishable before this.
-  **Deliberately not built: effect-magnitude tracking** (damage/healing per pip). Collecting it
-  is easy — `CombatResolver.DealDamage` is a single funnel — but the resulting number is not a
-  balance signal here: damage is instrumental to holding a slot rather than being the win
-  condition, overkill inflates it, type effectiveness doubles it for free, and damage/cards/
-  resources share no exchange rate without asserting a cost curve. Time-on-board is the honest
-  version of "did this creature do its job" in a game won by occupying slots.
-  **Bug caught by cross-check, not by inspection:** the first version observed the seat that
-  *ended* its turn rather than the one *receiving* it, reading the board before the opponent
-  could contest those slots — over-counting unopposed slot-turns ~40% while looking entirely
-  plausible in aggregate. Now pinned by the exact identity `score == slot-turns x
-  PointsPerUnopposedCreature`, which reconciles with zero slack on every game.
-- [x] **2d. Metrics explorer** (`--report PATH.html`) — a self-contained, dependency-free HTML
-  page written alongside `--metrics-json`, because the report has outgrown reading. One run is
-  ~3,700 lines of JSON and ~1,600 numbers for cards alone, and the console output is a fixed
-  slice chosen in advance; neither answers "which cards are outliers on take rate *and* have
-  intervals tight enough to act on." Sortable card and move tables (click a header to sort, click
-  again to reverse), a minimum-n filter that greys out rows too noisy to rank, and a batch-level
-  scoring/economy summary panel.
-  **The diff view is the point, not the sorting** — step 4 iterates edit → rerun → compare, and
-  comparison is exactly what static text cannot do. The page has no server to load a second run
-  through, so the diff view is client-side: a file picker loads a second `--metrics-json` file
-  entirely in-browser (`FileReader`, no upload) as the baseline, and every card row then shows a Δ
-  plus the baseline rate overlaid on the interval bar, colored when the two intervals don't
-  overlap ("moved beyond noise" vs. "moved"). Default view (no baseline loaded) is **cards whose
-  interval excludes the field median**, so the page opens on the handful worth arguing about
-  rather than on all 36 — `Interval.Excludes` already answers that question. Baseline files are
-  PascalCase (`ResultWriter`'s convention) while the inlined run is camelCase (for the page's own
-  JS); a small `camelizeKeys` normalizer on load means the diff view accepts either without the
-  script maintaining two spellings of every property.
-  Lives in `Shapes.Sim/HtmlReportWriter.cs` next to `ResultWriter` (a reporting concern, no engine
-  coupling — `Shapes.Core` stays pure). Data inlined as a JSON `<script>` block, no CDN, no build
-  step, no install; `JavaScriptEncoder.Default`'s escaping of `<`/`>`/`&` is what keeps a card id
-  or move name from ever producing a literal `</script>` and truncating the payload, pinned by a
-  regression test asserting the page has exactly two script tags. `--cards-csv PATH` /
-  `--moves-csv PATH` ship alongside it as the escape hatch for questions the page did not
-  anticipate — flat per-card/per-move rows including interval bounds, built directly on
-  `ResultWriter`'s existing CSV conventions. `--from-metrics-json PATH` skips playing games and
-  reads a previously written `--metrics-json` file back in, so `--report`/`--cards-csv`/
-  `--moves-csv` can be (re)derived from a saved run without replaying the batch that produced it.
-- [x] **2e. Calibration spells** — six deliberately mispriced spells (one over- and one
-  underpowered per resource), added as `Spike/Anvil/Wheel OP` (cost 1, gain 2 of that resource and
-  draw a card) and `Spike/Anvil/Wheel UP` (cost 3, deal 1 damage), text-differentiable by name
-  alone. Live in `Shapes.Content/cards-calibration/`, loaded only via `Shapes.Sim --calibration`,
-  never merged into `Shapes.Content/cards/` — so `BuildSymmetricDeck`'s 36-card baseline and
-  `CardSetHash` on real runs are untouched. **Mixed result, read through 2d's explorer at 40
-  games/pairing, `ismcts` + `ismcts-heuristic`:** cost pressure cleanly separated both groups from
-  the field and from each other (OP: 11-16% vs. field median 42%; UP: 55-70%, the highest in the
-  set) — that detector works as designed. **Take rate did not separate them** (OP/UP both landed
-  mid-pack, 14-19%, against a field median of ~21%) — a real instrument gap, not a calibration
-  failure to paper over. Two causes: (1) the UP spells' `damage` effect needs a `chosen_enemy`
-  target, so their take-rate denominator is legality-gated like `siphon`/`execute`, inflating their
-  rate relative to the always-legal OP spells; (2) IS-MCTS's `PlayoutDepth=200` playout horizon
-  undervalues a pure economy play with no immediate board impact, the exact blind spot PLAN.md
-  already flags ("a card whose payoff lands outside IS-MCTS's horizon reads as weak"). **Actionable
-  for step 3:** take rate alone cannot be trusted to rank economy/tempo-neutral cards; cost pressure
-  is the more reliable signal for that category, and any auto-include/dead-card call on a
-  card in that shape should cross-check both before acting.
-- [x] **3. Sweep rules changes** (economy, cards, scoring) and rank outliers. **Delta-based, not
-  rank-in-isolation:** under `deckMode: "symmetric"` both seats hold every card, so most cards are
-  played by both in most games — contributing one win and one loss and compressing win rate
-  mechanically toward 0.5 (the step 1 test run's cards sat 0.41–0.60 almost entirely because of
-  this, not because the set is balanced). Per-card win rate therefore cannot rank cards no matter
-  how many games are run. Rank on take rate, and establish causation by changing one thing and
-  diffing two reports. This is the start of the `balance/` experiment log: edit JSON, rerun,
-  compare, record what changed and why in `balance/LOG.md`. Covers the economy sweep (income
-  levels, `incomePerCreatureType`), hand-size/draw sweep, and the scoring-threshold sweep — see
-  `balance/LOG.md` for the full record of each variant tried and why it was kept or rejected.
-- [x] **4. Console upgrades** for reading agent-vs-agent games during a sweep. **`EffectText`**
-  (`Shapes.Core/Effects/EffectText.cs`) synthesizes a phrase from the op vocabulary — there is no
-  hand-authored description field on any card (deliberately: it would drift from the numbers a
-  balance edit changes) — covering all ~28 ops including nested `conditional`/`for_each` and the
-  scaled-damage/heal/resource family's scale basis. **`ActionText.Describe`**
-  (`Shapes.Console/ActionText.cs`, extracted from a `Program.cs` local function so it is directly
-  testable like `BoardView`) replaces the bare `Move #N` — `GameAction.Describe()` cannot resolve
-  a real move name itself since it has no `CardDatabase`/`GameState` access; `ActionText` walks
-  `CreatureInstance.MergedFrom` through `CardDatabase.MovesOf` to find the actual `MoveDefinition`
-  at that concatenated index, then appends its `EffectText`. `PlayCardAction`/`DiscardAction` get
-  the same real-name-plus-effects treatment. **`BoardView.DescribeSlot`** now joins every card in
-  `MergedFrom` (`"T Body + Basic Circle"`) instead of showing only `CreatureInstance.CardId`, the
-  primary card — the gap `CreatureInstance.ToString()`'s debug form had too (a bare
-  `(merged x2)` count, no names). **`--step`** pauses for Enter after every action, independent of
-  `--quiet` — chosen over a fixed-ms delay because a timer fights both a fast-to-skim turn and a
-  slow-to-read multi-effect spell in the same game; a manual step lets the reader set the pace
-  instead. 30 new tests (850 total): `EffectTextTests` (one per op shape, plus an unknown-op
-  fallback so a future op degrades to its raw name instead of crashing the console mid-game),
-  `ActionTextTests` (including a merged-creature move-index case pinning `MoveIndexOffset`
-  correctness through the display layer), `BoardViewMergeTests`, `ConsoleOptionsStepTests`.
-- [x] **5. Metrics upgrades.** A per-turn take rate alongside the existing per-decision
-  `PlayTakeRate`/`UseTakeRate` — the old rate counts a card/move as "offered" at every decision
-  point it stays legal within a turn, so a move that's reliably used once per turn but rarely used
-  *first* read as low-take-rate identically to a move nobody wants. `GameRunner` now tracks, per
-  seat, which turns each card/move was offered in and which turns it was played/used in
-  (`CardOffersByTurn*`/`CardPlaysByTurn*`/`MoveOffersByTurn*`/`MoveUsesByTurn*` on `GameResult`,
-  deduplicated once per turn via a per-seat `HashSet` reset on every `TurnNumber` change — the same
-  dedup idea `AccountSeat` already used one level up, at the game). `MetricsReport` aggregates
-  these into `CardStat.PlayTakeRatePerTurn`/`MoveStat.UseTakeRatePerTurn` (Wilson intervals,
-  matching every other rate in the report), separating "not urgent" (offered every turn, played
-  most turns, just rarely the first thing done) from "not wanted" (offered every turn, rarely
-  played at all) — the two read identically on the decision-level denominator alone.
-  **Card/move reference data** (cost, health, resource type, synthesized effect text via the
-  existing `EffectText.Describe`) is joined onto the report at write time by a new
-  `CardInfo`/`MoveInfo` lookup (`Shapes.Sim/CardInfo.cs`), built from `CardDatabase` and kept out
-  of `MetricsReport`/`CardStat`/`MoveStat` themselves — those stay pure aggregation over
-  `GameResult` with no `CardDatabase` dependency, matching every existing `MetricsReportTests`
-  fixture. Consumed by the HTML explorer (new Type/Cost/Health/Effect columns, inlined as two
-  additional `<script>` JSON blocks, `cards` param on `HtmlReportWriter.Write` optional so
-  `--from-metrics-json` still works without a loaded card set), the `--cards-csv`/`--moves-csv`
-  exports (same new columns), and the console's per-card/per-move listings (cost inline, move
-  effect text under each move line). **Formatting**: take-rate cells whose interval sits fully
-  above/below the field median are bolded and colored (green above, red below) in the HTML
-  explorer, and resource type renders as a colored chip (△/▢/◯) instead of a bare enum name.
-  **Composite power score**: an opinionated per-card rollup in the HTML explorer only (no new
-  `MetricsReport` fields) — a z-score average of take rate, take rate/turn, and win rate
-  played/drawn across the min-n-filtered field, plus (creatures only) a take-rate-weighted mean of
-  the creature's own moves' take rate and win rate, so a card that gets played but whose moves go
-  unused scores lower than its play stats alone suggest. Z-scored, not rank-averaged, so the
-  result preserves how far a card sits from the pack rather than just its order; spells and
-  creatures are only comparable within their own kind. Computed client-side
-  (`computeCompositeScores` in the template) precisely because it's a judgment call layered on top
-  of the real metrics, not a new fact about the games played — the page says so directly next to
-  the column. Ported verbatim into `compare.html` (`CompareReportWriter.cs`) as a `Δ power score`
-  column, computed independently per side against that side's own field (so a card's z-score can
-  move between runs even if its raw take rate barely did, if the rest of the field shifted around
-  it) and diffed like every other stat there. `compare.html` never loads a `CardDatabase` (the
-  `--compare` path reads two `--metrics-json` files and plays no games), so the creature/spell
-  split the move rollup needs is inferred from `moveStats` presence on each side instead of a
-  `cardInfo` lookup — true by construction (a spell has effects and no moves, a creature the
-  reverse) and needs nothing beyond data already in both files. No confidence interval on this
-  score, unlike the rate columns, so "moved" is a fixed `|Δ| ≥ 0.5` threshold (matching
-  `report.html`'s own hi/lo coloring cutoff for the same score) rather than a disjoint-intervals
-  test. **Hand size by turn**: `GameRunner` samples `Hand.Count` at the same per-turn
-  boundary `ScoreMarginByTurn`/`ResourcesByTurn*` already use (`HandSizeByTurnOne/Two` on
-  `GameResult`), `MetricsReport` transposes it into per-turn `MeanEstimate`s the same way
-  (`ComputeMarginByTurn` generalized into `ComputeSeriesByTurn`, shared by both), and the HTML
-  explorer renders it as a two-line chart (seat 1 vs. seat 2, deliberately not a single "P1 − P2"
-  series the way score margin is — both seats being starved or both being flush are opposite
-  findings a difference would erase). Reads alongside cost pressure: a thin hand with low cost
-  pressure is a draw problem, a thin hand with high cost pressure is a resource problem.
-  **Resources by turn, per type**: the per-turn counterpart of `ResourcesSeatOne/Two` (which
-  already existed but only as one mean-over-the-whole-game per resource type) — `MetricsReport`
-  now also exposes `ResourcesByTurnOne/Two` (`ResourceSeriesProfile`: one `MeanEstimate` series
-  per resource type), reusing the exact `ResourcesByTurn*` raw per-game samples `ResourceProfile`
-  already pools, just transposed by turn index instead of collapsed. `ComputeSeriesByTurn` widened
-  to a generic `<T>` form (a value-selector `Func<T, double>` alongside the series selector) so the
-  same transpose serves margin/hand-size's `int` series and the new `ResourcePool` series without
-  duplicating the turn-alignment logic three times over. Rendered as three small two-line charts
-  (Spike/Anvil/Wheel, seat 1 vs. seat 2) in the Economy panel, right below the existing resource
-  table — `twoSeatLineChart` factored out of the hand-size chart's renderer since both are "two
-  per-seat `MeanEstimate` series, no natural P1-minus-P2 framing" the same way. Reads against
-  cost pressure per type: a level climbing turn over turn with low cost pressure for that type
-  means income for it outpaces what there is to spend; climbing with high cost pressure means the
-  type itself (not the amount) is the bottleneck.
-  **Board presence by turn**: slot count and combined CURRENT (not max) creature health, per seat,
-  sampled at the same scoring-step boundary `UnopposedSlotTurns*` already reads the board at
-  (`SeatTracker.ObserveScoringStep` extended to fold this into the loop it already runs over that
-  seat's slots, rather than a second board pass). Exists because unopposed-slot occupancy alone
-  can't distinguish "present" from "actually threatening" -- three 1-health creatures occupying
-  every slot score identically to three full-health ones, and slot count holding steady while
-  combined health falls is a board being worn down, invisible to every other metric in the report.
-  `GameResult.SlotsOccupiedByTurn*`/`CombinedHealthByTurn*`, aggregated in `MetricsReport` via the
-  same `ComputeSeriesByTurn` used everywhere else in this family, rendered as two more
-  `twoSeatLineChart`s in a new "Board presence by turn" panel ahead of Economy.
-- [x] **5b. Fatigue — a structural tiebreak, so termination stops depending on removal.** The
-  step-6 sweep found a `NonTerminating` game (seed 6909709552674346015, 501 turns, score frozen at
-  9-9, last card played on turn 43) and reading it exposed a design coupling rather than a card
-  bug: **score requires an unopposed creature, unopposed requires a kill, so any board where
-  defense ≥ offense stops scoring permanently.** Nothing else in the game can end it. A sweep of
-  all 26 creatures in an isolated 1v1 self-mirror found five outright stalemates under optimal
-  play — `columns` (Brace +2 max health/turn vs. Slam 2 damage/turn, an exact tie, both a1),
-  `circle_priest` (Mend is `heal_to_full`, strictly unkillable), `basic_square` and `circle_cadet`
-  (both hold a "damage 1 + heal self 1" move that cancels in the mirror), `zealot` (Smite deals 1
-  and buffs itself +1) — plus two by mutual impotence (`guardian`'s mutual reflect makes attacking
-  strictly losing; `circle_bender` has *no* way to damage anything in a lane where its ricochet has
-  no friendly neighbor to redirect to). That is 7 of 26 before considering the 26x26 cross-pairings
-  or merged stacks, so this is a property of the scoring rule, not a handful of mispriced cards —
-  and patching it card-by-card would mean banning self-heal and permanent `buff_max_health` as
-  mechanics, which is a real cost to the design space for a problem that is not actually about
-  those cards. Deck exhaustion currently has **zero consequence**, which is the specific gap: in
-  the stalled game both players simply stopped playing cards on turn 43 and nothing changed for the
-  next 458 turns.
-  **The rule: at the start of a player's turn, if their deck is empty, their opponent gains 1
-  score.** Chosen over fatigue-as-damage (Hearthstone/MTG style) deliberately — damage resolves the
-  *board*, but this game's failure mode is a board that cannot be resolved at all, and a new damage
-  source would interact with all 26 creatures' health/heal/buff surface. Scoring bypasses the board
-  entirely, which is exactly the point: it is a path to victory that no defensive card can answer.
-  It also **guarantees no draws** — the two players exhaust their decks on different turns (or, if
-  simultaneously, the score gap that has already accrued breaks the tie), so score strictly
-  diverges once fatigue starts and `scoreToWin` is always reached. `EndingType.NonTerminating`
-  should become unreachable in practice; `GameRunner`'s 500-turn cap stays as a harness guard, and
-  a `NonTerminating` result after this lands is a bug report, not a balance finding.
-  Implementation sits on existing seams — `PlayerState.DeckIsEmpty` already exists, and
-  `GameState.AdvanceToActions()` already sequences score→income→draw, so fatigue belongs in the
-  score step it already owns. `RuleSet` gets the knob (`fatigueScorePerTurn`, default 1; 0 disables
-  it, so every pre-5b balance run stays reproducible).
-  **Metrics** — fatigue is only meaningful if it is measured, and it changes what draw effects are
-  worth: `t_dealer`, `circle_surfer`, and `shieldbearer` are currently three of the strongest cards
-  in the set and all of them accelerate deck exhaustion, so this may reprice them without any card
-  edit. Track, per seat: **deck-exhaustion rate** (share of games where that seat ever drew its
-  deck empty), **turn of first exhaustion** (a `MeanEstimate`, so "does this happen at turn 40 in a
-  long game or turn 20 routinely" is answerable), **total fatigue score conceded**, and **share of
-  games decided by fatigue** — a game where the winner's final margin is no larger than the fatigue
-  points they were handed was decided by the timer, not by play, and if that share is large the
-  rule is too aggressive. Read the first two against `CardsDrawnWinners`/`CardsDrawnLosers`, which
-  already exist.
-  **Game-length distribution, not just its mean.** The stalled game also exposed that
-  `GameLength.Mean` alone is actively misleading — one 501-turn outlier moved the reported mean from
-  21.3 to 26.7 and the standard deviation from 9.0 to 30.2, and it dragged every end-of-game
-  resource average with it (total unspent resources appeared to rise 132% when the per-turn levels
-  had not moved at all). A single mean cannot show a bimodal or long-tailed length distribution,
-  which is exactly the shape a termination problem produces. Add **percentiles** (p5/p25/p50/p75/
-  p95, plus min/max) to the length report and render a **histogram** in the HTML explorer, so a
-  fat right tail is visible directly rather than inferred from a suspiciously large standard
-  deviation. This is the metric that would have caught the stall on the run that introduced it.
-  **Sequencing:** land this as its own `v1.5-fatigue` run against the *current* card set and
-  compare to `v1.4-keywordfix`, not on top of the `v1.4-change1` card edits — those are still
-  unevaluated and mixing them would confound a rules change with 15 card changes.
-- [x] **6. Sweep card changes** in symmetric decks — the per-card pass step 3's rules sweep was
-  deliberately sequenced ahead of, since a rules change shifts every card's take rate and doing
-  card-level tuning first would mean redoing it. Five paired runs at 400 games each
-  (`v1.4-keywordfix` → `change1` → `change1fix` → `change2` → `change3`), every one a same-seed
-  A/B against its predecessor with the card-set hash recorded, logged card-by-card in
-  `balance/LOG.md`. Roughly 30 card edits across 20 of the 36 cards.
-  **Result: balanced by the exit criteria.** No dead cards and no auto-includes — take rate/turn
-  spans 27–53% with every card inside it, against a field where the *worst* card used to sit at
-  z = −1.84. The composite power score now spans −1.46 to +1.87 (sd 0.62), and the three resource
-  types land on top of each other (spike −0.06, anvil +0.07, wheel 0.00), so no type is
-  systematically ahead. Games terminate 400/400, and fatigue decides only 3.5–5.2% of them, so the
-  step-5b backstop is a backstop rather than the win condition. First-player advantage fell 58.3%
-  → 53.7–54.2% across the pass. **Two things the card pass did not reach**, both whole-format
-  properties that barely moved across all five runs: game length (median 19 turns, step 7) and the
-  first-player score margin (+0.94, still excluding zero, step 8).
-  **What actually worked, and what did not.** Cost changes moved cards; magnitude changes usually
-  did not. `def_stance` absorbed three straight buffs to its *effect* (+2 → +3 max health) with no
-  measurable movement, then jumped +0.85 z the moment its cost went a2 → a1 — its problem was
-  always the card-economy exchange rate, not the size of the effect. The same pattern held for
-  `rally` and `wave_crash`. Reworks beat tuning for cards whose problem was structural:
-  `circle_bender` gained +2.18 z (the single largest move of the pass) only after both its moves
-  were replaced outright, because its ricochet needed a friendly neighbor on a specific side and
-  it simply could not act in a lane that lacked one — no amount of health or damage tuning
-  addresses that. Nerfs, by contrast, were reliable and roughly linear: `execute`, `circle_surfer`,
-  `shieldbearer`, `t_dealer`, and `bubbles` all landed near zero from z > +1.0 on the first attempt.
-  **The methodological finding matters more than any single card.** Re-running `v1.4-change3`
-  under seed 3 instead of seed 2 — identical cards, identical rules, identical hash — moved the
-  mean card by 0.36 z and one card (`t_medic`) by 1.34, against a field spread of ~3.3 total. Only
-  **1 of 36** cards had disjoint take-rate intervals between the two seeds, and **0 of 36** on
-  win-when-drawn. So at 400 games the noise floor on a per-card z-score is roughly ±0.5, which is
-  large enough to have manufactured several "successes" earlier in the pass that were nothing of
-  the kind, and it is the reason the type-level and global claims above are quoted pooled over
-  both seeds rather than from either run alone. **Read any single-run per-card delta under ~0.6 z
-  as no evidence**; globals (seat win rate, length, endings) are far steadier and moved
-  consistently across all five runs. The honest ceiling here is that 400 games ranks *groups* of
-  cards, not individual ones — driving that down needs more games per configuration, not more
-  metrics.
-  Archetype sweeps (mono vs. mixed, aggro vs. control) wait for `deckMode: "custom"` (Phase 5) —
-  only meaningful after per-card balance has settled on the symmetric deck, which it now has.
-- [x] **7. Game length — a global sweep, not another card pass.** Games ran a median of **19
-  turns** (mean 21.0, p95 39) to reach a score of 10, and both seats drew ~35 cards getting there —
-  half of a 72-card deck, enough that the deck was a real constraint and step 5b's fatigue backstop
-  fired in 3.5% of games. Length did not move across the entire step-6 card sweep (21.8 → 21.0 over
-  five runs), which is the evidence it was never a card-level property: scoring gates a point on
-  holding an unopposed slot, unopposed requires killing something, and the unopposed-slot rate sat
-  at ~13.5% through every run, so length is set by how fast boards clear — a whole-set ratio.
-  **Seven variants, all same-seed (3) against `v1.4-change3rerun`, logged in `balance/LOG.md`.**
-  Three card-scalar levers (`lesshealth` −1/−2 health on 27 creatures; `moredamage` +1 damage;
-  `cheaper` −1 cost on 21 cards) each landed ~18 turns. `expensive` (+1 cost) went the wrong way at
-  22.5. Then three `scoreToWin` variants: `baselinemed` (7), `expensivemed` (cost +1 *and* 7), and
-  `expensivefast` (cost +1 and 5).
-  **Result: `expensivemed` — `scoreToWin` 7 plus the global cost increase.** 16.2 turns (median 14),
-  24.8 cards drawn, fatigue down to 1.0%. **The pairing is the finding.** Alone, each half was the
-  *worst* option on its own axis: `expensive` was the only variant slower than baseline, and
-  `baselinemed`'s bare threshold cut spiked seat 1 to 60.3% — shorter games make seat 1's opening
-  tempo a larger fraction of the whole, exactly what step 3's `v1.3-halfscore` found. Together they
-  cancel: expensive cards slow deployment while the lower threshold ends the game anyway, and
-  `expensivemed` posts the **best score margin in the entire sweep at +0.79**, better than the
-  baseline it started from. That is a rules-interaction effect no single-lever run could have
-  predicted, and the reason to sweep pairs rather than rank levers independently.
-  **What it cost.** Cost pressure sits at 53.4% (from 37.4%) — over half of held-card decisions are
-  now blocked by cost, the highest of any configuration tried. Move usage fell to 0.392 and merges
-  to 6.6/game. Board presence, though, is fully intact (slots 1.67/1.74 at turns 6/12 vs. baseline's
-  1.62/1.79), which is what separates it from the card-scalar levers: `lesshealth` and `moredamage`
-  both bought their speed by gutting the board (1.42 and 1.27 slots), so games got shorter *and*
-  emptier. Here they only got shorter.
-  **Rejected and why.** `expensivefast` (threshold 5) was far too fast at 11.9 turns — 18.9 cards
-  drawn is barely a quarter of the deck, merges collapse to 4.8/game, and seat 1 wins **65.8%**,
-  which would put step 8 out of reach. `cheaper` was the best card-scalar option (18.0 turns, margin
-  +0.91, move usage preserved) but drops cost pressure to 25.9%, nearly removing resources as a
-  constraint. `lesshealth`/`moredamage` thin the board as above. `expensive` alone is slower than
-  doing nothing.
-  **Follow-up owed:** the global cost increase touched most of the set, so the step-6 per-card
-  balance no longer strictly holds — `circle_planner` and `siphon` both jump to the top of the field
-  in every expensive variant (cheap cards dominate an expensive format), and `enrage`/`monk` fall to
-  the bottom. A small confirmatory card pass against the new ruleset is worth doing before Phase 5,
-  though it is second-order next to step 8.
-- [x] **8. First-player balance — closed with a seat-2 compensation, not more content tuning.**
-  After step 7 seat 1 won 56.8% at a margin of **+0.79 [+0.39, +1.18]**, still **excluding zero**.
-  **The cause was structural and pre-play.** Seat 1 takes a full turn of board development before
-  seat 2 acts at all, and the head start never closes: by turn 3 seat 1 held 4.50 cards to seat 2's
-  3.47, the hand gap was still ~1.0 card at turn 12, and unspent resources ran +2.0 to +2.2 per
-  type all game — the resource figure being almost exactly one turn of `BaseIncome`, which is the
-  signature of a one-time debt that compounds rather than decays. No card edit reaches that (five
-  card passes moved it ~4 points) and no length lever does either — step 7 showed *shortening*
-  games without compensation makes it worse (`scoreToWin` 7 alone took seat 1 to 60.3%, 5 to 65.8%).
-  **Three `RuleSet` knobs, all seat-2, defaulting to a compensated game:**
-  `SecondSeatStartingResources`, `SecondSeatStartingCards`, `SecondSeatStartingScore`. Applied at
-  one engine seam, `GameState.ApplySecondSeatCompensation()`, called by `Shapes.Sim`'s `GameRunner`
-  and the console client after the opening deal and before the first `AdvanceToActions()` — in the
-  engine rather than in each caller's deal loop because three places set a game up and a rule that
-  seat 2 is compensated is not one any of them should be able to forget; a run that silently
-  skipped it would report an asymmetry the ruleset had already fixed, and the numbers would look
-  entirely plausible. Extra cards go through `DrawWithBurn` (so they respect the hand limit like
-  every other draw) and are **returned** so the runner folds them into seat 2's drawn total —
-  uncounted extra draws would understate how much closer the compensation puts seat 2 to fatigue,
-  which step 7 left as a real constraint at ~24.8 cards drawn. Starting score is added directly
-  rather than through `ApplyScoring`, so it never registers as a scoring event.
-  **Result: `v1.6-resourcescardslow` — 1/1/1 resources plus 1 card.** Margin
-  **−0.20 [−0.59, +0.19]**, straddling zero, seat 1 at 48.5%. **The pairing is the finding, again.**
-  Neither half closes the margin alone (1/1/1 landed +0.49, +1 card +0.59, both still excluding
-  zero), and both larger single-axis doses fail in opposite ways: 2/2/2 lands −0.58, excluding zero
-  on the *seat 2* side, and +2 cards passes on margin but leaves seat 2's anvil and wheel **below
-  where they started** (2.44/2.53 vs 2.91/3.29) — equalising the outcome while the economy gap it
-  was meant to close got *worse*. That is exactly the "papered over rather than fixed" failure this
-  step warned about, caught only because the per-seat curves were read alongside the outcome.
-  `resourcescardslow` is the only variant that moved the margin without degrading a seat-2 curve.
-  **Starting score was the worst lever and is shipped at 0** — +0.70 against a +0.79 baseline, and
-  seat 1's *win rate rose* (57.3%). It pays off the outcome without touching the tempo asymmetry
-  that produces it, so seat 1 still wins the games it was going to win and seat 2 banks a point
-  that changes no decision. Predicted as the fallback, measured as inert; do not reach for it.
-  **What it cost:** every variant lengthened games (16.19 → 17.2–18.5 turns), including the score
-  one, so ~2 turns is the standing price of compensation — inside step 7's target band but worth
-  re-checking if length is ever retuned.
-  **Caveat carried into step 9:** the two passing variants sit 0.11 apart with intervals ~0.8 wide,
-  which is inside the noise floor step 6 documented. The pass/fail split is solid; the choice
-  between them is not resolved by one seed alone.
+- [x] **1–2. Metrics + the two flagged design questions.** `MetricsReport.From` aggregates a whole
+  `BatchResult` (never pooling seats): per-seat win rate, length, per-card play/draw win rate,
+  merge frequency normalized per creature played, endings. Answers: **merge is declined, not
+  auto-taken** (33–39% of opportunities, a declined merge in 95.8% of games), and
+  **unopposed-creature income compounding is real** — longest-streak vs. final margin r = 0.73/0.48,
+  and a player who never sustained an unopposed creature 2+ turns won **zero** sampled games. Both
+  confirmed as genuine design tensions, not null results.
+- [x] **2b–2c. Made the metrics able to rank.** Wilson intervals on every rate (the normal
+  approximation reports a 0/4 card as "0% ± 0" — the most confident-looking and least justified
+  number available); **opportunity denominators**, making take rate the primary balance signal since
+  raw play count conflates draw luck, affordability, and preference; score margin, a far
+  lower-variance estimator than win rate (100 games: win-rate interval [46%, 65%] can't call it,
+  margin [0.31, 1.29] excludes zero — same games); plus unopposed-slot occupancy, survival, and cost
+  pressure. **Bug caught by cross-check, not inspection:** the first unopposed-slot version read the
+  board from the seat *ending* its turn rather than the one receiving it, over-counting ~40% while
+  looking entirely plausible in aggregate.
+- [x] **2d–2e. Explorer + calibration.** One run is ~1,600 numbers for cards alone, so `--report`
+  builds a self-contained HTML page whose **diff view is the point** — step 4 iterates edit → rerun
+  → compare, which static text cannot do. Six deliberately mispriced spells then tested the
+  detectors: **cost pressure separated them cleanly, take rate did not.** Standing caveat — take
+  rate alone cannot rank economy/tempo-neutral cards.
+- [x] **3–5. Rules sweep and tooling.** Settled 2/2/2 income with `incomePerCreatureType` removed,
+  no hand limit, `scoreToWin` 10. `scoreByCreatureDelta` was the worst change tried — games stopped
+  terminating. Console gained `EffectText`, which *synthesizes* card text from the op vocabulary
+  rather than storing it, deliberately: a hand-authored description would drift from the numbers a
+  balance edit changes. Metrics gained a **per-turn** take rate, separating "not urgent" from "not
+  wanted" — identical on the per-decision denominator.
+- [x] **5b. Fatigue — a structural tiebreak, so termination stops depending on removal.** A
+  501-turn game traced to the scoring rule, not a card: **score requires an unopposed creature,
+  unopposed requires a kill, so any board where defense ≥ offense stops scoring permanently.** A
+  sweep of all 26 creatures in self-mirrors found **7 that stalemate their own mirror** — a property
+  of the rule, and patching it card-by-card would mean banning self-heal and permanent max-health
+  buffs as mechanics. Rule: empty deck at turn start gives the opponent 1 score. Chosen over
+  fatigue-as-damage because damage resolves the *board*, and the failure mode is a board that cannot
+  be resolved at all. Length percentiles landed here too — one outlier moved the reported mean from
+  21.3 to 26.7, so a single mean actively misleads on exactly the shape a termination problem makes.
+- [x] **6. Card sweep** — five paired 400-game runs, ~30 edits across 20 of 36 cards; balanced by
+  the exit criteria. **Cost changes moved cards; magnitude changes usually did not** (`def_stance`
+  absorbed three buffs to its *effect* unmoved, then jumped +0.85 z the moment its cost fell).
+  Reworks beat tuning where the problem was structural (`circle_bender` +2.18 z only after both
+  moves were replaced). **The methodological finding matters more than any card:** re-running an
+  identical configuration under a different seed moved the mean card **0.36 z** and one card
+  **1.34**. **Read any single-run per-card delta under ~0.6 z as no evidence** — 400 games ranks
+  *groups*, not individuals.
+- [x] **7. Game length — a global sweep, not another card pass.** Length hadn't moved across the
+  entire step-6 sweep, which is the evidence it was never card-level. **Result: `scoreToWin` 7 plus
+  a global cost increase**, 16.2 turns. **The pairing is the finding** — alone each half was the
+  *worst* option on its axis (the cost rise was the only variant slower than baseline; the bare
+  threshold cut spiked seat 1 to 60.3%), but together they cancel and post the sweep's best margin.
+  No single-lever run could have predicted it.
+- [x] **8. First-player balance — closed with a seat-2 compensation, not content tuning.** The cause
+  was pre-play: seat 1 develops a full turn first and the gap never closes (unspent resources +2.0
+  to +2.2 per type all game — almost exactly one turn of `BaseIncome`, the signature of a one-time
+  debt that compounds). Applied at one engine seam, `ApplySecondSeatCompensation()`, because three
+  callers set a game up and a run that silently skipped it would report an asymmetry the ruleset had
+  already fixed. **1/1/1 resources plus 1 card** took the margin from +0.79 to **−0.20 [−0.59,
+  +0.19]**. The pairing is again the finding: +2 cards passes on margin while leaving seat 2's
+  economy *below where it started* — the "papered over rather than fixed" failure, caught only by
+  reading per-seat curves alongside the outcome. **Starting score was inert and ships at 0.**
+- [x] **9. Final pass — settled at `v1.7-final`**, 23 of 36 cards changed. Margin **−0.32 [−0.68,
+  +0.04]**, median length 15, fatigue 1.75% at 400/400 terminating, resource types within **0.06 z**.
+  **The deviation is the finding.** Its own budget ("change only cards whose |z| ≥ 0.6") assumed a
+  per-card problem; the first two passes instead drifted on *game shape* (games ≥30 turns 8.8% →
+  16.8%, fatigue deciding up to 8.3%). Reading a `--json` dump of the long games found a cause no
+  z-score could show: **creature supply (4.55 HP/turn) structurally exceeds damage throughput (2.30
+  HP/turn)**, so once slots fill, replacement absorbs removal and unopposed slots stop appearing.
+  **Healing was not the cause** — damage exceeds it ~8:1, identically in short games. So the fix was
+  a deliberate 20-card structural pass **over the stated budget**, reversing all three shape metrics
+  to better than baseline. The budget rule stands for card tuning; it does not apply when the
+  diagnosis is a whole-format ratio. Resource parity was the other win, cause found rather than
+  tuned: `rally` alone was ~57% of spike's generation budget. **A 4000-game rerun** then confirmed
+  step 6's noise floor directly — several 400-game "findings" evaporated, and 27 of 36 cards
+  separated from the field median versus 16 at 400. Sample size, not another metric, made per-card
+  ranking possible.
 
-- [x] **9. Final balance pass — reconcile per-card balance with the global metrics, at the settled
-  ruleset.** Every card number on record was measured under a ruleset that has since changed twice.
-  Step 7's global cost increase touched most of the set and step 8 now hands seat 2 a compensated
-  opening, so **step 6's per-card balance no longer strictly holds** — this step re-establishes it
-  against the shipped rules and confirms the globals survive the card edits. It is a confirmatory
-  pass, not a new direction: the exit criteria are already met, and the risk here is *breaking*
-  them, not failing to reach them.
-  **The known debts, all inherited rather than newly discovered.** (a) `circle_planner` and `siphon`
-  jumped to the top of the field in every expensive variant — cheap cards dominate an expensive
-  format — while `enrage` and `monk` fell to the bottom; step 7 logged this and deferred it.
-  (b) `t_flare` was nerfed three times across step 6 and ended *stronger* each time, with a move
-  imbalance never resolved. (c) `wave_crash` (z −1.46) and `basic_square` (z −0.95) are the two
-  cards step 6 buffed repeatedly without moving; both are candidates for **rework over tuning**, the
-  lesson `circle_bender` taught (+2.18 z only after both moves were replaced outright).
-  (d) Resource-type parity was last confirmed pooled over two seeds at step 6 (spike −0.06, anvil
-  +0.07, wheel 0.00) and has not been re-checked since the cost increase, which moved wheel to
-  +0.29 in `expensivemed`.
-  **Sequencing matters and is the opposite of step 6's.** Card edits shift the globals, so:
-  first re-measure the globals at the settled ruleset as the new baseline (one 400-game run, seed
-  3, no edits); then make card edits in **one batch**; then re-measure and confirm both levels
-  together. Do *not* re-tune rules and cards in the same run — that confound is what steps 3 and 6
-  were separated to avoid, and it would make an unfavourable global move unattributable.
-  **Budget the changes.** Step 6's honest ceiling was that 400 games ranks *groups* of cards, not
-  individual ones (re-running one config under a different seed moved the mean card 0.36 z and one
-  card 1.34, with only 1 of 36 showing disjoint take-rate intervals). So: **change only cards whose
-  |z| ≥ 0.6 and whose interval excludes the field median**, prefer cost changes over magnitude
-  changes (cost moved cards reliably in step 6; magnitude usually did not), and prefer rework for
-  cards that have already absorbed two failed tuning attempts. A pass that edits twenty cards
-  cannot be evaluated; one that edits five can.
-  **Guardrails — the globals that must not regress.** Re-check all four after the card batch, and
-  treat any of these as a failed pass rather than an acceptable trade: score margin must keep
-  straddling zero (step 8's criterion, the easiest to break since card edits shift tempo); median
-  length stays in the 14–18 turn band with p95 under ~35; fatigue keeps deciding <5% of games and
-  termination stays 400/400; and no resource type separates by more than ~0.2 z. Seat win rate is
-  the *reported* number but the margin is the *decision* number, per step 2b.
-  **Two seeds, not one, for the final result.** Step 6's methodological finding applies with full
-  force to a pass this small: run the confirmed configuration under a second seed before declaring
-  it settled, exactly as `change3`/`change3rerun` did, and quote per-card claims pooled over both.
-  Anything moving less than ~0.6 z in a single run is not evidence.
-  **Out of scope, deliberately:** archetype and deck-composition balance waits for
-  `deckMode: "custom"` (Phase 5 step 9) — it is not measurable on a symmetric deck, where both
-  seats hold every card. This step balances the *set*, not the decks built from it.
-  **Result: settled at `v1.7-final`, 23 of 36 cards changed across four passes** (`change1` →
-  `change2` → `change2fix` → `change3`), logged card-by-card in `balance/LOG.md`. All four
-  guardrails hold: score margin **−0.32 [−0.68, +0.04]** straddles zero, median length **15** turns
-  with p95 **32**, fatigue decides **1.75%** at 400/400 terminating, and resource types separate by
-  **0.06 z** (spike −0.04, anvil +0.01, wheel −0.02) — the tightest type parity in the whole log.
-  Take rate/turn spans 23–46% with no card outside it.
-  **The pass did not go the way the step planned, and the deviation is the finding.** The budget
-  above ("change only cards whose |z| ≥ 0.6", "a pass that edits twenty cards cannot be evaluated")
-  was written for a per-card tuning problem. What the first two runs actually surfaced was a
-  *structural* one: `change1` and `change2` drifted badly on game shape — games ≥30 turns went
-  8.8% → 15.8% → 16.8%, p95 length 41 → 50 → 55, and fatigue decided 2.8% → 5.3% → **8.3%** of
-  games, approaching the step-5b backstop becoming the win condition again. Reading a `--json` dump
-  of the >40-turn games found the cause, and it was not any card's z-score: **creature supply
-  (4.55 HP/turn onto the board) structurally exceeds damage throughput (2.30 HP/turn)**, so once
-  all six slots fill, replacement fully absorbs removal and unopposed slots — the only scoring
-  path — stop appearing (11.8% per scoring step in long games vs. 40.9% in short ones). Healing was
-  *not* the cause: damage exceeds heal/buff throughput ~8:1, and identically in short games. The
-  mass-removal valve that answers a saturated board (`bubbles`' Burst) had been closed by making it
-  self-lethal, dropping its take rate to 5.7%.
-  **So `change2fix` was a 20-card structural pass, deliberately over the stated budget**, and it
-  reversed all three shape metrics at once — 4.0% of games ≥30 turns, p95 30, fatigue 1.0%, all
-  *better than the step-9 baseline*. Restoring Burst to `all_enemies` + self-damage took it from
-  15.7% to 32.2% take rate at a 62.9% win-when-used, the highest of any version. The budget rule is
-  still right for card-level tuning; it does not apply when the diagnosis is a whole-format ratio,
-  and the tell was that length moved monotonically across passes while no individual card's z
-  explained it.
-  **Two of the four inherited debts closed themselves; two did not.** `circle_planner`/`siphon`
-  (debt a) both landed mid-field once the ruleset settled. `t_flare` (debt b) is now −0.73 with its
-  move imbalance gone — the "nerfed three times, stronger each time" pattern did not survive the new
-  rules. `wave_crash` (debt c) needed the rework the debt predicted (now a clean
-  `deal 2 damage to all enemies`, −1.46 → −0.23); `basic_square` went the other way and is now one
-  of the *strongest* cards (+0.98) after Jab was gated on `health_at_least:4`. Resource-type parity
-  (debt d) is the pass's best single result, and the cause was found rather than tuned: `rally`'s
-  `gain_resource_scaled` was ~57% of spike's entire generation budget, so reworking it collapsed the
-  unspent-resource spread from 0.83 to **0.25** at 4000 games.
-  **The 4000-game rerun is the methodological upgrade this step needed.** Rather than two seeds at
-  400 games, `change2fixrerun` ran 4000 — mean per-card z moved **0.41** against the 400-game run
-  (max 1.12), confirming step 6's ±0.5 noise floor directly, and several 400-game "findings"
-  evaporated (`suffocate` +0.48 → −0.59, `circle_captain` −0.64 → +0.22). At 4000 games **27 of 36**
-  cards have take-rate intervals excluding the field median, versus 16 at 400 — the sample size,
-  not another metric, is what finally made per-card ranking possible. **Quote per-card claims from
-  the 4000-game run only.**
-  **Engine additions this pass needed** (all with tests, 918 total): the `all_creatures` target
-  selector — including its `GreedyAgent` case, whose omission would have silently scored such cards
-  as affecting nothing; `attack_buff_scaled` with `missing_health` *and* `selector_missing_health`
-  scales (a spell has no `SourceCreature`, so the source-reading scale silently computes 0 for one —
-  the negative control is pinned by test); the `health_at_least:<n>` condition, which also meant
-  folding `CardValidator`'s hardcoded check list into a `ParameterisedChecks` array; and
-  `destroyed_this_turn` promoted out of `draw_scaled`'s private special case into the shared
-  `DamageScale` vocabulary. `CardSmokeTests` grew a third probe (buffed above base health) once
-  `basic_square`'s Jab became legal only above its printed health — a deliberate design, but one the
-  existing two probes could never reach.
-  **Known and accepted at close.** `enrage` sits at **−2.06** at 4000 games, 1.4 z below the
-  next-worst card and the set's one genuine dead card. `anchor` (+1.33) and `basic_square::Jab`
-  (44.5% take/turn, second-strongest move) are the clearest overperformers. Spells as a category run
-  **−0.43** against creatures' +0.10, and cost-1 cards average **+0.58** against −0.06 to −0.17 at
-  every other tier. Three cards carry a vestigial second move (`t_body::Overclock` 15.1%,
-  `circle_captain::Wardance` 21.5%, `relic::Unearth` 19.6%). None of these break an exit criterion —
-  every card stays inside the take-rate band — and all are better addressed against real decks in
-  Phase 5 than by another symmetric-deck pass.
-  **One open item.** At 4000 games the margin is **−0.28 [−0.40, −0.16]**, which *excludes* zero on
-  the seat-2 side; at 400 games (`v1.7-final`) it is −0.32 [−0.68, +0.04], which straddles. The
-  criterion is met at the sample size step 8 used, but the larger sample says a small real seat-2
-  edge exists. The likely cause is the step-8 compensation (1/1/1 resources + 1 card) being slightly
-  over-generous now that games run ~2 turns shorter than when it was tuned; the cheapest fix is a
-  ruleset knob (drop to `resourceslow`, 1/1/1 with no extra card), not a card edit. Left for Phase 5
-  to re-check against custom decks, since deck composition will move it again.
+**Exit criteria:** all four met at `v1.7-final`. Take rate/turn spans 23–46% with no card outside
+it; median length 15 (p95 32), 400/400 terminating, fatigue 1.75%; merge and income-compounding
+confirmed as real, non-degenerate decisions (step 2); first-player margin −0.32 [−0.68, +0.04].
+Step 9 additionally settled resource-type power parity (0.06 z) and unspent-resource parity (0.25
+spread), neither an exit criterion and neither previously met.
 
-**Exit criteria:** all four met, re-confirmed at `v1.7-final` after step 9's card pass.
-*No extreme take-rate outliers* — take rate/turn spans 23–46% with no card outside it, and nothing
-separates from the field the way the old z = −1.84 floor did (step 6, held through step 9).
-*Game length in target band* — median 15 turns, p95 32, 24.8 cards drawn against a 72-card deck,
-400/400 terminating with fatigue deciding 1.75% (step 7's band, restored by step 9 after two
-passes drifted out of it). *Merge tradeoff and income-compounding confirmed as real, non-degenerate
-decisions* — settled in step 2 and unchanged since. *First-player advantage near even by score
-margin* — **−0.32 [−0.68, +0.04]** at 400 games, straddling zero (step 8's method, step 9's cards);
-note the 4000-game rerun reads −0.28 [−0.40, −0.16], a small real seat-2 edge that the criterion's
-own sample size cannot see — see step 9's open item.
-Step 9 additionally settled resource-type parity (0.06 z spread) and unspent-resource parity
-(0.25 spread at 4000 games), neither of which was an exit criterion but both of which had never
-previously been met.
+**Carried into Phase 5.** `enrage` (−2.06 at 4000 games) is the set's one dead card; `anchor` and
+`basic_square::Jab` the clearest overperformers; spells run −0.43 against creatures' +0.10 and
+cost-1 cards +0.58 against ~−0.1 elsewhere. None breaks an exit criterion, and all are better
+judged against real decks. **The one open item:** at 4000 games the margin reads −0.28 [−0.40,
+−0.16], *excluding* zero where the 400-game criterion straddles it — a small real seat-2 edge the
+criterion's own sample size cannot see. Likely step 8's compensation being over-generous now that
+games run ~2 turns shorter; the fix is a ruleset knob, not a card edit, and Phase 5's custom decks
+will move it again. **Archetype balance was always out of scope** — not measurable on a symmetric
+deck where both seats hold every card.
 
 ### Phase 5 — Godot client (desktop + mobile)
 
