@@ -1,8 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://dv6q0gameroot001"]
+[gd_scene load_steps=2 format=3 uid="uid://dv6q0gameroot001"]
 
 [ext_resource type="Script" path="res://Scripts/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://Scenes/BoardView.tscn" id="2_boardview"]
-[ext_resource type="PackedScene" path="res://Scenes/CardDetailPanel.tscn" id="3_carddetail"]
 
 [node name="GameRoot" type="Control"]
 layout_mode = 3
@@ -16,6 +15,3 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-
-[node name="CardDetailPanel" parent="." instance=ExtResource("3_carddetail")]
-visible = false

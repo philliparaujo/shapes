@@ -17,8 +17,15 @@ namespace Shapes.Godot.Scripts;
 public partial class PlayerPanel : Control
 {
     public event Action<SlotIndex>? SlotTapped;
-    public event Action<string, bool>? CardTapped;
+    public event Action<SlotIndex, int>? MoveChosen;
     public event Action<string>? DiscardRequested;
+
+    // PLAN.md B1a drag-and-drop events. Card/creature drops land on a specific slot;
+    // SpellDroppedOnSelfArea is for a targetless spell dragged anywhere onto the self panel's
+    // background rather than a particular slot, since it never occupies the board.
+    public event Action<string, SlotIndex>? CardDroppedOnSlot;
+    public event Action<SlotIndex, SlotIndex>? CreatureDroppedOnSlot;
+    public event Action<string>? SpellDroppedOnSelfArea;
 
     [Export] public NodePath ScoreLabelPath { get; set; } = "Info/ScoreLabel";
     [Export] public NodePath ResourceLabelPath { get; set; } = "Info/ResourceLabel";
@@ -30,6 +37,12 @@ public partial class PlayerPanel : Control
     private HBoxContainer? _slotContainer;
     private HBoxContainer? _handContainer;
     private readonly Dictionary<SlotIndex, SlotView> _slotViews = new();
+
+    // Set each Render, read by _CanDropData/_DropData for the self-area spell drop -- null
+    // (opponent panel, or no legal targetless spell right now) means the panel background
+    // simply doesn't accept a drop, same "report don't decide" split as everywhere else, since
+    // the actual legality re-check still happens in GameRoot against real legal actions.
+    private bool _acceptsSpellDrop;
 
     public override void _Ready()
     {
@@ -46,6 +59,11 @@ public partial class PlayerPanel : Control
         var playerState = state[player];
         _scoreLabel!.Text = $"Score {playerState.Score}";
         _resourceLabel!.Text = ResourceIcons.Describe(playerState.Resources);
+
+        // A targetless spell can be dropped anywhere on the active player's own panel, not a
+        // specific slot -- only offered on the self panel while it's that player's turn.
+        _acceptsSpellDrop = isActiveHand && legalActions.OfType<PlayCardAction>()
+            .Any(a => a.TargetSlot is null && a.ChosenTarget is null);
 
         RenderSlots(state, cards, player, legalActions);
         RenderHand(state, cards, player, isActiveHand, legalActions);
@@ -65,14 +83,29 @@ public partial class PlayerPanel : Control
             var slotView = SlotViewScene.Instantiate<SlotView>();
             _slotContainer.AddChild(slotView);
             var creature = state.Board[slot];
-            var isTappable = creature is not null && legalActions.Any(a => a switch
+
+            // Every move on the creature renders, not just the currently-usable ones (PLAN.md
+            // B1a) -- only computed for the active player's own creatures, since the opponent's
+            // moves are never actionable and showing them would just be board noise.
+            var moves = new List<(int Index, MoveText Text, bool IsUsable)>();
+            if (creature is not null && slot.Owner == state.ActivePlayer)
             {
-                UseMoveAction m => m.SourceSlot == slot,
-                MergeAction merge => merge.SourceSlot == slot,
-                _ => false,
-            });
-            slotView.Render(slot, creature, cards, isTappable);
+                var moveDefs = cards.MovesOf(creature.MergedFrom);
+                for (var i = 0; i < moveDefs.Count; i++)
+                {
+                    var isUsable = legalActions.OfType<UseMoveAction>().Any(a => a.SourceSlot == slot && a.MoveIndex == i);
+                    moves.Add((i, MoveText.Of(moveDefs[i]), isUsable));
+                }
+            }
+
+            var isDraggable = creature is not null && legalActions.OfType<MergeAction>()
+                .Any(a => a.SourceSlot == slot);
+
+            slotView.Render(slot, creature, cards, isDraggable, moves);
             slotView.Tapped += () => SlotTapped?.Invoke(slot);
+            slotView.MoveChosen += index => MoveChosen?.Invoke(slot, index);
+            slotView.HandCardDropped += cardId => CardDroppedOnSlot?.Invoke(cardId, slot);
+            slotView.CreatureDropped += source => CreatureDroppedOnSlot?.Invoke(source, slot);
             _slotViews[slot] = slotView;
         }
     }
@@ -109,28 +142,43 @@ public partial class PlayerPanel : Control
             var card = cards.Get(cardId);
             var isPlayable = playableIds.Contains(cardId);
             var isDiscardable = discardableIds.Contains(cardId);
-            face.Render(CardText.Of(card), isPlayable || isDiscardable);
-            face.Tapped += () =>
+            face.Render(cardId, CardText.Of(card), isPlayable || isDiscardable);
+
+            // Tap-to-play was removed with CardDetailPanel (PLAN.md B1a) -- dragging is the
+            // only way to play a card now. A tap still matters for discard, since
+            // AwaitingDiscard is a distinct, rare, explicitly-gated mode with no drag
+            // precedent (PLAN.md B1a's own note on why discard stayed tap-based).
+            if (isDiscardable)
             {
-                if (state.AwaitingDiscard && isDiscardable)
+                face.Tapped += () =>
                 {
-                    DiscardRequested?.Invoke(cardId);
-                }
-                else
-                {
-                    CardTapped?.Invoke(cardId, true);
-                }
-            };
+                    if (state.AwaitingDiscard)
+                    {
+                        DiscardRequested?.Invoke(cardId);
+                    }
+                };
+            }
         }
     }
-
-    public SlotView GetSlotView(SlotIndex slot) => _slotViews[slot];
 
     public void SetTargetable(HashSet<SlotIndex>? targetable)
     {
         foreach (var (slot, view) in _slotViews)
         {
             view.SetHighlighted(targetable?.Contains(slot) ?? false);
+        }
+    }
+
+    // Drop target for a targetless spell dragged onto this panel's background rather than a
+    // specific slot (the slots themselves are covered by SlotView's own drop handling).
+    public override bool _CanDropData(Vector2 atPosition, Variant data) =>
+        _acceptsSpellDrop && DragPayload.TryRead(data, out var payload) && payload.CardId is not null;
+
+    public override void _DropData(Vector2 atPosition, Variant data)
+    {
+        if (DragPayload.TryRead(data, out var payload) && payload.CardId is { } cardId)
+        {
+            SpellDroppedOnSelfArea?.Invoke(cardId);
         }
     }
 

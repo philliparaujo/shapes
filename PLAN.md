@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 3 / 16     |
+| 5 — Godot client                         | 6 / 17     |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -521,28 +521,200 @@ the console.
   on every panel close. All three were invisible to the type checker and to `dotnet build` —
   found only by actually playing a hotseat game in the editor, the exact lesson step 2.4's
   blocking-slot bug already taught the console.
-- [ ] **A4. Card rendering via `EffectText`** — `EffectText.Describe`/`DescribeMove` synthesize
+- [x] **A4. Card rendering via `EffectText`** — `EffectText.Describe`/`DescribeMove` synthesize
   card text from the op vocabulary (Phase 4 step 3–5) and the Godot card face calls them. A
   hand-authored description in scene data would drift from the numbers the next balance edit
   changes, which is the exact failure `EffectText` was built to prevent; a second description path
-  reintroduces it.
-- [ ] **A5. Target-selection UI** over the existing `chosen_*` actions — one state, no chaining,
+  reintroduces it. **Landed early, inside A3** — `Shapes.Godot.Adapter`'s `CardText`/`MoveText`
+  wrap `EffectText.Describe`/`DescribeMove` (plus `ResourceIcons` for cost/type icons), and
+  `CardFace.Render`, `CardDetailPanel.ShowCard`, and `MoveMenu.Open` all consume them, so no card
+  or move string in the client is hand-authored. `CardTextTests.cs` (5 tests) pins real synthesized
+  output — creature move text, a gated move's condition prefix, spell effect text, and free-cost
+  move rendering — so a silent fallback to a raw op name would fail loudly. Confirmed against the
+  current tree: full solution builds with 0 warnings/errors, all `CardText`/`EffectText`/Godot
+  adapter tests pass (44/44).
+- [x] **A5. Target-selection UI** over the existing `chosen_*` actions — one state, no chaining,
   thanks to the single-target rule. **Before animation, not after:** targeting is the last
   *functional* piece (about a third of the set touches chosen selectors, and those cards are
   unplayable without it), and animating an incomplete action space means reworking it once
-  targeting adds an intermediate UI state.
-- [ ] **A6. Undo, or an explicit decision against it.** A misclick in an atomic, repeatable action
-  model is inevitable, so this is a decision, not a feature request — and it changes the UI either
-  way (no-undo means confirmation steps on destructive actions). **Note the mechanism honestly:
-  Core has no undo API.** `Clone()` *is* the undo mechanism (see `ApplyUndoSymmetryTests`, and
-  Phase 3 step 3, where the apply/undo-record rewrite was built, measured, and found to save
-  nothing). So UI undo means snapshotting a clone per action and restoring it — cheap at human
-  turn scale, and it needs no Core change. Scope it to within-turn only: undo across `EndTurn`
-  would have to un-draw a card.
+  targeting adds an intermediate UI state. `BoardView` now remembers the legal `ChosenTarget`
+  actions from `BeginTargeting` and resolves the next `SlotTapped` back to the specific
+  `GameAction` via `TryResolveTarget`, covering all three places a target can be needed: a
+  move (`OnMoveTapped`), a spell play (`SubmitPlayCard`), and a creature play whose placement
+  slot is chosen first and *then* needs a target (`OnSlotTapped`'s placement branch — the
+  creature's own `TargetSlot` is fixed before its `ChosenTarget` options are computed, since
+  the legal targets can depend on where it lands). Added an explicit "Cancel Targeting" button
+  (`BoardView.tscn`) rather than relying on a stray tap to cancel — a miss-tap on a
+  non-highlighted slot is a no-op, not a cancel, so a misclick during targeting can't silently
+  drop the in-progress choice. **One re-entrancy fix needed:** `PlayerPanel.RenderSlots` rebuilds
+  every `SlotView` from scratch on each `Render` call (same as the state A3 already tracked
+  outside `Render`), which would silently drop `SetHighlighted` targeting marks the next time
+  anything triggers a refresh; `BoardView.Render` now reapplies the current targetable set
+  from `_pendingTargetActions` after re-rendering both panels. **Not editor-verified** — no
+  Godot editor/CLI was available in this environment (same limit noted for `Shapes.Godot`
+  throughout: it isn't `dotnet test`-reachable outside the editor, per the A2 project-structure
+  note), so this shipped on a careful hand-trace of the event flow plus a clean `dotnet build`,
+  not the playtesting A3's own bugs required to catch. Flag for a real editor pass before B1.
+- [x] **A6. Decided against undo — no confirmation dialogs either.** A misclick in an atomic,
+  repeatable action model is inevitable, so this was a decision, not a feature request, and the
+  mechanism was cheap either way: `GameSession.Submit` already clones `_state` before every
+  `ActionExecutor.Apply` to build the `StateDiff` (`Clone()` *is* the undo mechanism — see
+  `ApplyUndoSymmetryTests` and Phase 3 step 3, where the apply/undo-record rewrite was built,
+  measured, and found to save nothing), so a snapshot-and-restore undo needed no new Core surface
+  and would have been genuinely cheap to add. **Rejected anyway, for a reason engineering can't
+  fix: a draw is a reveal, not a state change, and undo can erase state but not what the player
+  already saw.** A move or spell that draws a card, or an overdraw burn, shows the player
+  something and *then* the undo would have to pretend it didn't — the `GameState` reverts fine,
+  but the player's memory of the top card doesn't, so undo-past-a-reveal is a real information
+  leak no amount of correct snapshotting removes. That forced a sub-decision (undo everything and
+  accept the leak, or wall undo off at the first reveal each turn) before any UI could be built,
+  and the simpler answer was to skip undo entirely: **every action is a committed decision, the
+  same Hearthstone-style stance the atomic single-action model was already built around** (an
+  action already carries a fully resolved choice — see `GameAction`'s own header — not a draft
+  a player edits before confirming). Confirmation dialogs were considered and also rejected as
+  redundant: merge/move are freely repeatable and low-stakes, and A5's targeting UI already forces
+  a two-tap sequence (select, then tap the actual target) that functions as an implicit confirm
+  for anything with real consequences. **No UI or Core change from this step** — it closes as a
+  design note, not a build.
 
 #### Milestone B — make it feel like a game
 
-- [ ] **B1. Real card art and animation** — play/move/merge/score/destroy, driven by A2's diff.
+**B1 grew from a one-line "art and animation" pass into an interaction-model rewrite, decided
+before any of it was built (2026-08-08).** Two gaps surfaced that aren't cosmetic: (1) A3's
+tap-select-then-tap-target flow, while deliberately touch-first, doesn't match genre convention
+(Hearthstone-style drag-and-drop), and (2) `SlotView`/`CardFace` only ever read
+`Health`/`MaxHealth`/`Types`/`IsMerged` off `CreatureInstance` — moves, `Keywords`
+(taunt/reflect/ricochet), `IsStunned`, `AttackBuff`, and the one-shot `NextAttackBonus`/
+`NextDamageTakenBonus` are all tracked by Core today (see `CreatureInstance.cs`) and none of it
+reaches the board. Both are real reworks of A3/A5's interaction layer, not a skin over it, so they
+get their own sub-steps rather than hiding inside "animation." Sequenced before B1's actual art
+pass for the same reason A5 was sequenced before B1 originally: animating a slot view that's about
+to be redesigned for status icons and move buttons means reworking the animation once the redesign
+lands.
+
+- [x] **B1a. Drag-and-drop replaces tap for play/merge; moves become always-visible buttons, not
+  drag targets.** Splits by action kind rather than being one uniform gesture:
+  - **Play a card** — drag from hand onto a board slot (`SlotView._CanDropData`/`_DropData`,
+    creature placement) or the self panel's background (`PlayerPanel._CanDropData`/`_DropData`,
+    targetless spell), replacing A3's tap-card→tap-slot flow. A spell that needs a `chosen_*`
+    target can also be dropped directly on the enemy creature it targets and resolves
+    immediately — the natural gesture for that card type — with A5's tap-to-target UI as the
+    fallback only when the drop point can't supply both a placement slot and a separate chosen
+    target at once (a creature card whose own play-effect targets something).
+  - **Merge** — drag a friendly creature onto an adjacent friendly creature
+    (`SlotView`'s own drag source + drop target), replacing the merge option that used to be
+    buried in `MoveMenu` (now deleted, along with `MoveMenu.tscn` — nothing calls it anymore).
+  - **Use a move — deliberately NOT a drag.** Each `SlotView` now renders a `MoveList` of
+    always-visible buttons for that creature's currently-usable moves (collapsing the old
+    tap-slot→`MoveMenu`-popup→tap-move into one click, and fixing "moves not shown on the board"
+    as a side effect rather than a separate task). A move needing a `chosen_*` target still uses
+    A5's tap-to-target afterward. Decided over drag-to-attack because a drag alone can't
+    disambiguate a creature with 2+ legal moves onto the same target.
+  - **Discard** stays tap-based (unchanged) — `AwaitingDiscard` is still a distinct, rare, gated
+    mode with no drag precedent.
+  - New `DragPayload` (`Shapes.Godot/Scripts`) packs a hand-card-id or a source `SlotIndex` into
+    the `Godot.Collections.Dictionary` shape `_GetDragData`/`_DropData` require (Godot's drag API
+    trades in `Variant`, not arbitrary C# objects); `_CanDropData`/`_DropData` only ever *report*
+    a drop happened; `GameRoot` re-checks every drop against real `LegalActions()` before
+    submitting, the same "view reports, GameRoot decides" split every gesture in this codebase
+    already followed. Godot's built-in "release outside any valid target = no drop" also replaces
+    the need for an explicit cancel gesture on these actions (A5's "Cancel Targeting" button
+    still stands for the chosen-target step drag can't fully replace).
+  - **`CardDetailPanel` (A3/A4) is deleted, not just unused** — playing a card is drag-only, with
+    no tap-to-play fallback and no tap-to-inspect panel. A per-card detail view (likely shown on
+    hover, once hover is meaningful on desktop) is planned as its own later piece rather than kept
+    as a tap panel in the meantime; a tap on a hand card now does nothing except during
+    `AwaitingDiscard`, where it still requests a discard (unchanged, still tap-based, no drag
+    precedent for that mode). `BoardView.PendingPlacementCardId`/`BeginPlacingCard`/
+    `CancelPlacement` went with it — a creature's placement slot is now always supplied directly
+    by the drop, so the tap-driven two-step placement path had no remaining caller.
+  - **Real bugs caught during first-pass playtesting, not review — same as A5's own history, and
+    the reason this section grew from "implemented" to "implemented, played, fixed":**
+    (1) **Drags did not fire at all.** Root cause: `_GetDragData`/`_CanDropData`/`_DropData` are
+    Godot virtuals dispatched to whichever `Control` is actually under the mouse, and both
+    `SlotView` and `CardFace` were a wrapper `Control` with a child `Button` — the `Button`
+    (topmost, default `mouse_filter` `Stop`) absorbed every mouse-down-and-drag gesture and Godot
+    never called the wrapper's overrides at all, so the whole feature was dead on arrival despite
+    compiling and unit-testing clean. Fixed by making both scenes' root node the `Button` itself
+    (script attached directly to it) rather than a `Control` wrapping one — the node Godot asks
+    for drag data is now the same node whose script provides it. (2) Move buttons displayed only
+    a name/cost, with full effect text in `TooltipText` — a hover-only reveal, which directly
+    violates A3's own "no hover-dependent information" rule (a touch client has no hover). Fixed
+    by putting the effect text directly in the button's label with `AutowrapMode` instead.
+    (3) `SlotView._CanDropData` accepts any drag (by design, so a targetless spell can be dropped
+    on an occupied slot, not just empty board space) — meaning the first version of
+    `OnCardDroppedOnSlot` treated "no creature placement matches this slot" as a dead end instead
+    of falling through to the spell path, so dropping a spell anywhere but literal empty space or
+    the panel's outer margin silently did nothing. Fixed by falling through to the same
+    targetless-spell resolution `PlayerPanel`'s own background drop uses. (4) No path existed for
+    a targeted spell dropped directly on its target (the single most natural gesture for that
+    card type) — fixed by resolving `TargetSlot is null && ChosenTarget == slot` before falling
+    through further.
+  - **Round 2, after a real playtest confirmed drag/merge/cancel all work:** layout was still
+    broken — small default window, board move lists overflowing off-screen, hand cards too narrow
+    to show anything, unusable moves not rendered at all. `project.godot` gained a `[display]`
+    section (maximized launch, `canvas_items`/`expand` stretch). **The overflow's real cause: a
+    `CustomMinimumSize` of `(0, 48)` on a move button is a floor, not a cap** — Godot sizes a
+    container to fit its widest child's *unwrapped* minimum, so width 0 let the button (and
+    everything containing it, up through the whole board row) grow to fit the single longest
+    effect-text line instead of ever wrapping. First fix attempt gave move buttons a fixed width
+    plus a per-slot `ScrollContainer` to bound height.
+  - **Round 3, after that attempt still overlapped panels in practice:** a `ScrollContainer`'s
+    `custom_minimum_size` is *also* a floor, not a cap — its own reported size still grows to fit
+    its content unless something above it enforces a hard limit, so nesting a scroll container
+    inside an already-unbounded `VBoxContainer` chain didn't actually bound anything. The deeper
+    issue: `BoardView`'s `OpponentPanel`/`SelfPanel` split the window a fixed 50/50 by
+    `size_flags_vertical`, so *any* growth in one panel's real content past its 50% share pushed
+    into the other rather than growing the window — which is what produced the actual bug (self
+    panel's slots rendering on top of the hand row). Per explicit direction (no scrolling
+    anywhere, no truncation, reduce information density instead): **hand cards now show name+cost
+    only per move, no effect text** (`CardFace.Render` adds a plain compact `Label` per move, not
+    the full `MoveButtonFactory` button) — full text there is deferred to a future hover-detail
+    view rather than fought into a space too small for it. Board slots keep full move text but
+    with a real, non-negotiable fixed size: `MoveButtonFactory`'s buttons are 240×42 with
+    `ClipText = true` and an 11pt font override as a hard backstop (if effect text still doesn't
+    fit two wrapped lines, it clips with an ellipsis rather than growing), and `SlotView` itself
+    is `250×260` with `clip_contents = true` so nothing inside it can ever push the surrounding
+    layout regardless of edge cases in text measurement. That fixed budget was sized off the real
+    worst case, not a guess: `RuleSet.MaxMergeDepth` is 2 and every real card has exactly 2 moves,
+    so 4 moves is the hard ceiling a creature can ever show, never more — the same fact that makes
+    a fixed, scroll-free height budget viable rather than fundamentally unsound. Window default
+    grew to 1600×1000 and `PlayerPanel.HandScroll`'s floor dropped to 150px (just enough for a
+    140-tall `CardFace`) to fit the arithmetic: 1000px window − 44px turn bar, split 50/50 between
+    panels, comfortably covers `Info` + a maxed-out 260px `Slots` row + `HandScroll`.
+  - **Unusable moves render too, disabled and dimmed, not omitted** (both rounds kept this):
+    `PlayerPanel.RenderSlots` builds every move on the creature with an `IsUsable` flag rather than
+    filtering to legal ones, and `MoveButtonFactory` sets `Button.Disabled` from it (which also
+    correctly blocks the click, no separate guard needed) — otherwise "no moves" and "one move I
+    can't currently use" looked identical.
+  - **Still not editor-verified end-to-end.** Round 1's drag/merge/cancel fixes were confirmed by
+    the user's own playtest; round 2 was caught broken by the same route (a screenshot showing
+    panels overlapping); round 3 has not yet been re-tested. Three real patterns worth grepping
+    for in any future scene built the same way: a wrapper-`Control`-around-a-`Button` silently
+    eating drag dispatch (round 1), `CustomMinimumSize`/`ScrollContainer` sizing being a floor
+    rather than a cap (rounds 2–3), and a fixed percentage split between two panels whose content
+    height isn't actually fixed.
+- [ ] **B1a2. Hover detail view — the debt B1a's compacting left behind.** B1a's round 3 removed
+  full move text from hand cards (name+cost only) and `CardDetailPanel` entirely, promising "shown
+  on hover" as the replacement each time (see B1a's own notes) without ever scheduling it — this
+  closes that loop rather than leaving it a dangling comment. Desktop-only by nature (mobile has no
+  hover), so it's additive over B1a's tap/drag model, not a replacement for it: hovering a hand
+  card or board slot shows a panel with the same full `CardText`/`EffectText` rendering
+  `CardDetailPanel` used to do, and dismisses on mouse-out. Also the natural home for B1b's status
+  detail (a hovered creature can show *why* a badge is showing — which effect granted the taunt,
+  how many turns left) once B1b lands, rather than needing a second hover mechanism later.
+- [ ] **B1b. Status/keyword display on the board slot, at a glance, no tap required.** A compact
+  icon row under health: shield=taunt, mirror=reflect, arrow=ricochet (oriented by
+  `RicochetDirection`), lightning=stun, each distinguishing persistent vs. `_tauntExpiresNextTurn`
+  (dimmed/clock-badged). `AttackBuff` (persistent, cumulative) shows as a `+N atk` badge rather
+  than an icon since it's a number worth reading directly; `NextAttackBonus`/
+  `NextDamageTakenBonus` (one-shot) get their own icon since they silently change the next
+  combat's math and a player choosing a target needs to see that before committing. Also fixes the
+  plain layout bug where a merged creature's concatenated name (e.g. "Cadet+Medic") truncates in
+  `SlotView`'s fixed 84×96 `VBoxContainer` — widen/wrap rather than clip.
+- [ ] **B1c. Real card art and animation** — play/move/merge/score/destroy, driven by A2's diff,
+  now over the drag-based interactions and status-aware slot view B1a/B1b establish. The original
+  scope of this step, sequenced last because it's the one piece that would otherwise need redoing.
 - [ ] **B2. AI opponent via `IAgent`** (difficulty = search budget), off the main thread and capped
   on mobile. `Choose(AgentContext, CancellationToken)` already takes the token, so the seam exists
   — **what's missing is the policy**: what the player sees during a ~2s search, and what happens

@@ -13,34 +13,35 @@ namespace Shapes.Godot.Scripts;
 
 // Owns the one GameSession for a hotseat game and is the only script that submits
 // GameActions. Sub-views never touch GameSession directly -- they raise Godot signals
-// (CardTapped, SlotTapped, EndTurnRequested, ...) that GameRoot listens to and turns into
+// (SlotTapped, EndTurnRequested, ...) that GameRoot listens to and turns into
 // GameSession.Submit calls, then pushes the resulting StateDiff/legal-action list back down
 // to RefreshAll. This keeps every scene a pure view: PLAN.md A2's "UI only ever submits
 // GameActions and never mutates state" boundary, extended down to the scene tree.
+//
+// PLAN.md B1a: playing a card is drag-only now -- there is no tap-to-play fallback and no
+// card-detail inspect panel. A per-card hand detail view (e.g. shown on hover) is planned as
+// its own later piece rather than kept as a tap-triggered panel in the meantime.
 public partial class GameRoot : Control
 {
     [Export] public NodePath BoardViewPath { get; set; } = "BoardView";
-    [Export] public NodePath CardDetailPanelPath { get; set; } = "CardDetailPanel";
     [Export] public ulong Seed { get; set; }
 
     private GameSession? _session;
     private CardDatabase? _cards;
 
     private BoardView? _boardView;
-    private CardDetailPanel? _cardDetailPanel;
 
     public override void _Ready()
     {
         _boardView = GetNode<BoardView>(BoardViewPath);
-        _cardDetailPanel = GetNode<CardDetailPanel>(CardDetailPanelPath);
 
-        _boardView.CardTapped += OnCardTapped;
         _boardView.SlotTapped += OnSlotTapped;
-        _boardView.MoveTapped += OnMoveTapped;
-        _boardView.MergeTargetTapped += OnMergeTargetTapped;
+        _boardView.MoveChosen += OnMoveChosen;
+        _boardView.CardDroppedOnSlot += OnCardDroppedOnSlot;
+        _boardView.CreatureDroppedOnSlot += OnCreatureDroppedOnSlot;
+        _boardView.SpellDroppedOnSelfArea += OnSpellDroppedOnSelfArea;
         _boardView.EndTurnRequested += OnEndTurnRequested;
         _boardView.DiscardRequested += OnDiscardRequested;
-        _cardDetailPanel.Closed += () => _boardView!.ClearSelection();
 
         StartNewGame(Seed == 0 ? (ulong)DateTime.UtcNow.Ticks : Seed);
     }
@@ -74,26 +75,87 @@ public partial class GameRoot : Control
         }
     }
 
-    private void OnCardTapped(string cardId, bool fromActiveHand)
+    // A hand card dropped directly on a board slot (PLAN.md B1a) -- the drag already supplied
+    // the slot a tap-then-tap flow would otherwise need a separate step to collect.
+    private void OnCardDroppedOnSlot(string cardId, SlotIndex slot)
     {
-        if (_cards is null)
+        if (_session is null)
         {
             return;
         }
 
-        // Tap-to-inspect, not hover: PLAN.md A3's "no hover-dependent information" rule.
-        // Tapping a hand card shows its detail; if it is legally playable a Play button in
-        // the detail panel submits it, so the same tap that reveals the card also reaches
-        // the action that plays it.
-        var card = _cards.Get(cardId);
-        var canPlay = fromActiveHand && (_session?.LegalActions()
-            .OfType<PlayCardAction>()
-            .Any(a => a.CardId == cardId) ?? false);
+        var legalPlays = _session.LegalActions().OfType<PlayCardAction>()
+            .Where(a => a.CardId == cardId)
+            .ToList();
 
-        _cardDetailPanel!.ShowCard(card, canPlay, () => SubmitPlayCard(cardId));
+        var placement = legalPlays.Where(a => a.TargetSlot == slot).ToList();
+
+        var direct = placement.FirstOrDefault(a => a.ChosenTarget is null);
+        if (direct is not null)
+        {
+            Submit(direct);
+            return;
+        }
+
+        var placementWithTargets = placement.Where(a => a.ChosenTarget is not null).ToList();
+        if (placementWithTargets.Count > 0)
+        {
+            // The creature's placement slot is now fixed by the drop; still needs a chosen_*
+            // target (e.g. a play-effect on an enemy) before the play resolves -- falls back to
+            // A5's tap-to-target UI for that last step, since a single drop can't supply both a
+            // placement slot and a separate chosen target at once.
+            _boardView!.BeginTargeting(placementWithTargets.Cast<GameAction>().ToList());
+            RefreshAll();
+            return;
+        }
+
+        // Not a creature placement here -- a spell that targets this exact slot (dropped
+        // straight onto the enemy creature it targets, the single most natural drag gesture for
+        // that card) resolves immediately rather than requiring a drop-then-tap-target sequence.
+        var spellTargeting = legalPlays.FirstOrDefault(a => a.TargetSlot is null && a.ChosenTarget == slot);
+        if (spellTargeting is not null)
+        {
+            Submit(spellTargeting);
+            return;
+        }
+
+        // No placement or direct target uses this slot -- SlotView accepts any card drop so a
+        // targetless spell dropped on top of a creature (not just empty board space) still
+        // works, and a targeted spell dropped on the wrong slot still resolves via targeting
+        // mode below rather than silently failing.
+        var spellWithTargets = legalPlays.Where(a => a.TargetSlot is null && a.ChosenTarget is not null).ToList();
+        if (spellWithTargets.Count > 0)
+        {
+            _boardView!.BeginTargeting(spellWithTargets.Cast<GameAction>().ToList());
+            RefreshAll();
+            return;
+        }
+
+        OnSpellDroppedOnSelfArea(cardId);
     }
 
-    private void SubmitPlayCard(string cardId)
+    // A friendly creature dropped onto another friendly slot (PLAN.md B1a) -- replaces the old
+    // tap-slot-then-pick-"Merge into X"-from-a-menu path with one drag gesture.
+    private void OnCreatureDroppedOnSlot(SlotIndex source, SlotIndex target)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        var action = _session.LegalActions()
+            .OfType<MergeAction>()
+            .FirstOrDefault(a => a.SourceSlot == source && a.TargetSlot == target);
+
+        if (action is not null)
+        {
+            Submit(action);
+        }
+    }
+
+    // A targetless spell dropped anywhere on the self panel's background (PLAN.md B1a) rather
+    // than a specific slot, since it never occupies the board.
+    private void OnSpellDroppedOnSelfArea(string cardId)
     {
         if (_session is null)
         {
@@ -102,17 +164,12 @@ public partial class GameRoot : Control
 
         var action = _session.LegalActions()
             .OfType<PlayCardAction>()
-            .FirstOrDefault(a => a.CardId == cardId && a.TargetSlot is null);
+            .FirstOrDefault(a => a.CardId == cardId && a.TargetSlot is null && a.ChosenTarget is null);
 
-        if (action is null)
+        if (action is not null)
         {
-            // A creature card with no free targetless play (needs a board slot): let
-            // BoardView collect the slot via SlotTapped instead of guessing one here.
-            _boardView!.BeginPlacingCard(cardId);
-            return;
+            Submit(action);
         }
-
-        Submit(action);
     }
 
     private void OnSlotTapped(SlotIndex slot)
@@ -122,26 +179,29 @@ public partial class GameRoot : Control
             return;
         }
 
-        if (_boardView!.PendingPlacementCardId is { } cardId)
+        if (_boardView!.IsTargeting)
         {
-            var action = _session.LegalActions()
-                .OfType<PlayCardAction>()
-                .FirstOrDefault(a => a.CardId == cardId && a.TargetSlot == slot);
-            if (action is not null)
+            var targeted = _boardView.TryResolveTarget(slot);
+            if (targeted is not null)
             {
-                Submit(action);
+                Submit(targeted);
             }
 
-            _boardView.CancelPlacement();
+            // A tap that misses every highlighted slot is ignored, not a cancel -- targeting
+            // mode has its own explicit cancel (BoardView's "Cancel Targeting" button, wired
+            // to ClearSelection); a stray miss-tap shouldn't silently drop the choice.
             return;
         }
 
-        // Otherwise a slot tap opens that creature's move list (if any) via the board view's
-        // own selection state -- BoardView raises MoveTapped once a move is chosen.
-        _boardView.SelectSlot(slot, _session.State, _cards!, _session.LegalActions());
+        // A slot tap outside targeting is otherwise a no-op (PLAN.md B1a): playing a card is
+        // drag-only (OnCardDroppedOnSlot), using a move is a tap on that move's own
+        // always-visible button (OnMoveChosen), and merge is a drag (OnCreatureDroppedOnSlot),
+        // so a bare tap on a slot has nothing left to do.
     }
 
-    private void OnMoveTapped(SlotIndex source, int moveIndex)
+    // A move's own always-visible board button was tapped (PLAN.md B1a, replacing the old
+    // tap-slot-then-MoveMenu-popup flow).
+    private void OnMoveChosen(SlotIndex source, int moveIndex)
     {
         if (_session is null)
         {
@@ -166,24 +226,8 @@ public partial class GameRoot : Control
             .ToList();
         if (withTargets.Count > 0)
         {
-            _boardView!.BeginTargeting(withTargets.Cast<GameAction>().ToList(), slot => slot == source);
-        }
-    }
-
-    private void OnMergeTargetTapped(SlotIndex source, SlotIndex target)
-    {
-        if (_session is null)
-        {
-            return;
-        }
-
-        var action = _session.LegalActions()
-            .OfType<MergeAction>()
-            .FirstOrDefault(a => a.SourceSlot == source && a.TargetSlot == target);
-
-        if (action is not null)
-        {
-            Submit(action);
+            _boardView!.BeginTargeting(withTargets.Cast<GameAction>().ToList());
+            RefreshAll();
         }
     }
 
