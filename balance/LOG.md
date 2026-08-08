@@ -516,3 +516,77 @@ Reasons
 - Fixes unspent resources accumulation
 
 A small second round of balance changes should probably be made as many cards were changed 
+
+# seat 1 vs. 2 win rate
+The first player has always had a slight winrate over the second player.
+
+## v1.6-baseline (v1.5-expensivemed)
+Seat 1 win rate: 56.8% [51.9%, 61.5%]
+Score margin (P1-P2): 0.79 [0.39, 1.18]
+Decisiveness |margin|: 3.54
+Game length: 16.19 turns
+Seat 1 resources (spike/anvil/wheel):	5.84 / 4.91 / 5.51
+Seat 2 resources (spike/anvil/wheel): 3.68 / 2.91 /	3.29
+
+## v1.6-resourcesmid
+**Changes:** Second player starts with extra 2/2/2 of resources
+
+Seat 1 win rate: 45.3% [40.4%, 50.1%]
+Score margin (P1-P2): -0.58 [-0.97, -0.19]
+Decisiveness |margin|: 3.46
+Game length: 17.78 turns
+Seat 1 resources (spike/anvil/wheel):	5.73 / 5.06 / 5.29
+Seat 2 resources (spike/anvil/wheel): 5.18 / 3.31 /	3.83
+
+## v1.6-resourceslow
+**Changes:** Second player starts with extra 1/1/1 of resources
+
+Seat 1 win rate: 55.0% [50.1%, 59.8%]
+Score margin (P1-P2): 0.49 [0.12, 0.85]
+Decisiveness |margin|: 3.26
+Game length: 18.08 turns
+Seat 1 resources (spike/anvil/wheel):	5.84 / 4.89 / 5.12
+Seat 2 resources (spike/anvil/wheel): 4.65 / 2.91 /	3.30
+
+## v1.6-cardsmid
+**Changes:** Second player starts with 2 extra cards
+
+Seat 1 win rate: 46.3% [41.4%, 51.1%]
+Score margin (P1-P2): -0.31 [-0.71, 0.09]
+Decisiveness |margin|: 3.54
+Game length: 18.19 turns
+Seat 1 resources (spike/anvil/wheel):	5.90 / 4.86 / 4.90
+Seat 2 resources (spike/anvil/wheel): 3.80 / 2.44 /	2.53
+
+## v1.6-cardslow
+**Changes:** Second player starts with 1 extra card
+
+Seat 1 win rate: 54.8% [49.9%, 59.6%]
+Score margin (P1-P2): 0.59 [0.21, 0.98]
+Decisiveness |margin|: 3.41
+Game length: 18.53 turns
+Seat 1 resources (spike/anvil/wheel):	5.68 / 4.64 / 5.03
+Seat 2 resources (spike/anvil/wheel): 3.57 / 2.46 /	2.59
+
+## v1.6-score
+**Changes:** Second player starts with 1 extra score
+
+Seat 1 win rate: 57.3% [52.4%, 62.0%]
+Score margin (P1-P2): 0.70 [0.35, 1.06]
+Decisiveness |margin|: 3.25
+Game length: 17.23 turns
+Seat 1 resources (spike/anvil/wheel):	5.62 / 4.96 / 5.11
+Seat 2 resources (spike/anvil/wheel): 4.13 / 2.62 /	3.01
+
+## v1.6-resourcescardslow
+**Changes:** Second player starts with extra 1/1/1 of resources and 1 extra card
+
+Seat 1 win rate: 48.5% [43.6%, 53.4%]
+Score margin (P1-P2): -0.20 [-0.59, 0.19]
+Decisiveness |margin|: 3.53
+Game length: 18.11 turns
+Seat 1 resources (spike/anvil/wheel):	6.00 / 5.03 / 5.20
+Seat 2 resources (spike/anvil/wheel): 4.67 / 2.89 /	3.28
+
+## Results
+**Final decision:** Going with **v1.6-resourcescardslow**'s ruleset. Might need slight adjusting after a final balance sweep, but will only do +/- 1 card and not adjust starting score. Balance is close to 50/50 and slightly favoring second player seems more interactive

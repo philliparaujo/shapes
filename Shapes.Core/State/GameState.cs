@@ -179,6 +179,43 @@ public sealed class GameState
         TurnNumber = 1;
     }
 
+    // Applies the second seat's starting compensation (PLAN.md step 4.8): extra resources, extra
+    // cards, and extra score, all zero under the shipping ruleset.
+    //
+    // Lives here rather than in each caller's deal loop because there are three callers that set a
+    // game up (Shapes.Sim's GameRunner, the console client, and the tests' fixtures) and a rule
+    // that seat two is compensated is not one any of them should be able to forget -- a balance run
+    // that silently skipped it would report a seat asymmetry that the ruleset had already fixed,
+    // and the numbers would look entirely plausible.
+    //
+    // Called AFTER the caller has dealt opening hands and BEFORE the first AdvanceToActions(), so
+    // the extra cards come off an already-shuffled deck and the extra resources are not overwritten
+    // by turn one's income (income adds, so ordering is not strictly load-bearing for resources --
+    // but the extra draw genuinely must follow SetDeck/ShuffleDeck). Returns the extra cards drawn
+    // so a caller tracking draws for metrics can account for them the same way it accounts for the
+    // opening hand; the console, which tracks nothing, ignores the return.
+    //
+    // Score is added directly rather than through the scoring step: this is a starting condition,
+    // not something seat two earned by holding a slot, and routing it through ApplyScoring would
+    // make it look like a scoring event to every metric that counts those.
+    public IReadOnlyList<string> ApplySecondSeatCompensation()
+    {
+        var seatTwo = this[PlayerId.Two];
+
+        seatTwo.GainResources(Rules.SecondSeatStartingResources);
+
+        if (Rules.SecondSeatStartingScore > 0)
+        {
+            seatTwo.AddScore(Rules.SecondSeatStartingScore);
+        }
+
+        // Goes through DrawWithBurn rather than PlayerState.Draw so the extra cards respect the
+        // hand limit exactly as every other draw in the game does -- the whole reason that method
+        // is the single choke point (see DrawWithBurn). Under an unlimited hand limit, which the
+        // shipping ruleset uses, the two are equivalent.
+        return DrawWithBurn(PlayerId.Two, Rules.SecondSeatStartingCards);
+    }
+
     private GameState(
         RuleSet rules, IRandomSource random, Board board, PlayerState[] players,
         PlayerId activePlayer, TurnPhase phase, int turnNumber, IEnumerable<TurnEvent> turnEvents,

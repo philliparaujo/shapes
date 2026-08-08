@@ -88,6 +88,10 @@ foreach (var playerId in PlayerIds.All)
     player.Draw(rules.StartingHandSize);
 }
 
+// Seat two's step-4.8 starting compensation. Nothing to track here -- the console renders state
+// rather than measuring it -- but it must run so a human game matches what Shapes.Sim measured.
+state.ApplySecondSeatCompensation();
+
 state.AdvanceToActions();
 
 var turnNumber = 0;

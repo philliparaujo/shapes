@@ -10,23 +10,28 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 12 / 13    |
+| 4 — AI-driven balance                    | 13 / 14    |
 | 5 — Godot client                         | 0 / 12     |
 
-892 tests passing. **Phases 1, 2, and 3 are complete.**
+904 tests passing. **Phases 1, 2, and 3 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 8** — first-player balance, the last open exit criterion. **Card balance is
-settled** (step 6, done: no dead cards, no auto-includes, all three resource types level, 400/400
-terminating) and **game length is settled** (step 7, done: `scoreToWin` 7 plus a global card-cost
-increase took the median from 19 turns to 14, with fatigue down to 1.0% and board presence intact).
-Step 7 also improved the seat margin as a side effect (+0.94 → +0.79), but the interval still
-excludes zero, so seat 1 remains genuinely ahead and step 8 still has work to do. Step 5b (done)
-added fatigue after the card sweep surfaced a
+**Next up: Phase 4 step 9** — the final, confirmatory balance pass. **All four Phase 4 exit
+criteria are now met**, so step 9 exists to re-establish per-card balance against a ruleset that
+changed twice underneath it, not to reach a criterion still outstanding. **Card balance was settled**
+at step 6 (no dead cards, no auto-includes, all three resource types level, 400/400 terminating),
+**game length** at step 7 (`scoreToWin` 7 plus a global card-cost increase took the median from 19
+turns to 14, fatigue down to 1.0%, board presence intact), and **first-player advantage** at step 8
+— a seat-2 compensation of 1/1/1 resources plus one card (`v1.6-resourcescardslow`) took the score
+margin from +0.79 [+0.39, +1.18] to **−0.20 [−0.59, +0.19]**, straddling zero for the first time.
+Those last two changes touched most of the card set and the opening state respectively, which is
+precisely the debt step 9 collects.
+
+Step 5b (done) added fatigue after the card sweep surfaced a
 non-terminating game and traced it to the scoring rule rather than to any card: with score gated on
 killing
 something, any board where defense meets offense stops scoring forever, and 7 of 26 creatures
@@ -742,42 +747,98 @@ and 6 then varied rules and cards deliberately, each as a same-seed A/B against 
   in every expensive variant (cheap cards dominate an expensive format), and `enrage`/`monk` fall to
   the bottom. A small confirmatory card pass against the new ruleset is worth doing before Phase 5,
   though it is second-order next to step 8.
-- [ ] **8. First-player balance — the last open exit criterion, and the one neither the card sweep
-  nor the length sweep could reach.** After step 7 seat 1 wins 56.8% and the margin is
-  **+0.79 [+0.39, +1.18]**, which still **excludes zero** — seat 1 is genuinely most of a point
-  ahead, and the margin says so with the low-variance estimator rather than the wide win-rate one.
-  **The cause is measured and structural.** Seat 1 takes a full turn of board development before
-  seat 2 acts at all. That head start never closes: by turn 3 seat 1 holds 4.50 cards to seat 2's
-  3.47, the hand gap is still ~1.0 card at turn 12, and unspent resources run +2.0 to +2.2 per type
-  all game. No card edit reaches a tempo asymmetry that exists before any card is played, which is
-  why five runs of card changes moved it only ~4 points, and no length lever reaches it either —
-  step 7's sweep showed the opposite, that *shortening* games without compensation makes it worse
-  (a bare `scoreToWin` cut to 7 took seat 1 to 60.3%, and to 5 took it to 65.8%).
-  **Levers to sweep**, all seat-2 compensations expressed as `RuleSet` knobs so each is a named
-  ruleset file like every other Phase 4 experiment: extra starting **resources** (the most granular
-  — a partial turn's income, tunable in single pips); extra starting **cards** (coarser, ~1 card
-  ≈ one turn of draw, and it interacts with the deck-as-constraint finding in step 7); extra
-  starting **score** (coarsest and bluntest — it compensates the outcome directly without
-  addressing the tempo gap, so it should be the fallback if the first two cannot close the margin).
-  Prefer the smallest lever that moves the margin interval to straddle zero; overshooting into a
-  seat-2 advantage is the same failure with the sign flipped.
-  **Read the margin, not the win rate.** Step 2b's finding applies directly here: at 400 games a
-  seat win rate carries a ±5-point interval that cannot resolve a 54% reading, while the margin
-  interval on the same games does. The criterion is that `FinalScoreMargin` stops excluding zero.
-  Also re-check the per-seat hand/resource/board-presence curves, not just the outcome — a
-  compensation that equalises win rate while leaving seat 2 visibly behind on board all game has
-  papered over the asymmetry rather than fixed it.
+- [x] **8. First-player balance — closed with a seat-2 compensation, not more content tuning.**
+  After step 7 seat 1 won 56.8% at a margin of **+0.79 [+0.39, +1.18]**, still **excluding zero**.
+  **The cause was structural and pre-play.** Seat 1 takes a full turn of board development before
+  seat 2 acts at all, and the head start never closes: by turn 3 seat 1 held 4.50 cards to seat 2's
+  3.47, the hand gap was still ~1.0 card at turn 12, and unspent resources ran +2.0 to +2.2 per
+  type all game — the resource figure being almost exactly one turn of `BaseIncome`, which is the
+  signature of a one-time debt that compounds rather than decays. No card edit reaches that (five
+  card passes moved it ~4 points) and no length lever does either — step 7 showed *shortening*
+  games without compensation makes it worse (`scoreToWin` 7 alone took seat 1 to 60.3%, 5 to 65.8%).
+  **Three `RuleSet` knobs, all seat-2, defaulting to a compensated game:**
+  `SecondSeatStartingResources`, `SecondSeatStartingCards`, `SecondSeatStartingScore`. Applied at
+  one engine seam, `GameState.ApplySecondSeatCompensation()`, called by `Shapes.Sim`'s `GameRunner`
+  and the console client after the opening deal and before the first `AdvanceToActions()` — in the
+  engine rather than in each caller's deal loop because three places set a game up and a rule that
+  seat 2 is compensated is not one any of them should be able to forget; a run that silently
+  skipped it would report an asymmetry the ruleset had already fixed, and the numbers would look
+  entirely plausible. Extra cards go through `DrawWithBurn` (so they respect the hand limit like
+  every other draw) and are **returned** so the runner folds them into seat 2's drawn total —
+  uncounted extra draws would understate how much closer the compensation puts seat 2 to fatigue,
+  which step 7 left as a real constraint at ~24.8 cards drawn. Starting score is added directly
+  rather than through `ApplyScoring`, so it never registers as a scoring event.
+  **Result: `v1.6-resourcescardslow` — 1/1/1 resources plus 1 card.** Margin
+  **−0.20 [−0.59, +0.19]**, straddling zero, seat 1 at 48.5%. **The pairing is the finding, again.**
+  Neither half closes the margin alone (1/1/1 landed +0.49, +1 card +0.59, both still excluding
+  zero), and both larger single-axis doses fail in opposite ways: 2/2/2 lands −0.58, excluding zero
+  on the *seat 2* side, and +2 cards passes on margin but leaves seat 2's anvil and wheel **below
+  where they started** (2.44/2.53 vs 2.91/3.29) — equalising the outcome while the economy gap it
+  was meant to close got *worse*. That is exactly the "papered over rather than fixed" failure this
+  step warned about, caught only because the per-seat curves were read alongside the outcome.
+  `resourcescardslow` is the only variant that moved the margin without degrading a seat-2 curve.
+  **Starting score was the worst lever and is shipped at 0** — +0.70 against a +0.79 baseline, and
+  seat 1's *win rate rose* (57.3%). It pays off the outcome without touching the tempo asymmetry
+  that produces it, so seat 1 still wins the games it was going to win and seat 2 banks a point
+  that changes no decision. Predicted as the fallback, measured as inert; do not reach for it.
+  **What it cost:** every variant lengthened games (16.19 → 17.2–18.5 turns), including the score
+  one, so ~2 turns is the standing price of compensation — inside step 7's target band but worth
+  re-checking if length is ever retuned.
+  **Caveat carried into step 9:** the two passing variants sit 0.11 apart with intervals ~0.8 wide,
+  which is inside the noise floor step 6 documented. The pass/fail split is solid; the choice
+  between them is not resolved by one seed alone.
 
-**Exit criteria:** three of four met; step 8 owns the last. **Met:** *no extreme take-rate outliers*
-— take rate/turn spans 27–53% with no card outside it, and nothing separates from the field the way
-the old z = −1.84 floor did (step 6); *game length in target band* — median 14 turns, p95 32,
-24.8 cards drawn against a 72-card deck, 400/400 terminating with fatigue deciding 1.0% (step 7);
-*merge tradeoff and income-compounding confirmed as real, non-degenerate decisions* — settled in
-step 2 and unchanged since. **Open:** *first-player advantage near even by score margin* — the
-margin interval is +0.79 [+0.39, +1.18] and still excludes zero, so seat 1 is genuinely ahead even
-though step 7 improved it from +0.94 (step 8). It is the one property neither the card sweep nor
-the length sweep moved, because it is a tempo asymmetry that exists before the first card is
-played — the fix is a seat-2 compensation knob, not more content tuning.
+- [ ] **9. Final balance pass — reconcile per-card balance with the global metrics, at the settled
+  ruleset.** Every card number on record was measured under a ruleset that has since changed twice.
+  Step 7's global cost increase touched most of the set and step 8 now hands seat 2 a compensated
+  opening, so **step 6's per-card balance no longer strictly holds** — this step re-establishes it
+  against the shipped rules and confirms the globals survive the card edits. It is a confirmatory
+  pass, not a new direction: the exit criteria are already met, and the risk here is *breaking*
+  them, not failing to reach them.
+  **The known debts, all inherited rather than newly discovered.** (a) `circle_planner` and `siphon`
+  jumped to the top of the field in every expensive variant — cheap cards dominate an expensive
+  format — while `enrage` and `monk` fell to the bottom; step 7 logged this and deferred it.
+  (b) `t_flare` was nerfed three times across step 6 and ended *stronger* each time, with a move
+  imbalance never resolved. (c) `wave_crash` (z −1.46) and `basic_square` (z −0.95) are the two
+  cards step 6 buffed repeatedly without moving; both are candidates for **rework over tuning**, the
+  lesson `circle_bender` taught (+2.18 z only after both moves were replaced outright).
+  (d) Resource-type parity was last confirmed pooled over two seeds at step 6 (spike −0.06, anvil
+  +0.07, wheel 0.00) and has not been re-checked since the cost increase, which moved wheel to
+  +0.29 in `expensivemed`.
+  **Sequencing matters and is the opposite of step 6's.** Card edits shift the globals, so:
+  first re-measure the globals at the settled ruleset as the new baseline (one 400-game run, seed
+  3, no edits); then make card edits in **one batch**; then re-measure and confirm both levels
+  together. Do *not* re-tune rules and cards in the same run — that confound is what steps 3 and 6
+  were separated to avoid, and it would make an unfavourable global move unattributable.
+  **Budget the changes.** Step 6's honest ceiling was that 400 games ranks *groups* of cards, not
+  individual ones (re-running one config under a different seed moved the mean card 0.36 z and one
+  card 1.34, with only 1 of 36 showing disjoint take-rate intervals). So: **change only cards whose
+  |z| ≥ 0.6 and whose interval excludes the field median**, prefer cost changes over magnitude
+  changes (cost moved cards reliably in step 6; magnitude usually did not), and prefer rework for
+  cards that have already absorbed two failed tuning attempts. A pass that edits twenty cards
+  cannot be evaluated; one that edits five can.
+  **Guardrails — the globals that must not regress.** Re-check all four after the card batch, and
+  treat any of these as a failed pass rather than an acceptable trade: score margin must keep
+  straddling zero (step 8's criterion, the easiest to break since card edits shift tempo); median
+  length stays in the 14–18 turn band with p95 under ~35; fatigue keeps deciding <5% of games and
+  termination stays 400/400; and no resource type separates by more than ~0.2 z. Seat win rate is
+  the *reported* number but the margin is the *decision* number, per step 2b.
+  **Two seeds, not one, for the final result.** Step 6's methodological finding applies with full
+  force to a pass this small: run the confirmed configuration under a second seed before declaring
+  it settled, exactly as `change3`/`change3rerun` did, and quote per-card claims pooled over both.
+  Anything moving less than ~0.6 z in a single run is not evidence.
+  **Out of scope, deliberately:** archetype and deck-composition balance waits for
+  `deckMode: "custom"` (Phase 5 step 9) — it is not measurable on a symmetric deck, where both
+  seats hold every card. This step balances the *set*, not the decks built from it.
+
+**Exit criteria:** all four met. *No extreme take-rate outliers* — take rate/turn spans 27–53% with
+no card outside it, and nothing separates from the field the way the old z = −1.84 floor did
+(step 6). *Game length in target band* — median 14 turns, p95 32, 24.8 cards drawn against a
+72-card deck, 400/400 terminating with fatigue deciding 1.0% (step 7). *Merge tradeoff and
+income-compounding confirmed as real, non-degenerate decisions* — settled in step 2 and unchanged
+since. *First-player advantage near even by score margin* — **−0.20 [−0.59, +0.19]**, straddling
+zero for the first time, via a seat-2 compensation rather than content tuning (step 8).
+Step 9 is a confirmatory pass over the whole set at the settled ruleset, not a new exit criterion.
 
 ### Phase 5 — Godot client (desktop + mobile)
 

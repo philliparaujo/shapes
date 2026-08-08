@@ -35,6 +35,102 @@ public class GameStateTests
         RuleSet.Default.MaxCopiesPerCard,
         RuleSet.Default.TypeChart);
 
+    // Seat-two starting compensation (PLAN.md step 4.8). The knobs are only worth having if
+    // ApplySecondSeatCompensation actually moves seat two and leaves seat one untouched -- a
+    // compensation that quietly hit both seats would read as "no effect" in a balance run.
+    [Fact]
+    public void Shipping_rules_compensate_the_second_seat_and_leave_the_first_alone()
+    {
+        // The step-4.8 settled ruleset (v1.6-resourcescardslow) is live by default, so the
+        // shipping game really does hand seat two 1/1/1 and one card -- and must hand seat one
+        // nothing. A compensation that leaked to both seats would read as "no effect" in a
+        // balance run while quietly inflating both economies.
+        var state = new StateBuilder()
+            .P1(p => p.Deck("x", "y", "z"))
+            .P2(p => p.Deck("a", "b", "c"))
+            .Build();
+
+        var drawn = state.ApplySecondSeatCompensation();
+
+        Assert.Equal(RuleSet.Default.SecondSeatStartingCards, drawn.Count);
+        Assert.Equal(RuleSet.Default.SecondSeatStartingResources, state[PlayerId.Two].Resources);
+        Assert.Equal(RuleSet.Default.SecondSeatStartingScore, state[PlayerId.Two].Score);
+
+        Assert.Empty(state[PlayerId.One].Hand);
+        Assert.Equal(new ResourcePool(0, 0, 0), state[PlayerId.One].Resources);
+        Assert.Equal(0, state[PlayerId.One].Score);
+    }
+
+    [Fact]
+    public void Second_seat_compensation_is_a_no_op_when_every_knob_is_zero()
+    {
+        // Reproducing any pre-step-4.8 balance run means being able to turn it fully off.
+        var state = new StateBuilder()
+            .WithRuleSet(RuleSetTestHelper.WithoutSecondSeatCompensation())
+            .P2(p => p.Deck("a", "b", "c"))
+            .Build();
+
+        var drawn = state.ApplySecondSeatCompensation();
+
+        Assert.Empty(drawn);
+        Assert.Equal(0, state[PlayerId.Two].Score);
+        Assert.Empty(state[PlayerId.Two].Hand);
+        Assert.Equal(new ResourcePool(0, 0, 0), state[PlayerId.Two].Resources);
+    }
+
+    [Fact]
+    public void Second_seat_starting_resources_go_only_to_seat_two()
+    {
+        var state = new StateBuilder()
+            .WithRuleSet(RuleSetTestHelper.WithSecondSeatStartingResources(new ResourcePool(2, 2, 2)))
+            .Build();
+
+        state.ApplySecondSeatCompensation();
+
+        Assert.Equal(new ResourcePool(2, 2, 2), state[PlayerId.Two].Resources);
+        Assert.Equal(new ResourcePool(0, 0, 0), state[PlayerId.One].Resources);
+    }
+
+    [Fact]
+    public void Second_seat_starting_cards_are_drawn_from_seat_twos_own_deck()
+    {
+        var state = new StateBuilder()
+            .WithRuleSet(RuleSetTestHelper.WithSecondSeatStartingCards(2))
+            .P2(p => p.Deck("a", "b", "c"))
+            .Build();
+
+        var drawn = state.ApplySecondSeatCompensation();
+
+        // Returned so a metrics caller can count them toward seat two's draws -- extra cards that
+        // nothing counted would understate how much closer the compensation puts seat two to
+        // fatigue, which step 7 left as a real constraint.
+        Assert.Equal(2, drawn.Count);
+        Assert.Equal(2, state[PlayerId.Two].Hand.Count);
+        Assert.Single(state[PlayerId.Two].Deck);
+        Assert.Empty(state[PlayerId.One].Hand);
+    }
+
+    [Fact]
+    public void Second_seat_starting_score_is_added_without_scoring()
+    {
+        var state = new StateBuilder()
+            .WithRuleSet(RuleSetTestHelper.WithSecondSeatStartingScore(1))
+            .Build();
+
+        var phaseBefore = state.Phase;
+
+        state.ApplySecondSeatCompensation();
+
+        Assert.Equal(1, state[PlayerId.Two].Score);
+        Assert.Equal(0, state[PlayerId.One].Score);
+
+        // A starting condition, not a scoring event -- added directly rather than routed through
+        // ApplyScoring, so it neither advances the turn phase nor logs anything a metric counting
+        // scoring events would pick up.
+        Assert.Equal(phaseBefore, state.Phase);
+        Assert.Empty(state.TurnEvents);
+    }
+
     [Fact]
     public void Unopposed_creatures_score_one_point_each()
     {

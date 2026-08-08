@@ -13,8 +13,8 @@
   "scoreToWin": 7,
   "fatigueScorePerTurn": 1,
 
-  "secondSeatStartingResources": { "spike": 1, "anvil": 1, "wheel": 1 },
-  "secondSeatStartingCards": 1,
+  "secondSeatStartingResources": { "spike": 2, "anvil": 2, "wheel": 2 },
+  "secondSeatStartingCards": 0,
   "secondSeatStartingScore": 0,
 
   "mergeEnabled": true,

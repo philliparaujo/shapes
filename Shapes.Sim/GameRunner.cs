@@ -52,6 +52,13 @@ public static class GameRunner
             (playerId == PlayerId.One ? cardsDrawnOne : cardsDrawnTwo).AddRange(openingHand);
         }
 
+        // Seat two's step-4.8 compensation, after both opening hands are dealt off shuffled decks
+        // and before the first AdvanceToActions(). The extra cards count toward seat two's drawn
+        // total exactly as its opening hand does, so CardsDrawn* and the deck-exhaustion metrics
+        // stay honest -- a compensation that quietly drew cards nothing counted would understate
+        // how much closer to fatigue it puts seat two.
+        cardsDrawnTwo.AddRange(state.ApplySecondSeatCompensation());
+
         // Indexed by PlayerId.ToIndex(), so HarvestDrawEvents can bump whichever seat fatigued
         // without a conditional `ref` -- same reason mergeOffersOne/Two below are arrays.
         var fatigueTurns = new int[2];

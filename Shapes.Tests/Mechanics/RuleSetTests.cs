@@ -47,13 +47,17 @@ public class RuleSetTests
         DeckMode deckMode = DeckMode.Symmetric,
         int copiesPerCard = 2,
         int deckSize = 0,
-        int maxCopiesPerCard = 0) =>
+        int maxCopiesPerCard = 0,
+        int secondSeatStartingCards = 0,
+        int secondSeatStartingScore = 0) =>
         new(name, startingHandSize, cardsDrawnPerTurn, handLimit,
             new ResourcePool(1, 1, 1), incomePerCreatureType,
             pointsPerUnopposedCreature, scoreToWin,
             true, true, false, maxMergeDepth,
             deckMode, copiesPerCard, deckSize, maxCopiesPerCard,
-            TypeChart.Default);
+            TypeChart.Default,
+            secondSeatStartingCards: secondSeatStartingCards,
+            secondSeatStartingScore: secondSeatStartingScore);
 
     [Fact]
     public void Name_must_not_be_empty()
@@ -120,6 +124,44 @@ public class RuleSetTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Build(
             deckMode: DeckMode.Custom, startingHandSize: 10, handLimit: 10,
             deckSize: 5, maxCopiesPerCard: 2));
+    }
+
+    [Fact]
+    public void Default_compensates_the_second_seat_per_the_settled_sweep()
+    {
+        // balance/LOG.md's v1.6-resourcescardslow, the step-4.8 result: 1/1/1 plus one card is
+        // the only variant whose score margin straddled zero WITHOUT leaving a seat-two curve
+        // worse than it started. Pinned because the two halves are load-bearing together and
+        // neither closes the margin alone -- dropping either one silently reopens step 8.
+        var d = RuleSet.Default;
+
+        Assert.Equal(new ResourcePool(1, 1, 1), d.SecondSeatStartingResources);
+        Assert.Equal(1, d.SecondSeatStartingCards);
+
+        // Zero deliberately: the score lever barely moved the margin (+0.70 vs a +0.79 baseline)
+        // because it pays the outcome without touching the tempo gap that causes it.
+        Assert.Equal(0, d.SecondSeatStartingScore);
+    }
+
+    [Fact]
+    public void Second_seat_compensation_rejects_negative_values()
+    {
+        // Negative would deepen the asymmetry these knobs exist to close -- a sign typo, not
+        // an intent to handicap seat two.
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => Build(secondSeatStartingCards: -1));
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => Build(secondSeatStartingScore: -1));
+    }
+
+    [Fact]
+    public void Second_seat_starting_score_must_be_below_the_win_threshold()
+    {
+        // At or above it, seat two has won before a card is played and GameState.Winner would
+        // report a winner on an untouched board.
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => Build(scoreToWin: 7, secondSeatStartingScore: 7));
     }
 
     [Fact]

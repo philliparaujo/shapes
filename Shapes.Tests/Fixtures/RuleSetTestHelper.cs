@@ -28,6 +28,36 @@ public static class RuleSetTestHelper
     public static RuleSet WithScoreByCreatureDelta(bool scoreByCreatureDelta) =>
         Build(scoreByCreatureDelta: scoreByCreatureDelta);
 
+    // Seat-two compensation knobs (PLAN.md step 4.8). Each varies ONE knob against a zeroed base
+    // rather than against the shipping ruleset, which now enables all of them -- otherwise a test
+    // named for the cards knob would also be handed 1/1/1 of resources, and could not attribute
+    // what it observed to the knob it names.
+    public static RuleSet WithSecondSeatStartingResources(ResourcePool resources) =>
+        Build(
+            secondSeatStartingResources: resources,
+            secondSeatStartingCards: 0,
+            secondSeatStartingScore: 0);
+
+    public static RuleSet WithSecondSeatStartingCards(int cards) =>
+        Build(
+            secondSeatStartingResources: new ResourcePool(0, 0, 0),
+            secondSeatStartingCards: cards,
+            secondSeatStartingScore: 0);
+
+    public static RuleSet WithSecondSeatStartingScore(int score) =>
+        Build(
+            secondSeatStartingResources: new ResourcePool(0, 0, 0),
+            secondSeatStartingCards: 0,
+            secondSeatStartingScore: score);
+
+    // Turns the step-4.8 compensation fully off. The shipping ruleset now enables it, so any
+    // test about the pre-compensation game -- or reproducing a pre-step-4.8 balance run -- has to
+    // zero all three knobs, not just the one it cares about.
+    public static RuleSet WithoutSecondSeatCompensation() => Build(
+        secondSeatStartingResources: new ResourcePool(0, 0, 0),
+        secondSeatStartingCards: 0,
+        secondSeatStartingScore: 0);
+
     // A custom-deck ruleset, for the code paths that require a symmetric one and must refuse a
     // custom one loudly rather than misbehaving (CardDatabase.BuildSymmetricDeck, Determinizer).
     public static RuleSet CustomDeck(int deckSize = 30, int maxCopiesPerCard = 2) =>
@@ -51,7 +81,10 @@ public static class RuleSetTestHelper
         int? copiesPerCard = null,
         int? deckSize = null,
         int? maxCopiesPerCard = null,
-        TypeChart? typeChart = null)
+        TypeChart? typeChart = null,
+        ResourcePool? secondSeatStartingResources = null,
+        int? secondSeatStartingCards = null,
+        int? secondSeatStartingScore = null)
     {
         var d = RuleSet.Default;
 
@@ -73,6 +106,11 @@ public static class RuleSetTestHelper
             copiesPerCard: copiesPerCard ?? d.CopiesPerCard,
             deckSize: deckSize ?? d.DeckSize,
             maxCopiesPerCard: maxCopiesPerCard ?? d.MaxCopiesPerCard,
-            typeChart: typeChart ?? d.TypeChart);
+            typeChart: typeChart ?? d.TypeChart,
+            fatigueScorePerTurn: d.FatigueScorePerTurn,
+            secondSeatStartingResources:
+                secondSeatStartingResources ?? d.SecondSeatStartingResources,
+            secondSeatStartingCards: secondSeatStartingCards ?? d.SecondSeatStartingCards,
+            secondSeatStartingScore: secondSeatStartingScore ?? d.SecondSeatStartingScore);
     }
 }

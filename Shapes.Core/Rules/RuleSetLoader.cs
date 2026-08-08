@@ -63,7 +63,11 @@ public static class RuleSetLoader
                 maxCopiesPerCard: dto.MaxCopiesPerCard ?? d.MaxCopiesPerCard,
                 typeChart: ReadTypeChart(dto.TypeChart, d.TypeChart),
                 scoreByCreatureDelta: dto.ScoreByCreatureDelta ?? d.ScoreByCreatureDelta,
-                fatigueScorePerTurn: dto.FatigueScorePerTurn ?? d.FatigueScorePerTurn);
+                fatigueScorePerTurn: dto.FatigueScorePerTurn ?? d.FatigueScorePerTurn,
+                secondSeatStartingResources: ReadPool(
+                    dto.SecondSeatStartingResources, d.SecondSeatStartingResources),
+                secondSeatStartingCards: dto.SecondSeatStartingCards ?? d.SecondSeatStartingCards,
+                secondSeatStartingScore: dto.SecondSeatStartingScore ?? d.SecondSeatStartingScore);
         }
         catch (Exception ex) when (ex is ArgumentException or ArgumentOutOfRangeException)
         {

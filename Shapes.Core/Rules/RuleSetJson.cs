@@ -29,6 +29,10 @@ internal sealed class RuleSetDto
     public int? ScoreToWin { get; set; }
     public int? FatigueScorePerTurn { get; set; }
 
+    public ResourcePoolDto? SecondSeatStartingResources { get; set; }
+    public int? SecondSeatStartingCards { get; set; }
+    public int? SecondSeatStartingScore { get; set; }
+
     public bool? MergeEnabled { get; set; }
     public bool? MergeRequiresAdjacent { get; set; }
     public bool? MergeCostsAction { get; set; }

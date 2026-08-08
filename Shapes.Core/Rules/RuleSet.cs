@@ -76,6 +76,34 @@ public sealed class RuleSet
     // diverges and ScoreToWin is always reached.
     public int FatigueScorePerTurn { get; }
 
+    // Second-seat compensation (PLAN.md step 4.8). Player two starts with these on top of the
+    // normal opening deal, all zero by default so every pre-step-8 balance run stays reproducible.
+    //
+    // These exist because seat one's advantage is a TEMPO asymmetry that predates the first card
+    // played -- it takes a full turn of development before seat two acts, and the gap never closes
+    // (measured at v1.6-baseline: seat two trails by ~1.0 card at turn 12 and ~2.2 of every
+    // resource all game, the latter being almost exactly one turn of BaseIncome). No card edit
+    // reaches that, which is why five card passes moved seat one's win rate only ~4 points. The
+    // fix has to be a one-time repayment at setup, which is what these are.
+    //
+    // Three knobs rather than one because they are not interchangeable, and they are ordered here
+    // finest-to-bluntest deliberately:
+    //   Resources is the most granular -- tunable in single pips, so the score margin can be
+    //     landed ON zero rather than jumped over. It also matches the measured deficit directly.
+    //   Cards is coarser (~1 card is one turn of draw) and is NOT purely additive: step 7 left the
+    //     deck a real constraint at ~24.8 cards drawn, so extra cards also pull seat two toward
+    //     fatigue slightly sooner.
+    //   Score is the bluntest -- at ScoreToWin 7 a single point hands over 14% of the game, and it
+    //     compensates the OUTCOME without touching the tempo curves at all. Expect it to overshoot;
+    //     it is the fallback, and the control that proves the margin metric responds.
+    // Overshooting into a seat-two advantage is the same failure with the sign flipped, so read
+    // FinalScoreMargin's interval (not the wide win-rate one) and re-check the per-turn hand,
+    // resource, and board-presence curves -- equalising the outcome while seat two still visibly
+    // trails on board all game has papered over the asymmetry rather than fixed it.
+    public ResourcePool SecondSeatStartingResources { get; }
+    public int SecondSeatStartingCards { get; }
+    public int SecondSeatStartingScore { get; }
+
     // Merging
     public bool MergeEnabled { get; }
     public bool MergeRequiresAdjacent { get; }
@@ -111,7 +139,10 @@ public sealed class RuleSet
         int maxCopiesPerCard,
         TypeChart typeChart,
         bool scoreByCreatureDelta = false,
-        int fatigueScorePerTurn = 1)
+        int fatigueScorePerTurn = 1,
+        ResourcePool secondSeatStartingResources = default,
+        int secondSeatStartingCards = 0,
+        int secondSeatStartingScore = 0)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -125,6 +156,17 @@ public sealed class RuleSet
 
         // Negative would hand score to the player who ran out of cards.
         ArgumentOutOfRangeException.ThrowIfNegative(fatigueScorePerTurn);
+
+        // Negative compensation would deepen the very asymmetry these exist to close, so it is
+        // far more likely a sign typo than an intent to handicap seat two. ResourcePool's own
+        // constructor rejects negative components, so secondSeatStartingResources needs no check
+        // here.
+        ArgumentOutOfRangeException.ThrowIfNegative(secondSeatStartingCards);
+        ArgumentOutOfRangeException.ThrowIfNegative(secondSeatStartingScore);
+
+        // Starting at or above the win threshold would hand seat two the game before a card is
+        // played -- and GameState.Winner would report a winner on a board nobody has touched.
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(secondSeatStartingScore, scoreToWin);
 
         // A hand limit below the starting hand size would force a discard before the first
         // turn is played -- almost certainly a typo rather than an intent.
@@ -171,6 +213,9 @@ public sealed class RuleSet
         TypeChart = typeChart;
         ScoreByCreatureDelta = scoreByCreatureDelta;
         FatigueScorePerTurn = fatigueScorePerTurn;
+        SecondSeatStartingResources = secondSeatStartingResources;
+        SecondSeatStartingCards = secondSeatStartingCards;
+        SecondSeatStartingScore = secondSeatStartingScore;
     }
 
     // The shipping rules, matching Shapes.Content/rulesets/default.json. Tests and tools use
@@ -194,7 +239,23 @@ public sealed class RuleSet
         maxCopiesPerCard: 0,
         typeChart: TypeChart.Default,
         scoreByCreatureDelta: false,
-        fatigueScorePerTurn: 1);
+        fatigueScorePerTurn: 1,
+        // Step 4.8's settled seat-two compensation: balance/LOG.md's v1.6-resourcescardslow.
+        // Split across two axes at a low dose deliberately -- neither half closes the margin alone
+        // (1/1/1 landed +0.49, +1 card +0.59, both still excluding zero), while the larger
+        // single-axis doses either overshoot or paper over the gap: 2/2/2 lands -0.58, excluding
+        // zero on the SEAT TWO side, and +2 cards passes on margin but leaves seat two's anvil and
+        // wheel BELOW where they started (2.44/2.53 vs 2.91/3.29) -- equalising the outcome while
+        // the economy gap it was meant to close got worse. This pairing lands the margin at
+        // -0.20 [-0.59, +0.19], straddling zero (the step-8 criterion), and is the only variant
+        // that moved the margin without degrading a seat-two curve.
+        //
+        // Starting SCORE stays 0: it was the worst lever of the sweep (+0.70 against a +0.79
+        // baseline, and seat one's win rate actually ROSE), because it pays off the outcome
+        // without touching the tempo asymmetry that produces it.
+        secondSeatStartingResources: new ResourcePool(1, 1, 1),
+        secondSeatStartingCards: 1,
+        secondSeatStartingScore: 0);
 
     public override string ToString() => Name;
 }

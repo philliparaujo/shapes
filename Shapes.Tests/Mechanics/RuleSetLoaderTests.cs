@@ -51,6 +51,69 @@ public class RuleSetLoaderTests
     }
 
     [Fact]
+    public void Second_seat_compensation_falls_back_to_the_shipping_values()
+    {
+        var rules = RuleSetLoader.FromJson("{}");
+
+        Assert.Equal(
+            RuleSet.Default.SecondSeatStartingResources, rules.SecondSeatStartingResources);
+        Assert.Equal(RuleSet.Default.SecondSeatStartingCards, rules.SecondSeatStartingCards);
+        Assert.Equal(RuleSet.Default.SecondSeatStartingScore, rules.SecondSeatStartingScore);
+    }
+
+    [Fact]
+    public void Second_seat_compensation_can_be_switched_off_entirely()
+    {
+        // Every balance run before step 4.8 was measured with no compensation at all, so
+        // reproducing one means being able to zero all three explicitly -- and an explicit 0
+        // must not be mistaken for an absent key now that the defaults are non-zero.
+        var rules = RuleSetLoader.FromJson("""
+            {
+              "secondSeatStartingResources": { "spike": 0, "anvil": 0, "wheel": 0 },
+              "secondSeatStartingCards": 0,
+              "secondSeatStartingScore": 0
+            }
+            """);
+
+        Assert.Equal(new ResourcePool(0, 0, 0), rules.SecondSeatStartingResources);
+        Assert.Equal(0, rules.SecondSeatStartingCards);
+        Assert.Equal(0, rules.SecondSeatStartingScore);
+    }
+
+    [Fact]
+    public void Second_seat_compensation_overrides_take_effect()
+    {
+        // The step-4.8 sweep is three independent knobs, so a ruleset file setting all three at
+        // once must land all three -- this is the shape balance/LOG.md's v1.6 variants take.
+        var rules = RuleSetLoader.FromJson("""
+            {
+              "name": "v1.6-resourcesmid",
+              "secondSeatStartingResources": { "spike": 2, "anvil": 2, "wheel": 2 },
+              "secondSeatStartingCards": 2,
+              "secondSeatStartingScore": 1
+            }
+            """);
+
+        Assert.Equal(new ResourcePool(2, 2, 2), rules.SecondSeatStartingResources);
+        Assert.Equal(2, rules.SecondSeatStartingCards);
+        Assert.Equal(1, rules.SecondSeatStartingScore);
+    }
+
+    [Fact]
+    public void Second_seat_resources_can_be_set_per_type()
+    {
+        // Single-pip tunability is the reason resources are the finest of the three levers.
+        // A partial pool overrides only the types it names; the rest keep the shipping value,
+        // matching how baseIncome already behaves rather than inventing a second convention.
+        var rules = RuleSetLoader.FromJson(
+            """{ "secondSeatStartingResources": { "spike": 3 } }""");
+
+        var d = RuleSet.Default.SecondSeatStartingResources;
+
+        Assert.Equal(new ResourcePool(3, d.Anvil, d.Wheel), rules.SecondSeatStartingResources);
+    }
+
+    [Fact]
     public void Hand_limit_accepts_the_unlimited_sentinel()
     {
         var rules = RuleSetLoader.FromJson("""{ "handLimit": "unlimited" }""");
