@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 0 / 12     |
+| 5 — Godot client                         | 0 / 16     |
 
 918 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -198,7 +198,7 @@ Phase 5 targeting UI a single state. Enforced at card-load validation.
 varying decks doesn't confound card win-rate with deck-composition effects. Phase 5 adds
 deckbuilding (`deckMode: "custom"`, explicit card-id-plus-count lists) — this is also an AI
 change, since the determinizer currently assumes symmetric decks and throws otherwise (Phase 5
-step 9 migrates it).
+step C2 migrates it).
 
 **Rules as configuration** — income, scoring, draw, hand limit, win condition, type chart all
 live in a `RuleSet` loaded from JSON, so a balance experiment is just a named ruleset file. Board
@@ -443,33 +443,127 @@ deck where both seats hold every card.
 Target Windows/macOS/Linux desktop and Android from one codebase — achievable for a turn-based
 card game, but constrains layout/input from the first scene.
 
-- [ ] **1.** Add `Shapes.Godot`, referencing `Shapes.Core` unchanged.
-- [ ] **2.** Adapter layer: engine events → visuals; UI only ever submits actions, never mutates
-  state.
-- [ ] **3.** Responsive layout (anchors/containers, portrait+landscape) from scene one.
-- [ ] **4.** Touch-first input with mouse as a superset; ~44px hit targets; no hover-dependent
-  info.
-- [ ] **5.** Scenes: board, slots, hand, resources, score, card detail.
-- [ ] **6.** Real card art and play/move/merge/score/destroy animation.
-- [ ] **7.** Target-selection UI over the existing `chosen_*` actions — one state, no chaining,
-  thanks to the single-target rule.
-- [ ] **8.** AI opponent via `IAgent` (difficulty = search budget), run off the main thread and
-  capped on mobile.
-- [ ] **9. Deckbuilder** (`deckMode: "custom"`) — also owns migrating the determinizer off its
+**Organised as four milestones, not a flat checklist.** The previous numbering read as a build
+order and wasn't one: responsive layout and touch input are *constraints on* the board scene, not
+steps after it, and the deckbuilder can't start until one game is playable end to end. Milestone A
+is the whole game on one screen; B makes it good; C fans out into the other scenes; D ships it.
+Within a milestone the order is real.
+
+**The extensibility rule for the whole phase: everything new lives in `Shapes.Godot`.** The exit
+criterion is `Shapes.Core` unmodified from Phase 4, and the way that criterion gets broken is
+gradually — a render-only enum member here, a UI-shaped convenience property there. Treat any urge
+to add to Core as the signal that the adapter (A2) is cutting at the wrong seam.
+
+#### Milestone A — one playable screen (hotseat, no art)
+
+The target is the full rules running under a finger: every card, all targeting, no art and no
+animation. Done when a seeded hotseat game in Godot reaches the same result as the same seed in
+the console.
+
+- [ ] **A1.** Add `Shapes.Godot`, referencing `Shapes.Core` unchanged. Godot 4 C#/.NET; keep the
+  project buildable by `dotnet build` from the solution so CI and tests never need the editor.
+- [ ] **A2. Adapter layer** — the load-bearing step, and the one that decides how much of the rest
+  is cheap. UI only ever submits `GameAction`s and never mutates state; the engine's reply is a
+  view-model the scenes bind to. **Render from a before/after state diff around
+  `ActionExecutor.Apply`, not from `GameState.TurnEvents`.** `TurnEvents` exists for card
+  conditions and Phase 4 metrics (`CreaturePlayed`/`Destroyed`/`CardDrawn`/`CardBurned`/`Fatigued`)
+  — it carries no damage, no move-used, and no resource-change event, and it is *cleared on
+  `EndTurn`*, so it is a per-turn log where rendering needs a per-action one. The diff belongs in
+  `Shapes.Godot`; adding render events to Core's enum is the failure mode this step exists to
+  avoid.
+- [ ] **A3. Board scene under the responsive + touch constraints** (the old steps 3/4/5, together,
+  because they are one piece of work). Anchors/containers with portrait *and* landscape working
+  from the first commit; ~44px minimum hit targets; **no hover-dependent information** — anything a
+  desktop tooltip would say needs a tap path. Scenes: board, slots, hand, resources, score, card
+  detail. Mouse is a superset of touch, not a parallel input path.
+- [ ] **A4. Card rendering via `EffectText`** — `EffectText.Describe`/`DescribeMove` synthesize
+  card text from the op vocabulary (Phase 4 step 3–5) and the Godot card face calls them. A
+  hand-authored description in scene data would drift from the numbers the next balance edit
+  changes, which is the exact failure `EffectText` was built to prevent; a second description path
+  reintroduces it.
+- [ ] **A5. Target-selection UI** over the existing `chosen_*` actions — one state, no chaining,
+  thanks to the single-target rule. **Before animation, not after:** targeting is the last
+  *functional* piece (about a third of the set touches chosen selectors, and those cards are
+  unplayable without it), and animating an incomplete action space means reworking it once
+  targeting adds an intermediate UI state.
+- [ ] **A6. Undo, or an explicit decision against it.** A misclick in an atomic, repeatable action
+  model is inevitable, so this is a decision, not a feature request — and it changes the UI either
+  way (no-undo means confirmation steps on destructive actions). **Note the mechanism honestly:
+  Core has no undo API.** `Clone()` *is* the undo mechanism (see `ApplyUndoSymmetryTests`, and
+  Phase 3 step 3, where the apply/undo-record rewrite was built, measured, and found to save
+  nothing). So UI undo means snapshotting a clone per action and restoring it — cheap at human
+  turn scale, and it needs no Core change. Scope it to within-turn only: undo across `EndTurn`
+  would have to un-draw a card.
+
+#### Milestone B — make it feel like a game
+
+- [ ] **B1. Real card art and animation** — play/move/merge/score/destroy, driven by A2's diff.
+- [ ] **B2. AI opponent via `IAgent`** (difficulty = search budget), off the main thread and capped
+  on mobile. `Choose(AgentContext, CancellationToken)` already takes the token, so the seam exists
+  — **what's missing is the policy**: what the player sees during a ~2s search, and what happens
+  when the app is backgrounded mid-search. Cancel-and-restart on resume is the safe default;
+  decide it here rather than discovering it on a device.
+- [ ] **B3. Interrupted-game persistence** — mobile is the platform that kills a backgrounded app
+  mid-turn, so "resume game" is a different problem from "save deck" and is scheduled separately
+  from it (C3). Two viable mechanisms: serialize `GameState` (needs RNG stream position,
+  `PendingDiscards`, `MergedFrom` chains, `TurnEvents` — all of it, correctly), or replay
+  seed-plus-action-log, which Phase 1's determinism guarantee already makes sound and is the
+  cheaper bet. Pick one deliberately; a half-serialized state that desyncs is worse than no resume.
+- [ ] **B4. Tutorial / rules surfacing** — **the item the old plan omitted entirely, and the
+  difference between playable and learnable.** Nothing about the ruleset is self-evident from a
+  board: a rock-paper-scissors type cycle, merging that can *increase* vulnerability, scoring that
+  requires an unopposed slot, and fatigue. The console gave players that context in text and the
+  Godot client gives them none. Minimum bar: the type cycle legible on the board itself, and a
+  reachable rules reference.
+
+#### Milestone C — the other scenes
+
+- [ ] **C1. Lobby / match setup** — seat choice, opponent (human hotseat or AI difficulty), ruleset.
+  Small, but it's what stops A-milestone launch config from calcifying into hardcoded scene state.
+- [ ] **C2. Deckbuilder** (`deckMode: "custom"`) — also owns migrating the determinizer off its
   symmetric-deck assumption, since custom decks make the opponent's decklist itself hidden (a
   belief-distribution problem, not just a partition problem). Most of `Determinizer` and its test
   suite are unaffected (phrased against observations, not deck provenance); only `UnseenCardsOf`
-  changes, to sample from a belief model instead of reading `BuildSymmetricDeck`. First belief
-  model: constrain to cards demonstrably played, fill the rest uniformly within deck-size/copy
-  limits — crude but sound, same justification as Phase 2's uniform sampling.
-- [ ] **10.** Persistence (`user://`): decks, settings, progress.
-- [ ] **11.** Polish: sound, transitions, menus.
-- [ ] **12.** Export pipeline (desktop + signed Android `.aab`), reusing/re-verifying the step
-  1.13 toolchain rather than rediscovering it.
+  changes, to sample from a belief model instead of reading `BuildSymmetricDeck` — the file's own
+  comments already anticipate exactly this edit, and `Determinize` throws on a non-symmetric
+  ruleset today so the unmigrated path fails loudly rather than silently sampling nonsense. First
+  belief model: constrain to cards demonstrably played, fill the rest uniformly within
+  deck-size/copy limits — crude but sound, same justification as Phase 2's uniform sampling.
+- [ ] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half, B3 having
+  taken the interrupted-game half.
+- [ ] **C4. Card browser / stats** — the collection view, reading `CardDatabase` and `EffectText`.
+
+#### Milestone D — ship
+
+- [ ] **D1. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
+  step rather than during it.
+- [ ] **D2. Export pipeline** (desktop + signed Android `.aab`), reusing/re-verifying the step 1.13
+  toolchain rather than rediscovering it: export templates need the .NET 9 SDK alongside .NET 8,
+  Editor Settings needs explicit Java/Android SDK paths, and rebuilds need `adb install -r` or a
+  stale APK silently masks the change.
 
 **Exit criteria:** full game playable with visuals on desktop and on a physical Android device;
-deckbuilder validates against engine rules; AI plays custom decks without assuming a mirrored
-opponent decklist; `Shapes.Core` unmodified from Phase 4.
+a seeded hotseat game matches the console's result for the same seed; deckbuilder validates
+against engine rules; AI plays custom decks without assuming a mirrored opponent decklist; a
+backgrounded game resumes; a new player can learn the type cycle without external explanation;
+`Shapes.Core` unmodified from Phase 4.
+
+**The console and `Shapes.Sim` remain the card pipeline — permanently, not transitionally.** They
+answer questions Godot structurally cannot. `Shapes.Sim` is where a card is *measured*: Phase 4
+step 9 established that 400 games ranks groups and 4000 is where per-card ranking becomes
+possible, a regime no interactive client enters. The console is where a card is *read* — step 2.4's
+blocking-slot bug was invisible to a passing suite and surfaced only by watching a game. Godot adds
+a third question the other two can't answer: is the card legible and satisfying to a human? So the
+loop for new content stays: author JSON → console watch (does it work) → sim sweep (is it
+balanced) → Godot (does it read). **One caveat once C2 lands:** every number in `balance/LOG.md` is
+against symmetric decks, and cards measured on custom decks are a different experiment — keep those
+runs in separate directories rather than comparing them to `v1.7-final`.
+
+**On the carried-over seat-2 margin.** Phase 4 left a small real seat-2 edge (−0.28 [−0.40, −0.16]
+at 4000 games). Deliberately *not* scheduled in this phase: the fix is a ruleset knob, and C2's
+custom decks will move the number again. Re-measure after C2, not before — tuning against a
+symmetric-deck margin that is about to be invalidated would be balancing twice and trusting the
+wrong one.
 
 ---
 
