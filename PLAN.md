@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 7 / 17     |
+| 5 — Godot client                         | 8 / 17     |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -851,15 +851,42 @@ lands.
     been played yet. Same standing limitation as every Godot-side step this phase (no editor/CLI
     available here); verified by `dotnet build` (clean) and the full 951-test suite (`Shapes.Core`
     untouched), not by hovering/playing again.
-- [ ] **B1b. Status/keyword display on the board slot, at a glance, no tap required.** A compact
-  icon row under health: shield=taunt, mirror=reflect, arrow=ricochet (oriented by
-  `RicochetDirection`), lightning=stun, each distinguishing persistent vs. `_tauntExpiresNextTurn`
-  (dimmed/clock-badged). `AttackBuff` (persistent, cumulative) shows as a `+N atk` badge rather
-  than an icon since it's a number worth reading directly; `NextAttackBonus`/
-  `NextDamageTakenBonus` (one-shot) get their own icon since they silently change the next
-  combat's math and a player choosing a target needs to see that before committing. Also fixes the
-  plain layout bug where a merged creature's concatenated name (e.g. "Cadet+Medic") truncates in
-  `SlotView`'s fixed 84×96 `VBoxContainer` — widen/wrap rather than clip.
+- [x] **B1b. Status/keyword display on the board slot, at a glance, no tap required.** New
+  `StatusIcons.Describe(CreatureInstance)` (`Shapes.Godot.Adapter`, 11 tests) returns one
+  `StatusBadge` (glyph + tooltip) per active status: shield=taunt, mirror=reflect,
+  left/right-arrow=ricochet (oriented by `RicochetDirection`), lightning=stun. `AttackBuff`
+  (persistent, cumulative) shows as a `+N atk` badge rather than an icon since it's a number worth
+  reading directly; `NextAttackBonus`/`NextDamageTakenBonus` (one-shot) get their own icon since
+  they silently change the next combat's math and a player choosing a target needs to see that
+  before committing. Taunt distinguishes persistent from `until_next_turn` (dimmed via
+  `StatusBadge.IsExpiring`) using a new public `CreatureInstance.TauntExpiresNextTurn` getter —
+  the one `Shapes.Core` change this step needed, read-only exposure of a rule the class already
+  enforces, not new engine behaviour. `SlotView` renders the row as a single wrapped `StatusLabel`
+  (glyphs joined) with every badge's meaning as the row's tooltip; the same badge glyphs fold into
+  the B1a2 hover stat line (`HoverDetailPanel`'s natural extension point, per that step's own
+  closing note) rather than needing a second hover mechanism.
+  **Also reworked `SlotView`'s layout** (screenshot showed a merged creature's concatenated name,
+  e.g. "Circle Cadet+", pushing the whole slot taller): resource/type icons moved inline with the
+  name on a `HeaderRow` (type label fixed-width, name label `size_flags_horizontal=3` so it alone
+  wraps/expands — nothing else in the row can grow the slot), health moved to a `StatusRow` shared
+  with the new status badges instead of the header. Slot widened 250→260 for breathing room now
+  that the header carries icons plus a wrapping name.
+  **Follow-up (same session): styling and reactive-trigger coverage.** (1) `StatusBadge` gained
+  `IsText`, set only on the `+N atk` buff — `SlotView` renders each badge as its own `Label` now
+  (an `HFlowContainer`, `StatusBadges`, replacing the single joined `StatusLabel`) so the buff can
+  carry its own color/size (amber, 14pt) distinct from health's plain-white number and from the
+  dimmer glyph badges beside it, and `IsExpiring` badges dim via the same per-label `Modulate`
+  mechanism `SetHighlighted` already uses elsewhere. Per-badge `TooltipText` replaced the old
+  single joined-string tooltip on the button itself. (2) `PendingOnNextDamageTaken`/
+  `PendingOnNextRicochet` (arbitrary armed effects, e.g. "next time this takes damage: gain 3
+  anvil") now report a badge too — `StatusIcons` casts the `object?`-typed field back to
+  `EffectNode` (the same cast `Effects.Ops` already does; `State` stays untouched) and reuses
+  `EffectText.Describe` on it rather than hand-authoring a phrase, the same synthesis-not-authoring
+  rule `CardText`/`MoveText` already follow. 6 new tests (17 total in `StatusIconsTests.cs`).
+  **Not editor-verified** — same standing limitation as every Godot-side step this phase (no
+  editor/CLI available here); verified by `dotnet build` (clean, 0 warnings) and the full test
+  suite (966/966, `Shapes.Core` touched only by the one read-only getter). Flag for a real
+  playtest before B1c.
 - [ ] **B1c. Real card art and animation** — play/move/merge/score/destroy, driven by A2's diff,
   now over the drag-based interactions and status-aware slot view B1a/B1b establish. The original
   scope of this step, sequenced last because it's the one piece that would otherwise need redoing.

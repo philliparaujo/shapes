@@ -47,14 +47,22 @@ public partial class SlotView : Button
     public event Action<string, IReadOnlyList<MoveText>>? HoverStarted;
     public event Action? HoverEnded;
 
-    [Export] public NodePath NameLabelPath { get; set; } = "Layout/NameLabel";
-    [Export] public NodePath HealthLabelPath { get; set; } = "Layout/HealthLabel";
-    [Export] public NodePath TypeLabelPath { get; set; } = "Layout/TypeLabel";
+    [Export] public NodePath NameLabelPath { get; set; } = "Layout/HeaderRow/NameLabel";
+    [Export] public NodePath TypeLabelPath { get; set; } = "Layout/HeaderRow/TypeLabel";
+    [Export] public NodePath HealthLabelPath { get; set; } = "Layout/StatusRow/HealthLabel";
+    [Export] public NodePath StatusBadgesPath { get; set; } = "Layout/StatusRow/StatusBadges";
     [Export] public NodePath MoveListPath { get; set; } = "Layout/MoveList";
+
+    // "+N atk" reads as a stat, not a status icon -- amber and bold sets it apart from both the
+    // plain-white health number and the dimmer glyph badges around it, so a glance distinguishes
+    // "here is a number" from "here is a symbol you'd hover/tap to learn more about."
+    private static readonly Color AttackBuffColor = new(1f, 0.82f, 0.35f);
+    private static readonly Color ExpiringBadgeColor = new(1f, 1f, 1f, 0.55f);
 
     private Label? _nameLabel;
     private Label? _healthLabel;
     private Label? _typeLabel;
+    private Container? _statusBadges;
     private VBoxContainer? _moveList;
 
     private SlotIndex _slot;
@@ -67,6 +75,7 @@ public partial class SlotView : Button
         _nameLabel = GetNode<Label>(NameLabelPath);
         _healthLabel = GetNode<Label>(HealthLabelPath);
         _typeLabel = GetNode<Label>(TypeLabelPath);
+        _statusBadges = GetNode<Container>(StatusBadgesPath);
         _moveList = GetNode<VBoxContainer>(MoveListPath);
         ToggleMode = false;
         Pressed += () => Tapped?.Invoke();
@@ -93,6 +102,11 @@ public partial class SlotView : Button
             child.QueueFree();
         }
 
+        foreach (var child in _statusBadges!.GetChildren())
+        {
+            child.QueueFree();
+        }
+
         if (creature is null)
         {
             _nameLabel!.Text = "—";
@@ -105,12 +119,38 @@ public partial class SlotView : Button
             return;
         }
 
+        // Resource/type icons sit inline with the name (top-left) rather than the name owning
+        // the whole header row -- PLAN.md B1b: a merged creature's concatenated name
+        // ("Cadet+Medic") is the one thing here that can genuinely run long, so it's the label
+        // that gets size_flags_horizontal=3 (expand + wrap) while everything else claims only
+        // the width it needs. Health moved to its own row (StatusRow) alongside the status
+        // badges instead of sharing the header with the name, which is what let a long merged
+        // name push the whole slot taller before.
         var name = cards.TryGet(creature.CardId, out var card) ? card!.Name : creature.CardId;
         var displayName = creature.IsMerged ? $"{name}+" : name;
         _nameLabel!.Text = displayName;
-        _healthLabel!.Text = $"{creature.Health}/{creature.MaxHealth}";
         _typeLabel!.Text = ResourceIcons.Describe(creature.Types);
+        _healthLabel!.Text = $"{creature.Health}/{creature.MaxHealth}";
         Disabled = false;
+
+        var badges = StatusIcons.Describe(creature);
+        foreach (var badge in badges)
+        {
+            var label = new Label { Text = badge.Glyph, TooltipText = badge.Tooltip };
+            if (badge.IsText)
+            {
+                // The "+N atk" buff reads as a stat, not a symbol -- amber/bold sets it apart
+                // from health (plain white, in the same row) and from the glyph badges beside it.
+                label.AddThemeColorOverride("font_color", AttackBuffColor);
+                label.AddThemeFontSizeOverride("font_size", 14);
+            }
+            else if (badge.IsExpiring)
+            {
+                label.Modulate = ExpiringBadgeColor;
+            }
+
+            _statusBadges.AddChild(label);
+        }
 
         // Hover always shows the creature's full move list regardless of whose turn it is or
         // who owns it -- board buttons (below) stay restricted to the active player's own
@@ -118,7 +158,10 @@ public partial class SlotView : Button
         // reading what an opponent's creature CAN do is exactly what hover is for. Falls back to
         // `moves` itself when the caller didn't supply a separate hover list (the active
         // player's own creature, where the two lists are the same thing anyway).
-        _hoverStatLine = $"{displayName}  {creature.Health}/{creature.MaxHealth} HP  {ResourceIcons.Describe(creature.Types)}";
+        // Status folds into the same stat line HoverDetailPanel shows -- B1a2's own note flagged
+        // this as B1b's natural extension point rather than a second hover mechanism.
+        var statusSuffix = badges.Count == 0 ? string.Empty : $"  {string.Join(" ", badges.Select(b => b.Glyph))}";
+        _hoverStatLine = $"{displayName}  {creature.Health}/{creature.MaxHealth} HP  {ResourceIcons.Describe(creature.Types)}{statusSuffix}";
         _hoverMoves = hoverMoves ?? [.. moves.Select(m => m.Text)];
 
         foreach (var (index, text, isUsable) in moves)

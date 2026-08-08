@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/SlotView.cs" id="1_slotview"]
 
 [node name="SlotView" type="Button"]
-custom_minimum_size = Vector2(250, 230)
+custom_minimum_size = Vector2(260, 250)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -17,24 +17,41 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-alignment = 1
 theme_override_constants/separation = 2
 
-[node name="NameLabel" type="Label" parent="Layout"]
+[node name="HeaderRow" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
-horizontal_alignment = 1
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="TypeLabel" type="Label" parent="Layout/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = ""
+
+[node name="NameLabel" type="Label" parent="Layout/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 autowrap_mode = 3
+clip_text = false
 text = "—"
 
-[node name="HealthLabel" type="Label" parent="Layout"]
+[node name="StatusRow" type="HBoxContainer" parent="Layout"]
 layout_mode = 2
-horizontal_alignment = 1
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="HealthLabel" type="Label" parent="Layout/StatusRow"]
+layout_mode = 2
+size_flags_horizontal = 0
 text = ""
 
-[node name="TypeLabel" type="Label" parent="Layout"]
+[node name="StatusBadges" type="HFlowContainer" parent="Layout/StatusRow"]
 layout_mode = 2
-horizontal_alignment = 1
-text = ""
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 0
 
 [node name="MoveList" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
