@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://dv6q0slotview001"]
+
+[ext_resource type="Script" path="res://Scripts/SlotView.cs" id="1_slotview"]
+
+[node name="SlotView" type="Control"]
+custom_minimum_size = Vector2(84, 96)
+layout_mode = 2
+script = ExtResource("1_slotview")
+
+[node name="Button" type="Button" parent="."]
+custom_minimum_size = Vector2(84, 96)
+layout_mode = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+toggle_mode = false
+
+[node name="Layout" type="VBoxContainer" parent="Button"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+alignment = 1
+
+[node name="NameLabel" type="Label" parent="Button/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 2
+text = "—"
+
+[node name="HealthLabel" type="Label" parent="Button/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+text = ""
+
+[node name="TypeLabel" type="Label" parent="Button/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+text = ""

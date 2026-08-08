@@ -11,18 +11,20 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 0 / 16     |
+| 5 — Godot client                         | 3 / 16     |
 
-918 tests passing. **Phases 1, 2, 3, and 4 are complete.**
+951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 5** — the Godot client. Content is settled at `v1.7-final` and the balance record
-lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only at
-large samples (see that phase's closing note).
+**In progress: Phase 5** — the Godot client. Milestone A (one playable screen) is underway:
+A1–A3 done, a hotseat game is playable end to end in the editor (play/move/merge/discard/end
+turn all working). Content is settled at `v1.7-final` and the balance record lives in
+`balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only at large
+samples (see that phase's closing note).
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -164,14 +166,25 @@ and Godot are interchangeable consumers.
 **Project structure:**
 ```
 shapes/
-├─ Shapes.Core/     # Pure engine: Primitives, State, Actions, Effects, Rules, Cards
-├─ Shapes.Content/  # JSON card data + rules presets. NOT code.
-├─ Shapes.Ai/        # IS-MCTS, determinizer, playout policies, evaluators
-├─ Shapes.Console/   # Text client
-├─ Shapes.Sim/        # Headless batch runner → CSV/JSON stats
-├─ Shapes.Tests/      # xUnit
-└─ Shapes.Godot/      # Phase 5 only, references Shapes.Core
+├─ Shapes.Core/           # Pure engine: Primitives, State, Actions, Effects, Rules, Cards
+├─ Shapes.Content/        # JSON card data + rules presets. NOT code.
+├─ Shapes.Ai/              # IS-MCTS, determinizer, playout policies, evaluators
+├─ Shapes.Console/         # Text client
+├─ Shapes.Sim/              # Headless batch runner → CSV/JSON stats
+├─ Shapes.Tests/            # xUnit
+├─ Shapes.Godot.Adapter/    # Phase 5 only: GameSession/StateDiff/text formatting (plain class
+│                           # library, not the Godot project itself -- see A1/A2 note below)
+└─ Shapes.Godot/            # Phase 5 only, references Shapes.Core + Shapes.Godot.Adapter
 ```
+
+**`Shapes.Godot.Adapter` is a real project, separate from `Shapes.Godot`, and wasn't in the
+original plan.** A2's view-model layer (`GameSession`, `StateDiff`, text formatting) turned out
+to need its own plain `Microsoft.NET.Sdk` class library rather than living inside `Shapes.Godot`
+itself: the Godot.NET.Sdk's source generator requires a `GodotProjectDir` MSBuild property that
+only the Godot editor/CLI supplies, so referencing `Shapes.Godot.csproj` directly from
+`Shapes.Tests` fails outside the editor. `Shapes.Godot.Adapter` builds and tests under a plain
+`dotnet build`/`dotnet test`, same as every other project; `Shapes.Godot` consumes it and stays a
+thin shell (scenes/scripts only). Discovered while implementing A2 — see that step's notes.
 
 **State representation** — authoritative state is plain mutable classes (console/tests/Godot);
 search state is the same data laid out for speed inside MCTS (`CreatureInstance` as a struct;
@@ -449,10 +462,12 @@ steps after it, and the deckbuilder can't start until one game is playable end t
 is the whole game on one screen; B makes it good; C fans out into the other scenes; D ships it.
 Within a milestone the order is real.
 
-**The extensibility rule for the whole phase: everything new lives in `Shapes.Godot`.** The exit
-criterion is `Shapes.Core` unmodified from Phase 4, and the way that criterion gets broken is
-gradually — a render-only enum member here, a UI-shaped convenience property there. Treat any urge
-to add to Core as the signal that the adapter (A2) is cutting at the wrong seam.
+**The extensibility rule for the whole phase: everything new lives in `Shapes.Godot` or
+`Shapes.Godot.Adapter`** (the latter split out during A2 for build reasons — see the
+project-structure note above; it is still UI code, not engine code). The exit criterion is
+`Shapes.Core` unmodified from Phase 4, and the way that criterion gets broken is gradually — a
+render-only enum member here, a UI-shaped convenience property there. Treat any urge to add to
+Core as the signal that the adapter (A2) is cutting at the wrong seam.
 
 #### Milestone A — one playable screen (hotseat, no art)
 
@@ -460,22 +475,52 @@ The target is the full rules running under a finger: every card, all targeting, 
 animation. Done when a seeded hotseat game in Godot reaches the same result as the same seed in
 the console.
 
-- [ ] **A1.** Add `Shapes.Godot`, referencing `Shapes.Core` unchanged. Godot 4 C#/.NET; keep the
-  project buildable by `dotnet build` from the solution so CI and tests never need the editor.
-- [ ] **A2. Adapter layer** — the load-bearing step, and the one that decides how much of the rest
-  is cheap. UI only ever submits `GameAction`s and never mutates state; the engine's reply is a
-  view-model the scenes bind to. **Render from a before/after state diff around
-  `ActionExecutor.Apply`, not from `GameState.TurnEvents`.** `TurnEvents` exists for card
-  conditions and Phase 4 metrics (`CreaturePlayed`/`Destroyed`/`CardDrawn`/`CardBurned`/`Fatigued`)
-  — it carries no damage, no move-used, and no resource-change event, and it is *cleared on
-  `EndTurn`*, so it is a per-turn log where rendering needs a per-action one. The diff belongs in
-  `Shapes.Godot`; adding render events to Core's enum is the failure mode this step exists to
-  avoid.
-- [ ] **A3. Board scene under the responsive + touch constraints** (the old steps 3/4/5, together,
-  because they are one piece of work). Anchors/containers with portrait *and* landscape working
-  from the first commit; ~44px minimum hit targets; **no hover-dependent information** — anything a
-  desktop tooltip would say needs a tap path. Scenes: board, slots, hand, resources, score, card
-  detail. Mouse is a superset of touch, not a parallel input path.
+- [x] **A1.** Added `Shapes.Godot`, referencing `Shapes.Core` unchanged (plus `Shapes.Ai` and
+  `Shapes.Content`, needed for `CardDatabase`/`AgentContext` the same way the console references
+  them). Godot 4.5 C#/.NET; added to the root `Shapes.sln` so `dotnet build` from the repo root
+  builds all 8 projects with zero errors/warnings — CI and tests never need the editor. **Bug
+  caught mid-step:** an intermediate `dotnet build` triggered Godot/MSBuild to rewrite the root
+  `.sln` and silently drop the actual `Shapes.Godot.csproj` reference, leaving only an empty
+  solution-folder stub — `dotnet sln add` had to be re-run after. Renamed the Godot-generated
+  `Shapes.csproj`/`Shapes.sln` to `Shapes.Godot.csproj`/`Shapes.Godot.sln` for naming consistency
+  with the rest of the solution (safe pre-A2, since no `.cs` files existed yet to reference the
+  old assembly name).
+- [x] **A2. Adapter layer.** `GameSession` (owns the one `GameState`, mirrors the console's exact
+  setup sequence — symmetric decks, shuffle, draw, second-seat compensation, advance to actions —
+  so a seeded Godot game matches a seeded console game) and `StateDiff`/`SlotDiff`/`PlayerDiff`
+  (built by diffing `GameState.Clone()` before/after `ActionExecutor.Apply`, exactly as specified,
+  never reading `TurnEvents`). **Had to become its own project, `Shapes.Godot.Adapter`, not code
+  inside `Shapes.Godot`** — see the project-structure note above; discovered when referencing
+  `Shapes.Godot.csproj` from `Shapes.Tests` failed outside the Godot editor. 12 xUnit tests
+  covering setup-sequence parity, legal-action delegation, the clone-before-apply property (a
+  regression guard for the exact bug this layer exists to avoid: diffing against a live reference
+  would make every diff read empty), and a full seeded game driven end-to-end via nothing but
+  `Submit`/`LegalActions` to termination with a winner.
+- [x] **A3. Board scene under the responsive + touch constraints.** Full vertical slice: `GameRoot`
+  (owns `GameSession`, the only script that submits `GameAction`s) driving `BoardView`
+  (turn bar, end-turn button, both `PlayerPanel`s, `MoveMenu`, `GameOverPanel`), each
+  `PlayerPanel` holding 3 `SlotView`s (≥44px touch targets) and a hand row of `CardFace`s, plus a
+  tap-triggered `CardDetailPanel` standing in for the desktop-tooltip information a hover model
+  can't give a touch client. Anchors/containers throughout, no fixed pixel layout. Waiting seat's
+  hand renders as a count only, carrying step 2.5's hidden-hand precedent into Godot. Also
+  pre-built `ResourceIcons`/`ActionText`/`CardText` in `Shapes.Godot.Adapter` (A4's actual text
+  synthesis, needed early since there's no rendering a card without it) — ported from
+  `Shapes.Console`'s versions rather than shared, since `Shapes.Console` is structurally
+  unreachable from a Godot-SDK project. **Three real bugs found by playtesting, not review:**
+  (1) `CardDetailPanel` unconditionally called `Pressed -=` on a handler that was never connected
+  on the first show — a hard error in Godot's C# signal binding (unlike a plain C# event's silent
+  no-op) that aborted the rest of the tap handler; fixed by tracking connection state explicitly.
+  (2) `BoardView.ClearSelection` → `MoveMenu.Close` → unconditional `Cancelled` event →
+  `ClearSelection` again was unbounded mutual recursion, freezing the whole editor since it ran
+  synchronously on every single `Submit` call (any action at all, not just one path) — fixed by
+  splitting "close silently" from "close because the user cancelled." (3) The Play button's
+  success path called `Hide()`, which fired `Closed` unconditionally — and `Closed` is wired to
+  `ClearSelection`, which wiped the `PendingPlacementCardId` a creature-card play had just set, in
+  the same call stack, before the next slot tap could ever see it (read as "tapping a slot
+  deselects instead of placing"). Fixed by only firing `Closed` on an explicit user dismissal, not
+  on every panel close. All three were invisible to the type checker and to `dotnet build` —
+  found only by actually playing a hotseat game in the editor, the exact lesson step 2.4's
+  blocking-slot bug already taught the console.
 - [ ] **A4. Card rendering via `EffectText`** — `EffectText.Describe`/`DescribeMove` synthesize
   card text from the op vocabulary (Phase 4 step 3–5) and the Godot card face calls them. A
   hand-authored description in scene data would drift from the numbers the next balance edit

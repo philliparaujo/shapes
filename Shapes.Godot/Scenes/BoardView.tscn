@@ -1,0 +1,48 @@
+[gd_scene load_steps=6 format=3 uid="uid://dv6q0boardview001"]
+
+[ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
+[ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
+[ext_resource type="PackedScene" path="res://Scenes/MoveMenu.tscn" id="3_movemenu"]
+[ext_resource type="PackedScene" path="res://Scenes/GameOverPanel.tscn" id="4_gameover"]
+
+[node name="BoardView" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_boardview")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 4
+
+[node name="OpponentPanel" parent="Layout" instance=ExtResource("2_playerpanel")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TurnBar" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="TurnLabel" type="Label" parent="Layout/TurnBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+vertical_alignment = 1
+text = "Turn 1 — Player 1 to act"
+
+[node name="EndTurnButton" type="Button" parent="Layout/TurnBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 44)
+text = "End Turn"
+
+[node name="SelfPanel" parent="Layout" instance=ExtResource("2_playerpanel")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MoveMenu" parent="." instance=ExtResource("3_movemenu")]
+visible = false
+
+[node name="GameOverPanel" parent="." instance=ExtResource("4_gameover")]
