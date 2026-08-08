@@ -1,0 +1,9 @@
+{
+  "id": "rally",
+  "name": "Rally",
+  "kind": "spell",
+  "cost": { "spike": 2 },
+  "effects": [
+    { "op": "gain_resource_scaled", "type": "spike", "scale": "hand_composition", "multiplier": 2 }
+  ]
+}

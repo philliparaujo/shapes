@@ -1,0 +1,25 @@
+{
+  "id": "columns",
+  "name": "Columns",
+  "kind": "creature",
+  "cost": { "anvil": 2 },
+  "health": 5,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Brace",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "buff_max_health", "target": "self", "amount": 1 },
+        { "op": "grant_keyword", "target": "self", "keyword": "taunt", "until_next_turn": true }
+      ]
+    },
+    {
+      "name": "Slam",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 }
+      ]
+    }
+  ]
+}

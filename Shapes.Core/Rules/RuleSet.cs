@@ -183,7 +183,7 @@ public sealed class RuleSet
         baseIncome: new ResourcePool(2, 2, 2),
         incomePerCreatureType: 0,
         pointsPerUnopposedCreature: 1,
-        scoreToWin: 10,
+        scoreToWin: 7,
         mergeEnabled: true,
         mergeRequiresAdjacent: true,
         mergeCostsAction: false,

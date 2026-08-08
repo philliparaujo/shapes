@@ -1,0 +1,26 @@
+{
+  "id": "zealot",
+  "name": "Zealot",
+  "kind": "creature",
+  "cost": { "anvil": 2 },
+  "health": 3,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Martyrdom",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "on_next_damage_taken", "target": "self",
+          "effect": { "op": "gain_resource", "type": "anvil", "amount": 3 } }
+      ]
+    },
+    {
+      "name": "Smite",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 },
+        { "op": "buff_max_health", "target": "self", "amount": 1 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "execute",
+  "name": "Execute",
+  "kind": "spell",
+  "cost": { "spike": 3 },
+  "effects": [
+    { "op": "conditional",
+      "condition": { "op": "creature_state", "target": "chosen_enemy", "check": "damaged" },
+      "then": [ { "op": "damage", "target": "chosen_enemy", "amount": 6 } ],
+      "else": [ { "op": "damage", "target": "chosen_enemy", "amount": 3 } ] }
+  ]
+}

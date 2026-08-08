@@ -1,0 +1,26 @@
+{
+  "id": "relic",
+  "name": "Relic",
+  "kind": "creature",
+  "cost": { "anvil": 4 },
+  "health": 7,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Crumble",
+      "cost": { "anvil": 1 },
+      "condition": { "op": "creature_state", "target": "self", "check": "damaged" },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 3 }
+      ]
+    },
+    {
+      "name": "Unearth",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "self_damage", "amount": 3 },
+        { "op": "gain_resource", "type": "anvil", "amount": 3 }
+      ]
+    }
+  ]
+}

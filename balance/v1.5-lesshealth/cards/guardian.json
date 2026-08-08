@@ -1,0 +1,25 @@
+{
+  "id": "guardian",
+  "name": "Guardian",
+  "kind": "creature",
+  "cost": { "anvil": 3 },
+  "health": 6,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Bulwark",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "grant_keyword", "target": "self", "keyword": "reflect" }
+      ]
+    },
+    {
+      "name": "Smash",
+      "cost": { "anvil": 2 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 3 },
+        { "op": "stun", "target": "opposing" }
+      ]
+    }
+  ]
+}

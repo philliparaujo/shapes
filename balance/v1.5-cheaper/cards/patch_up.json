@@ -1,0 +1,12 @@
+{
+  "id": "patch_up",
+  "name": "Patch Up",
+  "kind": "spell",
+  "cost": { "anvil": 1 },
+  "effects": [
+    { "op": "buff_max_health", "target": "chosen_friendly", "amount": 2 },
+    { "op": "conditional",
+      "condition": { "op": "creature_state", "target": "chosen_friendly", "check": "health_at_most:3" },
+      "then": [ { "op": "gain_resource", "type": "anvil", "amount": 1 } ] }
+  ]
+}

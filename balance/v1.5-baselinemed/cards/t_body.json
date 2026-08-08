@@ -1,0 +1,26 @@
+{
+  "id": "t_body",
+  "name": "T Body",
+  "kind": "creature",
+  "cost": { "spike": 2 },
+  "health": 5,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Piston",
+      "cost": { "spike": 2 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 },
+        { "op": "damage", "target": "opposing", "amount": 2 }
+      ]
+    },
+    {
+      "name": "Overclock",
+      "cost": { "spike": 2 },
+      "effects": [
+        { "op": "self_damage", "amount": 2 },
+        { "op": "gain_resource", "type": "spike", "amount": 3 }
+      ]
+    }
+  ]
+}

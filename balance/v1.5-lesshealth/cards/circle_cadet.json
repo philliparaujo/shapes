@@ -1,0 +1,26 @@
+{
+  "id": "circle_cadet",
+  "name": "Circle Cadet",
+  "kind": "creature",
+  "cost": { "wheel": 1 },
+  "health": 1,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Scout",
+      "cost": { "wheel": 1 },
+      "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
+      "effects": [
+        { "op": "draw", "amount": 1 }
+      ]
+    },
+    {
+      "name": "Rebound",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 },
+        { "op": "heal", "target": "self", "amount": 1 }
+      ]
+    }
+  ]
+}

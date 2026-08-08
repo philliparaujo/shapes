@@ -1,0 +1,25 @@
+{
+  "id": "bubbles",
+  "name": "Bubbles",
+  "kind": "creature",
+  "cost": { "wheel": 3 },
+  "health": 2,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Fizz",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "damage", "target": "all_enemies", "amount": 2 }
+      ]
+    },
+    {
+      "name": "Burst",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "damage", "target": "all_enemies", "amount": 6 },
+        { "op": "self_damage", "amount": 6 }
+      ]
+    }
+  ]
+}

@@ -21,7 +21,12 @@ public class RuleSetTests
         Assert.Equal(0, d.IncomePerCreatureType);
         Assert.Equal(1, d.PointsPerUnopposedCreature);
         Assert.False(d.ScoreByCreatureDelta);
-        Assert.Equal(10, d.ScoreToWin);
+
+        // 7, not the original 10: PLAN.md step 7 (balance/LOG.md, v1.5-expensivemed) cut the
+        // threshold alongside a global card-cost increase, which together took the median game
+        // from 19 turns to 14 without the seat-1 blowup a bare threshold cut produced.
+        Assert.Equal(7, d.ScoreToWin);
+        Assert.Equal(1, d.FatigueScorePerTurn);
         Assert.True(d.MergeEnabled);
         Assert.True(d.MergeRequiresAdjacent);
         Assert.False(d.MergeCostsAction);

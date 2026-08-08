@@ -1,0 +1,12 @@
+{
+  "id": "siphon",
+  "name": "Siphon",
+  "kind": "spell",
+  "cost": { "wheel": 1 },
+  "effects": [
+    { "op": "damage", "target": "chosen_enemy", "amount": 2 },
+    { "op": "conditional",
+      "condition": { "op": "creature_state", "target": "chosen_enemy", "check": "health_at_most:0" },
+      "then": [ { "op": "draw", "amount": 1 } ] }
+  ]
+}

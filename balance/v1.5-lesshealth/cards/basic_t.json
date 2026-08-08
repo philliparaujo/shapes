@@ -1,0 +1,26 @@
+{
+  "id": "basic_t",
+  "name": "Basic T",
+  "kind": "creature",
+  "cost": { "spike": 1 },
+  "health": 1,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Poke",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 }
+      ]
+    },
+    {
+      "name": "Finish",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "conditional",
+          "condition": { "op": "creature_state", "target": "opposing", "check": "damaged" },
+          "then": [ { "op": "damage", "target": "opposing", "amount": 4 } ] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "gravewarden",
+  "name": "Gravewarden",
+  "kind": "creature",
+  "cost": { "anvil": 2 },
+  "health": 2,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Reap",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "draw_scaled", "scale": "destroyed_this_turn", "multiplier": 2 }
+      ]
+    },
+    {
+      "name": "Blight",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "damage", "target": "all_enemies", "amount": 1 }
+      ]
+    }
+  ]
+}

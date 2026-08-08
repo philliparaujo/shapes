@@ -1,0 +1,25 @@
+{
+  "id": "circle_priest",
+  "name": "Circle Priest",
+  "kind": "creature",
+  "cost": { "wheel": 1 },
+  "health": 3,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Mend",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "heal_to_full", "target": "self" }
+      ]
+    },
+    {
+      "name": "Focus Strike",
+      "cost": { "wheel": 1 },
+      "condition": { "op": "creature_state", "target": "self", "check": "full_health" },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 }
+      ]
+    }
+  ]
+}

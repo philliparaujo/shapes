@@ -1,0 +1,27 @@
+{
+  "id": "t_flare",
+  "name": "T Flare",
+  "kind": "creature",
+  "cost": { "spike": 2 },
+  "health": 3,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Meltdown",
+      "cost": { "spike": 2 },
+      "effects": [
+        { "op": "gain_resource_scaled", "type": "spike", "scale": "health", "multiplier": 1 },
+        { "op": "destroy", "target": "self" },
+        { "op": "draw", "amount": 1 }
+      ]
+    },
+    {
+      "name": "Flare Burst",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 2 },
+        { "op": "destroy", "target": "self" }
+      ]
+    }
+  ]
+}

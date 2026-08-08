@@ -1,0 +1,26 @@
+{
+  "id": "basic_square",
+  "name": "Basic Square",
+  "kind": "creature",
+  "cost": { "anvil": 1 },
+  "health": 3,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Jab",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 },
+        { "op": "heal", "target": "self", "amount": 1 }
+      ]
+    },
+    {
+      "name": "Fortify",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "buff_max_health", "target": "self", "amount": 1 },
+        { "op": "heal", "target": "self", "amount": 1 }
+      ]
+    }
+  ]
+}

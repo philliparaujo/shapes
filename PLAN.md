@@ -10,7 +10,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 11 / 13    |
+| 4 — AI-driven balance                    | 12 / 13    |
 | 5 — Godot client                         | 0 / 12     |
 
 892 tests passing. **Phases 1, 2, and 3 are complete.**
@@ -20,13 +20,13 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 7** — game length, then step 8 for first-player balance. **Card balance
-itself is settled** (step 6, done): no dead cards, no auto-includes, all three resource types
-level, 400/400 games terminating. What the card sweep could *not* reach are the two remaining exit
-criteria, both structural rather than per-card, and both now split out as their own steps because
-each is a rules-level sweep in the step-3 mold: games run a median of 19 turns against a
-score-to-win of 10 (step 7), and seat 1 still leads by +0.94 score margin with an interval that
-excludes zero (step 8). Step 5b (done) added fatigue after the card sweep surfaced a
+**Next up: Phase 4 step 8** — first-player balance, the last open exit criterion. **Card balance is
+settled** (step 6, done: no dead cards, no auto-includes, all three resource types level, 400/400
+terminating) and **game length is settled** (step 7, done: `scoreToWin` 7 plus a global card-cost
+increase took the median from 19 turns to 14, with fatigue down to 1.0% and board presence intact).
+Step 7 also improved the seat margin as a side effect (+0.94 → +0.79), but the interval still
+excludes zero, so seat 1 remains genuinely ahead and step 8 still has work to do. Step 5b (done)
+added fatigue after the card sweep surfaced a
 non-terminating game and traced it to the scoring rule rather than to any card: with score gated on
 killing
 something, any board where defense meets offense stops scoring forever, and 7 of 26 creatures
@@ -704,42 +704,55 @@ and 6 then varied rules and cards deliberately, each as a same-seed A/B against 
   metrics.
   Archetype sweeps (mono vs. mixed, aggro vs. control) wait for `deckMode: "custom"` (Phase 5) —
   only meaningful after per-card balance has settled on the symmetric deck, which it now has.
-- [ ] **7. Game length — a global sweep, not another card pass.** Games run a median of **19
-  turns** (mean 21.1, p25 15, p75 26, p95 39) to reach a score of 10, and both seats draw ~35 cards
-  in the process — most of a 72-card deck. That is long enough that the deck is a real constraint
-  and that step 5b's fatigue backstop fires at all, and it did not move across the entire step-6
-  card sweep (21.8 → 21.1 over five runs), which is the evidence that it is not a card-level
-  property. Scoring is the reason: a point requires holding an unopposed slot, unopposed requires
-  killing something, and the unopposed-slot rate has sat at ~13.5% through every run — so length is
-  set by how fast boards can be cleared, which is a whole-set ratio rather than any one card's
-  numbers.
-  **Levers to sweep, cheapest first.** A flat multiplier on every creature's health (currently
-  mean 4.0, range 2–9); a flat multiplier on every damage number; a flat shift on every card cost
-  (currently mean 2.11, range 1–5). Each is a single global knob, so each is one A/B against the
-  step-6 baseline rather than 36 edits — and unlike a card pass, a global scalar cannot reintroduce
-  outliers, because it moves every card together. Lowering health or raising damage should shorten
-  games directly; raising cost lengthens them by slowing deployment, so it is the lever to reach for
-  only if the others overshoot.
-  **The trap to avoid is step 5b's.** Cutting damage across several cards at once is exactly what
-  produced the 501-turn non-terminating game — removal is the only thing that generates score here,
-  so anything that weakens clearing lengthens games rather than shortening them, and past a
-  threshold it stops them ending at all. Read `EndingCounts` and `GamesDecidedByFatigue` *first* on
-  every run in this step, before any length number: fatigue rising above its current 3.5–5.2% means
-  the change pushed the format toward stalling and the timer is covering for it.
-  **Target and instrument.** Aim for a median in the low teens with p95 under ~30, which keeps the
-  deck from being the binding constraint. Judge on the length *distribution* (step 5b's
-  percentiles/histogram), never the mean — a mean that falls while p95 stays fat means some games
-  got faster and the stalling ones did not, which is the opposite of the intended effect.
-- [ ] **8. First-player balance — the one exit criterion the card sweep cannot reach.** Seat 1 wins
-  ~54% (down from 58.3% before the card pass) but the honest measure is score margin, which is
-  **+0.94 [+0.44, +1.45]** and **excludes zero** — seat 1 is genuinely a point ahead, and the
-  interval says so with the low-variance estimator rather than the wide win-rate one.
+- [x] **7. Game length — a global sweep, not another card pass.** Games ran a median of **19
+  turns** (mean 21.0, p95 39) to reach a score of 10, and both seats drew ~35 cards getting there —
+  half of a 72-card deck, enough that the deck was a real constraint and step 5b's fatigue backstop
+  fired in 3.5% of games. Length did not move across the entire step-6 card sweep (21.8 → 21.0 over
+  five runs), which is the evidence it was never a card-level property: scoring gates a point on
+  holding an unopposed slot, unopposed requires killing something, and the unopposed-slot rate sat
+  at ~13.5% through every run, so length is set by how fast boards clear — a whole-set ratio.
+  **Seven variants, all same-seed (3) against `v1.4-change3rerun`, logged in `balance/LOG.md`.**
+  Three card-scalar levers (`lesshealth` −1/−2 health on 27 creatures; `moredamage` +1 damage;
+  `cheaper` −1 cost on 21 cards) each landed ~18 turns. `expensive` (+1 cost) went the wrong way at
+  22.5. Then three `scoreToWin` variants: `baselinemed` (7), `expensivemed` (cost +1 *and* 7), and
+  `expensivefast` (cost +1 and 5).
+  **Result: `expensivemed` — `scoreToWin` 7 plus the global cost increase.** 16.2 turns (median 14),
+  24.8 cards drawn, fatigue down to 1.0%. **The pairing is the finding.** Alone, each half was the
+  *worst* option on its own axis: `expensive` was the only variant slower than baseline, and
+  `baselinemed`'s bare threshold cut spiked seat 1 to 60.3% — shorter games make seat 1's opening
+  tempo a larger fraction of the whole, exactly what step 3's `v1.3-halfscore` found. Together they
+  cancel: expensive cards slow deployment while the lower threshold ends the game anyway, and
+  `expensivemed` posts the **best score margin in the entire sweep at +0.79**, better than the
+  baseline it started from. That is a rules-interaction effect no single-lever run could have
+  predicted, and the reason to sweep pairs rather than rank levers independently.
+  **What it cost.** Cost pressure sits at 53.4% (from 37.4%) — over half of held-card decisions are
+  now blocked by cost, the highest of any configuration tried. Move usage fell to 0.392 and merges
+  to 6.6/game. Board presence, though, is fully intact (slots 1.67/1.74 at turns 6/12 vs. baseline's
+  1.62/1.79), which is what separates it from the card-scalar levers: `lesshealth` and `moredamage`
+  both bought their speed by gutting the board (1.42 and 1.27 slots), so games got shorter *and*
+  emptier. Here they only got shorter.
+  **Rejected and why.** `expensivefast` (threshold 5) was far too fast at 11.9 turns — 18.9 cards
+  drawn is barely a quarter of the deck, merges collapse to 4.8/game, and seat 1 wins **65.8%**,
+  which would put step 8 out of reach. `cheaper` was the best card-scalar option (18.0 turns, margin
+  +0.91, move usage preserved) but drops cost pressure to 25.9%, nearly removing resources as a
+  constraint. `lesshealth`/`moredamage` thin the board as above. `expensive` alone is slower than
+  doing nothing.
+  **Follow-up owed:** the global cost increase touched most of the set, so the step-6 per-card
+  balance no longer strictly holds — `circle_planner` and `siphon` both jump to the top of the field
+  in every expensive variant (cheap cards dominate an expensive format), and `enrage`/`monk` fall to
+  the bottom. A small confirmatory card pass against the new ruleset is worth doing before Phase 5,
+  though it is second-order next to step 8.
+- [ ] **8. First-player balance — the last open exit criterion, and the one neither the card sweep
+  nor the length sweep could reach.** After step 7 seat 1 wins 56.8% and the margin is
+  **+0.79 [+0.39, +1.18]**, which still **excludes zero** — seat 1 is genuinely most of a point
+  ahead, and the margin says so with the low-variance estimator rather than the wide win-rate one.
   **The cause is measured and structural.** Seat 1 takes a full turn of board development before
-  seat 2 acts at all: at turn 0 the board reads 1.19 slots / 4.7 health to 0.00 / 0.0. That head
-  start never closes — by turn 3 seat 1 holds 4.38 cards to seat 2's 3.17, and the hand gap is
-  still ~1.4 cards at turn 12, with an unspent-resource lead of +1.8 to +2.3 per type all game. No
-  card edit reaches a tempo asymmetry that exists before any card is played, which is why five runs
-  of card changes moved it only ~4 points and left the margin interval where it was.
+  seat 2 acts at all. That head start never closes: by turn 3 seat 1 holds 4.50 cards to seat 2's
+  3.47, the hand gap is still ~1.0 card at turn 12, and unspent resources run +2.0 to +2.2 per type
+  all game. No card edit reaches a tempo asymmetry that exists before any card is played, which is
+  why five runs of card changes moved it only ~4 points, and no length lever reaches it either —
+  step 7's sweep showed the opposite, that *shortening* games without compensation makes it worse
+  (a bare `scoreToWin` cut to 7 took seat 1 to 60.3%, and to 5 took it to 65.8%).
   **Levers to sweep**, all seat-2 compensations expressed as `RuleSet` knobs so each is a named
   ruleset file like every other Phase 4 experiment: extra starting **resources** (the most granular
   — a partial turn's income, tunable in single pips); extra starting **cards** (coarser, ~1 card
@@ -755,16 +768,16 @@ and 6 then varied rules and cards deliberately, each as a same-seed A/B against 
   compensation that equalises win rate while leaving seat 2 visibly behind on board all game has
   papered over the asymmetry rather than fixed it.
 
-**Exit criteria:** two of four met, and the remaining two are exactly what steps 7 and 8 exist to
-close. **Met:** *no extreme take-rate outliers* — take rate/turn spans 27–53% with no card outside
-it, and nothing separates from the field the way the old z = −1.84 floor did; *merge tradeoff and
-income-compounding confirmed as real, non-degenerate decisions* — settled in step 2 and unchanged
-since. **Open:** *game length in target band* — median 19 turns against a score-to-win of 10 is
-longer than intended, and both seats draw most of their deck getting there (step 7); *first-player
-advantage near even by score margin* — the margin interval is +0.94 [+0.44, +1.45] and excludes
-zero, so seat 1 is genuinely ahead even though win rate has come down to ~54% (step 8). Both are
-whole-format properties that five runs of card edits did not move, which is the evidence they need
-rules-level sweeps rather than more card tuning.
+**Exit criteria:** three of four met; step 8 owns the last. **Met:** *no extreme take-rate outliers*
+— take rate/turn spans 27–53% with no card outside it, and nothing separates from the field the way
+the old z = −1.84 floor did (step 6); *game length in target band* — median 14 turns, p95 32,
+24.8 cards drawn against a 72-card deck, 400/400 terminating with fatigue deciding 1.0% (step 7);
+*merge tradeoff and income-compounding confirmed as real, non-degenerate decisions* — settled in
+step 2 and unchanged since. **Open:** *first-player advantage near even by score margin* — the
+margin interval is +0.79 [+0.39, +1.18] and still excludes zero, so seat 1 is genuinely ahead even
+though step 7 improved it from +0.94 (step 8). It is the one property neither the card sweep nor
+the length sweep moved, because it is a tempo asymmetry that exists before the first card is
+played — the fix is a seat-2 compensation knob, not more content tuning.
 
 ### Phase 5 — Godot client (desktop + mobile)
 

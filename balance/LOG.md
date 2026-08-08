@@ -403,3 +403,116 @@ Reworks
   - Deflect (grant self ricochet (right)) -> **Inhale**: +3 attack to self (persistent)
 - (z +0.69 -> +0.42) **Circle Surfer**:
   - Wipeout: discard 2; deal 3 damage to all enemies -> discard 2; deal 6 damage to opposing
+
+# game length
+Games are slightly too long for my preference (~21 turns, ~35 cards drawn, ~4% fatigue rate on a *72 card deck*)
+
+## v1.5-baseline (v1.4-change3rerun)
+Seat 1 win rate%: 53.8
+Score margin: 0.94
+Game length: 20.99 turns
+Cost pressure%: 37.4
+Cards drawn: 36.17 / 34.44
+Decked out%: 3.3 / 1.8
+Games decided by fatigue%: 3.5 
+Unspent resources (losers): 6.15 / 5.47 / 5.39
+Avg power (spike/anvil/wheel): -0.12 / 0.17 / -0.01
+
+## v1.5-lesshealth
+**Changed:** Reduce health of most creatures by 1 or 2
+
+Seat 1 win rate%: 54.3
+Score margin: 0.96
+Game length: 18.40 turns
+Cost pressure%: 32.5
+Cards drawn: 31.47 / 29.95
+Decked out%: 1.3 / 0.5
+Games decided by fatigue%: 1.3
+Unspent resources (losers): 6.31 / 5.89 / 5.04
+Avg power (spike/anvil/wheel): -0.18 / 0.25 / -0.12
+
+## v1.5-moredamage
+**Changed:** Increase damage of most spells/moves by 1
+
+Seat 1 win rate%: 56.8
+Score margin: 1.16
+Game length: 17.74 turns
+Cost pressure%: 28.1
+Cards drawn: 30.30 / 28.50
+Decked out%: 0 / 0
+Games decided by fatigue%: 0
+Unspent resources (losers): 6.54 / 6.56 / 5.45
+Avg power (spike/anvil/wheel): -0.14 / 0.18 / -0.07
+
+## v1.5-cheaper
+**Changed:** Decrease cost of some cards/moves by 1
+
+Seat 1 win rate%: 54.8
+Score margin: 0.91
+Game length: 17.96 turns
+Cost pressure%: 25.9
+Cards drawn: 33.06 / 30.93
+Decked out%: 1.5 / 1.5
+Games decided by fatigue%: 2.3
+Unspent resources (losers): 6.47 / 5.60 / 5.49
+Avg power (spike/anvil/wheel): -0.14 / 0.11 / -0.01
+
+## v1.5-expensive
+**Changed:** Increase cost of most cards/moves by 1
+
+Seat 1 win rate%: 58
+Score margin: 1.27
+Game length: 22.49 turns
+Cost pressure%: 53.6
+Cards drawn: 33.81 / 33.36
+Decked out%: 2.5 / 3.0
+Games decided by fatigue%: 4.0
+Unspent resources (losers): 5.04 / 4.02 / 4.68
+Avg power (spike/anvil/wheel): -0.09 / -0.14 / 0.27
+
+## v1.5-expensivefast
+**Changed:** Increase cost of most cards/moves by 1, and reduce scoreToWin to 5
+
+Seat 1 win rate%: 65.8
+Score margin: 1.27
+Game length: 11.88 turns
+Cost pressure%: 37.7
+Cards drawn: 18.91 / 18.49
+Decked out%: 0.3 / 0.3
+Games decided by fatigue%: 0.3
+Unspent resources (losers): 3.78 / 3.11 / 3.71
+Avg power (spike/anvil/wheel): -0.23 / -0.18 / 0.32
+
+## v1.5-expensivemed
+**Changed:** Increase cost of most cards/moves by 1, and reduce scoreToWin to 7
+
+Seat 1 win rate%: 56.8
+Score margin: 0.79
+Game length: 16.19 turns
+Cost pressure%: 53.4
+Cards drawn: 24.81 / 24.94
+Decked out%: 0.5 / 1.0
+Games decided by fatigue%: 1.0
+Unspent resources (losers): 4.44 / 3.66 / 4.42
+Avg power (spike/anvil/wheel): -0.25 / -0.12 / 0.29
+
+## v1.5-baselinemed
+**Changed:** Reduce scoreToWin to 7
+
+Seat 1 win rate%: 60.3
+Score margin: 1.11
+Game length: 16.34 turns
+Cost pressure%: 39.7
+Cards drawn: 28.20 / 27.21
+Decked out%: 1.3 / 0.5
+Games decided by fatigue%: 1.0
+Unspent resources (losers): 5.23 / 4.43 / 4.03
+Avg power (spike/anvil/wheel): -0.07 / 0.09 / -0.08
+
+## Results
+**Final decision:** Using **v1.5-expensivemed**'s rules and cost increases
+Reasons
+- Speeds up game significantly (~5 turns faster, 11 less cards drawn, around 3x less fatigue games)
+- Fixes unspent resources accumulation
+
+A small second round of balance changes should probably be made as many cards were changed 
