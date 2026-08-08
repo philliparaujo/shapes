@@ -1,0 +1,9 @@
+{
+  "id": "patch_up",
+  "name": "Safeguard",
+  "kind": "spell",
+  "cost": { "anvil": 4 },
+  "effects": [
+    { "op": "grant_keyword", "target": "chosen_friendly", "keyword": "reflect" }
+  ]
+}

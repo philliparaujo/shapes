@@ -1,0 +1,25 @@
+{
+  "id": "t_battery",
+  "name": "T Battery",
+  "kind": "creature",
+  "cost": { "spike": 2 },
+  "health": 2,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Discharge",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "self_damage", "amount": 1 },
+        { "op": "draw", "amount": 1 }
+      ]
+    },
+    {
+      "name": "Overload",
+      "cost": { "spike": 3 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "hand_size", "multiplier": 1 }
+      ]
+    }
+  ]
+}

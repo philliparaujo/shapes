@@ -63,6 +63,7 @@ public static class CompareReportWriter
   .moved-up { color: #2e8b3d; font-weight: 600; }
   .moved-down { color: #d14343; font-weight: 600; }
   .not-moved { opacity: 0.55; }
+  .ci { font-size: 11px; opacity: 0.6; white-space: nowrap; }
   .controls { display: flex; gap: 16px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
   .controls label { font-size: 12px; opacity: 0.8; }
   input[type=number] { width: 60px; }
@@ -134,9 +135,21 @@ public static class CompareReportWriter
   interval to test for overlap the way the rate columns do. Read the individual rate columns
   before trusting it — it inherits every caveat those already carry.
 </p>
+<p class="hint">
+  <strong>On the win-rate columns.</strong> Every rate now prints its Wilson interval inline, so
+  a Δ can be read against the width of the intervals it came from. For the win-rate columns that
+  width is large: under symmetric decks both seats hold every card, so most cards contribute a
+  win <em>and</em> a loss in most games and win rate compresses toward 50% mechanically. At 400
+  games per run a per-card draw-WR interval is several times wider than the entire field's
+  spread, so a Δ there is almost never distinguishable from noise — which is exactly why the Δ
+  cell stays grey unless the two intervals genuinely fail to overlap, and why this table sorts by
+  <strong>Δ take rate</strong> by default. Take rate measures what a strong agent chose when it
+  had the option; win rate is a correlation.
+</p>
 <div class="controls">
   <label>Min n (offers, either run): <input type="number" id="card-min-n" value="0" min="0"></label>
   <button class="toggle-btn active" id="card-moved-btn">Moved beyond noise only</button>
+  <button class="toggle-btn" id="card-drawwr-btn" title="Only cards whose win-rate-when-drawn intervals fail to overlap between the two runs. Expect very few.">Draw-WR movers only</button>
 </div>
 <table id="card-table">
   <thead></thead>
@@ -332,6 +345,7 @@ function computeCompositeScores(cardStats, moveStats, minN) {
 let cardSort = { key: 'delta', dir: -1 };
 let moveSort = { key: 'delta', dir: -1 };
 let cardMovedOnly = true;
+let cardDrawWrOnly = false;
 let moveMovedOnly = true;
 
 function joinById(baseList, candList, idFn) {
@@ -363,9 +377,19 @@ function rateDelta(b, c, field) {
 
 function rateCell(has_b, has_c, rd) {
   const cls = rd.direction === 'up' ? 'moved-up' : rd.direction === 'down' ? 'moved-down' : 'not-moved';
-  return `<td>${has_b ? pct(rd.bt.rate) : '—'} (n=${rd.bt.trials ?? 0})</td>`
-    + `<td>${has_c ? pct(rd.ct.rate) : '—'} (n=${rd.ct.trials ?? 0})</td>`
+  return `<td>${has_b ? withCi(rd.bt) : '—'} <span class="ci">(n=${rd.bt.trials ?? 0})</span></td>`
+    + `<td>${has_c ? withCi(rd.ct) : '—'} <span class="ci">(n=${rd.ct.trials ?? 0})</span></td>`
     + `<td class="${cls}">${(has_b && has_c) ? signedPct(rd.delta) : '—'}</td>`;
+}
+
+// A rate with its interval bounds. The Δ column already colours only when the two intervals
+// fail to overlap, but the bounds themselves are what make a grey "moved 4 points" legible as
+// "moved 4 points inside a 9-point interval" -- which for the win-rate columns is nearly always
+// the case. See the note above the table.
+function withCi(iv) {
+  if (!iv || (iv.trials ?? 0) === 0) return '—';
+  return `${pct(iv.rate)} <span class="ci">[${(iv.low * 100).toFixed(1)}, `
+    + `${(iv.high * 100).toFixed(1)}]</span>`;
 }
 
 // Power score has no confidence interval (it is a plain z-score average, not a Wilson/normal
@@ -412,6 +436,9 @@ function cardRows() {
 
   if (cardMovedOnly) {
     rows = rows.filter(r => r.take.moved || r.winPlayed.moved || r.winDrawn.moved || r.power.moved);
+  }
+  if (cardDrawWrOnly) {
+    rows = rows.filter(r => r.winDrawn.moved);
   }
 
   const sortField = { take: 'take', winPlayed: 'winPlayed', winDrawn: 'winDrawn', power: 'power' }[cardSort.key];
@@ -535,6 +562,11 @@ document.getElementById('move-min-n').addEventListener('input', renderMoveTable)
 document.getElementById('card-moved-btn').addEventListener('click', (e) => {
   cardMovedOnly = !cardMovedOnly;
   e.target.classList.toggle('active', cardMovedOnly);
+  renderCardTable();
+});
+document.getElementById('card-drawwr-btn').addEventListener('click', (e) => {
+  cardDrawWrOnly = !cardDrawWrOnly;
+  e.target.classList.toggle('active', cardDrawWrOnly);
   renderCardTable();
 });
 document.getElementById('move-moved-btn').addEventListener('click', (e) => {

@@ -155,6 +155,11 @@ public static class CardValidator
 
     private static readonly string[] KnownCreatureStateChecks = ["damaged", "full_health", "unopposed"];
 
+    // Checks carrying a ":<n>" argument, so they are prefix-matched rather than compared whole.
+    // Kept as a list beside the exact-match set so adding one is a single edit here and in
+    // ConditionEvaluator.MatchesCheck, rather than another `||` grown onto the condition below.
+    private static readonly string[] ParameterisedChecks = ["health_at_most:", "health_at_least:"];
+
     private static void ValidateCondition(EffectNode condition, string at)
     {
         // Conditions are a separate tiny vocabulary from effect ops -- ConditionEvaluator owns
@@ -191,11 +196,12 @@ public static class CardValidator
 
         var check = condition.Args.String("check");
         if (!KnownCreatureStateChecks.Contains(check, StringComparer.Ordinal)
-            && !check.StartsWith("health_at_most:", StringComparison.Ordinal))
+            && !ParameterisedChecks.Any(p => check.StartsWith(p, StringComparison.Ordinal)))
         {
             throw new CardValidationException(
                 $"{at} uses unknown creature_state check '{check}'. Known checks: " +
-                $"{string.Join(", ", KnownCreatureStateChecks)}, or 'health_at_most:<n>'.");
+                $"{string.Join(", ", KnownCreatureStateChecks)}, or " +
+                $"{string.Join("/", ParameterisedChecks.Select(p => $"'{p}<n>'"))}.");
         }
     }
 

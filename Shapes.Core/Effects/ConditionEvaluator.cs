@@ -74,6 +74,11 @@ public static class ConditionEvaluator
         "full_health" => !creature.IsDamaged,
         _ when check.StartsWith("health_at_most:", StringComparison.Ordinal) =>
             creature.Health <= int.Parse(check["health_at_most:".Length..]),
+        // The mirror of health_at_most, for moves that gate on being HEALTHY rather than hurt
+        // (Basic Square's Jab: "if health at least 4"). Reads current health, not max, so a
+        // creature buffed above its threshold still qualifies and a damaged one stops.
+        _ when check.StartsWith("health_at_least:", StringComparison.Ordinal) =>
+            creature.Health >= int.Parse(check["health_at_least:".Length..]),
         _ => throw new ArgumentException($"Unknown creature_state check '{check}'."),
     };
 }

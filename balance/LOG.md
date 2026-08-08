@@ -137,7 +137,7 @@ Reasons
   - GamesWithNoSustainedUnopposed becomes >0
   - Higher take rate signals "play every card you can" is a more viable strategy
 
-# balance
+# card balance
 Comparing card draw economy per turn graphs to see how card changes should generally be: making cards/spells/moves more/less expensive, more/less card draw, etc.
 
 ## v1.4-baseline
@@ -590,3 +590,184 @@ Seat 2 resources (spike/anvil/wheel): 4.67 / 2.89 /	3.28
 
 ## Results
 **Final decision:** Going with **v1.6-resourcescardslow**'s ruleset. Might need slight adjusting after a final balance sweep, but will only do +/- 1 card and not adjust starting score. Balance is close to 50/50 and slightly favoring second player seems more interactive
+
+# card balance 2.0
+## v1.7-baseline
+seed = 4
+
+## v1.7-change1
+Trying a bunch of experimental changes to shake up the metagame
+
+**Changed:**
+Nerfs:
+- Basic T: 
+  - Finish: if opposing is damaged: deal 4->3 damage to opposing
+- Bubbles:
+  - Fizz: deal 2->1 damage to all enemies
+  - Burst: deal 6 damage to all enemies; self-damage 6 -> deal 6 damage to all creatures
+- Circle Planner:
+  - Strike (cost 1->2): deal 2->3 damage to opposing 
+  - Plan Ahead (cost 2->3): gain 3->4 wheel next turn
+- T Medic:
+  - Triage Strike: only if self is damaged: deal 2->1 damage to opposing
+
+Buffs:
+- Circle Priest: 
+  - Mend (cost 2->1)
+- Shieldbearer:
+  - Brace For Impact (cost 2->1)
+- Suffocate (cost 6->5)
+
+Reworks:
+- Patch Up: (cost 2) +2 max health to chosen friendly; if chosen friendly's health is at most 3: gain 1 anvil -> Safeguard: (cost 4) grant a chosen friendly reflect
+- Rally: (cost 2) gain spike (cards in hand x2) -> (cost 3) +(max health - current health) attack to self (persistent) 
+- Wave Crash: (cost 2) deal 1 damage to all enemies; heal all friendlies for 1 -> (cost 3) deal 2 damage to all creatures; draw 1 per creature destroyed this turn
+
+Notes
+- A few long game outliers skewed average game length by 2.5 turns, which skews card draw / resource data
+- Buff/nerf worked: Bubbles is balanced enough, Circle Planner is balanced, Suffocate is balanced enough,
+- Buff/nerf not fully worked: Basic T still too strong (moves too good), Shieldbearer is too strong (moves are fine), Circle Priest is balanced enough (Mend is problematic), T Medic is too weak
+- Rework worked: Patch Up is slightly weak, Rally is balanced
+- Rework not fully worked: Wave Crash is too weak
+- Indirect problems: Enrage is weak, Zealot is strong, Guardian is strong, Champion T is weak
+
+## v1.7-change2
+**Changed:**
+
+Nerfs
+- Basic T:
+  - Finish: if opposing is damaged; deal 3->2 damage to opposing
+- Shieldbearer: health 6->5
+  - Brace For Impact: next time self takes damage: draw 2->1
+- Circle Priest:
+  - Mend: heal self to full -> heal self for 3
+- Zealot: health 4->3
+- Guardian: health 8->7
+
+Buffs
+- T Medic (cost 1->2): health 2->3
+  - Transfusion: self damage 1; +3->4 max health to right friendly
+  - Triage Strike: only if self is damaged: deal 1->2 damage to opposing
+- Wave Crash: deal 2->3 damage to all creatures; draw 1 per creature destroyed this turn
+- Bubbles:
+  - Burst: deal 6->4 damage to all creatures
+
+Notes
+- Seems quite balanced, but optimal play is stalemating too much; seems to be that damage output per turn is quite low on many boards, so creature supply / card supply leads to endless replacement
+
+## v1.7-change2fix
+Goal: end stalemates
+- Reduce card draw
+- Increase AOE
+- Increase high impact damage output
+
+Buffs:
+- Siphon: deal 1 damage to chosen enemy; if chosen enemy's health is at most 0: draw 1 -> deal 2 damage to chosen enemy
+- Suffocate (cost 5->4)
+- Wave Crash: deal 3 damage to all creatures; draw 1 per creature destroyed this turn -> deal 2 damage to all enemies
+- Bubbles:
+  - Burst: (cost 2) deal 4 damage to all creatures -> (cost 3) deal 6 damage to all enemies; self-damage 6
+- Monk:
+  - Palm Strike (cost 4->3)
+- Rally (cost 3->2)
+- Shieldbearer:
+  - Shield Bash: deal 2->3 damage to opposing; grant self taunt until next turn
+- T Battery: health 2->3
+- T Juggler: 
+  - Catch and Throw: draw 1; deal 2->3 damage to opposing
+- Worshipper:
+  - Channel (cost 3->2)
+
+Nerfs:
+- Basic Square:
+  - Jab: deal 1 damage to opposing: heal self for 1 -> if health at least 4: deal 2 damage to opposing
+- Circle Bender:
+  - Exhale: deal 1 damage to opposing; heal self for 2 -> deal 1 damage to opposing
+- Circle Planner (cost 2->3)
+- Circle Priest:
+  - Mend: heal self for 3 -> discard 1; heal self for 4
+- Columns: health 6->5
+- Gravewarden:
+  - Reap: +1 max health for each creature destroyed this turn
+- Relic: health 9->8
+- T Body:
+  - Overclock: self damage 2->3; gain 3 spike
+- T Medic:
+  - Transfusion: self-damage 1->2; +4 max health to right friendly
+
+Fix seems to have finally worked and given arguably the best metagame yet
+
+## v1.7-change2fixrerun
+seed = 5, games: 400->4000
+
+## v1.7-change3
+**Changed:**
+
+Almost everything looks pretty healthy
+
+Buffs
+- Circle Bender:
+  - Inhale: +3->4 attack to self (persistent)
+- Circle Priest: health 3->4
+- Rally (cost 2->1)
+
+## v1.7-final
+Got z scores at same sample size for final comparisons
+
+## Overall Results
+**23 of 36 cards changed** across four card passes (change1 → change2 → change2fix → change3). Card changes compared to
+**v1.7-baseline**:
+
+Nerfs
+- (z +1.90 -> +0.35) **Bubbles**:
+  - Fizz: deal 2->1 damage to all enemies
+- (z +0.94 -> +0.32) **Guardian**: health 8->7
+- (z +0.86 -> +0.20) **Circle Planner**: cost 2->3
+  - Strike: cost 1->2; deal 2->3 damage to opposing
+  - Plan Ahead: cost 2->3; gain 3->4 wheel next turn
+- (z +0.38 -> -0.15) **T Body**:
+  - Overclock: self-damage 2->3; gain 3 spike
+- (z +0.17 -> -0.09) **Relic**: health 9->8
+- (z +0.09 -> -0.30) **Columns**: health 6->5
+- (z -0.23 -> -0.85) **Gravewarden**:
+  - Reap: draw 1 per creature destroyed this turn x2 -> +1 max health per creature destroyed
+    this turn
+- (z -0.73 -> -1.38) **Circle Priest**: health 3->4
+  - Mend: cost 2->1; heal self to full -> discard 1; heal self for 4
+
+Buffs
+- (z -0.83 -> +0.23) **Shieldbearer**: health 6->5
+  - Brace For Impact: cost 2->1; next time self takes damage: draw 2->1
+  - Shield Bash: deal 2->3 damage to opposing; grant self taunt until next turn
+- (z -0.79 -> +0.56) **Suffocate**: cost 6->4
+- (z -0.36 -> +0.94) **Worshipper**:
+  - Channel: cost 3->2
+- (z -0.29 -> +0.05) **T Juggler**:
+  - Catch and Throw: draw 1; deal 2->3 damage to opposing
+- (z -0.19 -> +0.63) **Circle Bender**:
+  - Exhale: deal 1 damage to opposing; heal self for 2 -> deal 1 damage to opposing
+  - Inhale: +3->4 attack to self (persistent)
+- (z -0.04 -> +0.47) **T Battery**: health 2->3
+- (z +0.13 -> +0.31) **Zealot**: health 4->3
+- (z +0.19 -> +0.92) **Basic T**:
+  - Finish: if opposing is damaged: deal 4->2 damage to opposing
+- (z +0.23 -> +0.87) **Siphon**:
+  - deal 1 damage to chosen enemy; if chosen enemy's health is at most 0: draw 1 -> deal 2
+    damage to chosen enemy
+- (z +0.39 -> +0.98) **Basic Square**:
+  - Jab: deal 1 damage to opposing; heal self for 1 -> only if self's health is at least 4:
+    deal 2 damage to opposing
+- (z +0.49 -> +0.54) **T Medic**: cost 1->2; health 2->3
+  - Transfusion: self-damage 1->2; +3->4 max health to right friendly
+- (z -0.23 -> -0.25) **Monk**:
+  - Palm Strike: cost 4->3
+
+Reworks
+- (z -1.08 -> -1.25) **Patch Up -> Safeguard**: cost 2->4
+  - +2 max health to chosen friendly; if chosen friendly's health is at most 3: gain 1 anvil ->
+    **grant chosen friendly reflect**
+- (z -0.69 -> -0.23) **Wave Crash**: cost 2->3
+  - deal 1 damage to all enemies; heal all friendlies for 1 -> **deal 2 damage to all enemies**
+- (z -0.44 -> -0.56) **Rally**: cost 2->1
+  - gain spike (cards in hand x2) -> +attack (chosen friendly's missing health) to chosen
+    friendly (persistent)

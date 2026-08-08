@@ -74,6 +74,7 @@ public static class EffectText
             "on_next_ricochet" => $"next time {Sel(args)} ricochets: {DescribeNode(args.Node("effect"))}",
 
             "attack_buff" => $"+{args.Int("amount")} attack to {Sel(args)} (persistent)",
+            "attack_buff_scaled" => $"+attack ({Scale(args)}) to {Sel(args)} (persistent)",
             "next_attack_bonus" => $"+{args.Int("amount")} to {Sel(args)}'s next attack",
             "next_damage_taken_bonus" => $"+{args.Int("amount")} to the next damage {Sel(args)} takes",
 
@@ -125,6 +126,8 @@ public static class EffectText
             "full_health" => $"{target} is at full health",
             _ when check.StartsWith("health_at_most:", StringComparison.Ordinal) =>
                 $"{target}'s health is at most {check["health_at_most:".Length..]}",
+            _ when check.StartsWith("health_at_least:", StringComparison.Ordinal) =>
+                $"{target}'s health is at least {check["health_at_least:".Length..]}",
             _ => $"{target} {check}",
         };
     }
@@ -152,6 +155,9 @@ public static class EffectText
             "selector_health" => $"{Sel(args, "health_source")}'s health",
             "hand_composition" => $"{args.StringOrDefault("resource_type", string.Empty)} cards in hand",
             "resource" => $"{args.StringOrDefault("resource_type", string.Empty)} held",
+            "missing_health" => "source's missing health",
+            "selector_missing_health" => $"{Sel(args, "health_source")}'s missing health",
+            "destroyed_this_turn" => "creatures destroyed this turn",
             _ => scale,
         };
 
@@ -170,6 +176,7 @@ public static class EffectText
         TargetSelector.RightFriendly => "right friendly",
         TargetSelector.AllEnemies => "all enemies",
         TargetSelector.AllFriendlies => "all friendlies",
+        TargetSelector.AllCreatures => "all creatures",
         TargetSelector.ChosenEnemy => "chosen enemy",
         TargetSelector.ChosenFriendly => "chosen friendly",
         _ => selector.ToString(),

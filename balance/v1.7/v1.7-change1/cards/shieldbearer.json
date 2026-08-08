@@ -1,0 +1,26 @@
+{
+  "id": "shieldbearer",
+  "name": "Shieldbearer",
+  "kind": "creature",
+  "cost": { "anvil": 4 },
+  "health": 6,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Brace For Impact",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "on_next_damage_taken", "target": "self",
+          "effect": { "op": "draw", "amount": 2 } }
+      ]
+    },
+    {
+      "name": "Shield Bash",
+      "cost": { "anvil": 2 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 },
+        { "op": "grant_keyword", "target": "self", "keyword": "taunt", "until_next_turn": true }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 using Shapes.Core.Primitives;
+using Shapes.Core.State;
 
 namespace Shapes.Core.Effects.Ops;
 
@@ -27,6 +28,9 @@ internal enum DamageScale
     SelectorHealth,
     HandComposition,
     Resource,
+    MissingHealth,
+    SelectorMissingHealth,
+    DestroyedThisTurn,
 }
 
 // { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 1,
@@ -88,6 +92,20 @@ internal sealed class DamageScaledOp : EffectOp
         DamageScale.SelectorHealth => ResolveSelectorHealth(ctx, healthSource),
         DamageScale.HandComposition => resourceType is { } t ? ctx.HandComposition[t] : 0,
         DamageScale.Resource => resourceType is { } r ? ctx.State[ctx.ControllingPlayer].Resources[r] : 0,
+        // Damage already taken by the SOURCE creature (max - current), the counterpart of
+        // "health". Zero at full health, so a card scaling on it does nothing until hurt.
+        DamageScale.MissingHealth => ctx.SourceCreature is { } c ? Math.Max(0, c.MaxHealth - c.Health) : 0,
+        // The selector-named counterpart of MissingHealth, standing to it exactly as
+        // SelectorHealth stands to Health. A SPELL has no SourceCreature (EffectContext.SourceSlot
+        // is null for spells), so "missing_health" silently computes 0 there -- a spell that wants
+        // to read a creature's damage must name that creature via health_source instead.
+        DamageScale.SelectorMissingHealth => ResolveSelectorMissingHealth(ctx, healthSource),
+        // Creatures destroyed THIS TURN, either side, any cause -- read from TurnEvents, the same
+        // source draw_scaled has always used. Promoted into the shared vocabulary (rather than
+        // left as draw_scaled's private special case) once a second op needed it: Gravewarden's
+        // Reap now buffs max health per kill instead of drawing per kill.
+        DamageScale.DestroyedThisTurn =>
+            ctx.State.TurnEvents.Count(e => e.Kind == TurnEventKind.CreatureDestroyed),
         _ => throw new ArgumentOutOfRangeException(nameof(scale), scale, "Unknown damage scale."),
     };
 
@@ -102,6 +120,23 @@ internal sealed class DamageScaledOp : EffectOp
         return slots.Count == 1 ? ctx.State.Board[slots[0]]?.Health ?? 0 : 0;
     }
 
+    private static int ResolveSelectorMissingHealth(EffectContext ctx, TargetSelector? healthSource)
+    {
+        if (healthSource is not { } selector)
+        {
+            throw new ArgumentException(
+                "scale 'selector_missing_health' requires a 'health_source' argument.");
+        }
+
+        var slots = TargetResolver.Resolve(ctx, selector);
+        if (slots.Count != 1 || ctx.State.Board[slots[0]] is not { } creature)
+        {
+            return 0;
+        }
+
+        return Math.Max(0, creature.MaxHealth - creature.Health);
+    }
+
     internal static DamageScale ParseScale(string raw) => raw switch
     {
         "health" => DamageScale.Health,
@@ -110,6 +145,9 @@ internal sealed class DamageScaledOp : EffectOp
         "selector_health" => DamageScale.SelectorHealth,
         "hand_composition" => DamageScale.HandComposition,
         "resource" => DamageScale.Resource,
+        "missing_health" => DamageScale.MissingHealth,
+        "selector_missing_health" => DamageScale.SelectorMissingHealth,
+        "destroyed_this_turn" => DamageScale.DestroyedThisTurn,
         _ => throw new ArgumentException($"Unknown scale '{raw}'."),
     };
 }

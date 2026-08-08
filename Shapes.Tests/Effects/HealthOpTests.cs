@@ -7,6 +7,41 @@ namespace Shapes.Tests.Effects;
 
 public class HealthOpTests
 {
+    // Gravewarden's reworked Reap: "+1 max health for each creature destroyed this turn".
+    // The destroyed_this_turn scale used to live only on draw_scaled; this pins that it now
+    // works through the shared DamageScale vocabulary that every *_scaled op reads.
+    [Fact]
+    public void Buff_max_health_scaled_reads_creatures_destroyed_this_turn()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "reaper", TypeMask.Anvil, maxHealth: 3, health: 3))
+            .Build();
+        state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, PlayerId.Two, new SlotIndex(PlayerId.Two, 0), "x");
+        state.RecordTurnEvent(TurnEventKind.CreatureDestroyed, PlayerId.One, new SlotIndex(PlayerId.One, 2), "y");
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("buff_max_health_scaled", ("target", "self"),
+                ("scale", "destroyed_this_turn"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(5, state.Board[new SlotIndex(PlayerId.One, 0)]!.MaxHealth); // 3 + 2 kills
+    }
+
+    [Fact]
+    public void Buff_max_health_scaled_grants_nothing_when_nothing_died()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "reaper", TypeMask.Anvil, maxHealth: 3, health: 3))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("buff_max_health_scaled", ("target", "self"),
+                ("scale", "destroyed_this_turn"), ("multiplier", 1)), ctx);
+
+        Assert.Equal(3, state.Board[new SlotIndex(PlayerId.One, 0)]!.MaxHealth);
+    }
+
     private static (GameState State, EffectContext Ctx) SelfDamaged(int maxHealth, int health)
     {
         var state = new StateBuilder()

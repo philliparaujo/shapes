@@ -1,0 +1,24 @@
+{
+  "id": "circle_planner",
+  "name": "Circle Planner",
+  "kind": "creature",
+  "cost": { "wheel": 2 },
+  "health": 3,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Strike",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 3 }
+      ]
+    },
+    {
+      "name": "Plan Ahead",
+      "cost": { "wheel": 3 },
+      "effects": [
+        { "op": "gain_next_turn", "type": "wheel", "amount": 4 }
+      ]
+    }
+  ]
+}

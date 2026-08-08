@@ -62,9 +62,12 @@ public class CardSmokeTests
             // A move's own condition (if any) may require the source at full health (Circle
             // Priest, Circle Cadet) or damaged (Monk, Relic, T Medic) -- try both rather than
             // picking one and having the other class of card fail this test through no fault
-            // of its own.
+            // of its own. A third case covers a threshold ABOVE the card's printed health
+            // (Basic Square's Jab needs health >= 4 on a 3-health body, deliberately: it must
+            // Fortify itself first), which neither of the other two can ever satisfy.
             var action = TryFindMoveAction(card, moveIndex, atFullHealth: true, out var state)
-                ?? TryFindMoveAction(card, moveIndex, atFullHealth: false, out state);
+                ?? TryFindMoveAction(card, moveIndex, atFullHealth: false, out state)
+                ?? TryFindMoveAction(card, moveIndex, atFullHealth: true, out state, healthBonus: 3);
 
             Assert.True(
                 action is not null,
@@ -78,13 +81,17 @@ public class CardSmokeTests
         }
     }
 
+    // `healthBonus` raises both max and current health, standing in for a creature that has
+    // buffed itself past its printed value (Fortify, Brace, Grow) -- the only way a move gated
+    // above base health is ever legal.
     private static UseMoveAction? TryFindMoveAction(
-        CardDefinition card, int moveIndex, bool atFullHealth, out GameState? state)
+        CardDefinition card, int moveIndex, bool atFullHealth, out GameState? state, int healthBonus = 0)
     {
         state = BuildSuitableState(card);
-        var health = atFullHealth ? card.Health : Math.Max(1, card.Health - 1);
+        var maxHealth = card.Health + healthBonus;
+        var health = atFullHealth ? maxHealth : Math.Max(1, maxHealth - 1);
         state.Board.Place(
-            new SlotIndex(PlayerId.One, 0), new CreatureInstance(card.Id, card.Health, card.Types, health));
+            new SlotIndex(PlayerId.One, 0), new CreatureInstance(card.Id, maxHealth, card.Types, health));
 
         return ActionGenerator.Generate(state, Cards)
             .OfType<UseMoveAction>()

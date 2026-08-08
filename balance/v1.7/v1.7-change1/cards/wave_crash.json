@@ -1,0 +1,10 @@
+{
+  "id": "wave_crash",
+  "name": "Wave Crash",
+  "kind": "spell",
+  "cost": { "wheel": 3 },
+  "effects": [
+    { "op": "damage", "target": "all_creatures", "amount": 2 },
+    { "op": "draw_scaled", "scale": "destroyed_this_turn", "multiplier": 1 }
+  ]
+}

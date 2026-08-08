@@ -46,6 +46,7 @@ public sealed class EffectArgs
         "right_friendly" => TargetSelector.RightFriendly,
         "all_enemies" => TargetSelector.AllEnemies,
         "all_friendlies" => TargetSelector.AllFriendlies,
+        "all_creatures" => TargetSelector.AllCreatures,
         "chosen_enemy" => TargetSelector.ChosenEnemy,
         "chosen_friendly" => TargetSelector.ChosenFriendly,
         _ => throw new ArgumentException($"Unknown target selector '{raw}'."),

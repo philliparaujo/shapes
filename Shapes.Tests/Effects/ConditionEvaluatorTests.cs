@@ -9,6 +9,35 @@ namespace Shapes.Tests.Effects;
 // rather than a bespoke predicate name per card (self_at_full_health, target_damaged, ...).
 public class ConditionEvaluatorTests
 {
+    [Theory]
+    [InlineData(4, true)]   // exactly the threshold passes -- "at least" is inclusive
+    [InlineData(5, true)]
+    [InlineData(3, false)]
+    public void Health_at_least_gates_on_current_health(int health, bool expected)
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "subject", TypeMask.Anvil, maxHealth: 6, health: health))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        var condition = Eff.Node("creature_state", ("target", "self"), ("check", "health_at_least:4"));
+
+        Assert.Equal(expected, ConditionEvaluator.Evaluate(ctx, condition));
+    }
+
+    [Fact]
+    public void Health_at_least_reads_current_not_max_health()
+    {
+        // A creature buffed to a high MAX but sitting damaged below the threshold must fail:
+        // Basic Square's Jab is meant to switch off once the creature is chipped.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "subject", TypeMask.Anvil, maxHealth: 10, health: 2))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        var condition = Eff.Node("creature_state", ("target", "self"), ("check", "health_at_least:4"));
+
+        Assert.False(ConditionEvaluator.Evaluate(ctx, condition));
+    }
+
     private static EffectContext SelfAt(int maxHealth, int health)
     {
         var state = new StateBuilder()

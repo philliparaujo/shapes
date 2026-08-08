@@ -10,26 +10,30 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 1 — Playable engine                      | 13 / 13    |
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
-| 4 — AI-driven balance                    | 13 / 14    |
+| 4 — AI-driven balance                    | 14 / 14    |
 | 5 — Godot client                         | 0 / 12     |
 
-904 tests passing. **Phases 1, 2, and 3 are complete.**
+918 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Next up: Phase 4 step 9** — the final, confirmatory balance pass. **All four Phase 4 exit
-criteria are now met**, so step 9 exists to re-establish per-card balance against a ruleset that
-changed twice underneath it, not to reach a criterion still outstanding. **Card balance was settled**
-at step 6 (no dead cards, no auto-includes, all three resource types level, 400/400 terminating),
-**game length** at step 7 (`scoreToWin` 7 plus a global card-cost increase took the median from 19
-turns to 14, fatigue down to 1.0%, board presence intact), and **first-player advantage** at step 8
-— a seat-2 compensation of 1/1/1 resources plus one card (`v1.6-resourcescardslow`) took the score
-margin from +0.79 [+0.39, +1.18] to **−0.20 [−0.59, +0.19]**, straddling zero for the first time.
-Those last two changes touched most of the card set and the opening state respectively, which is
-precisely the debt step 9 collects.
+**Next up: Phase 5** — the Godot client. **Phase 4 is closed**: all four exit criteria met and
+re-confirmed at `v1.7-final` after step 9's card pass. **Card balance was settled** at step 6 and
+re-established at step 9 against the shipped rules (23 of 36 cards changed, take rate/turn 23–46%
+with no card outside it), **game length** at step 7 (`scoreToWin` 7 plus a global card-cost increase
+took the median from 19 turns to 14) and defended at step 9 after two passes drifted the p95 out to
+55, **first-player advantage** at step 8 — a seat-2 compensation of 1/1/1 resources plus one card
+took the score margin from +0.79 [+0.39, +1.18] to **−0.32 [−0.68, +0.04]** at the same 400-game
+sample. Step 9 also settled two properties that were never exit criteria and had never previously
+been met: resource-type power parity (0.06 z spread) and unspent-resource parity (0.25 spread).
+**The one thing Phase 4 did not fully close** is that seat-2 edge at large samples — the 4000-game
+rerun reads −0.28 [−0.40, −0.16], excluding zero, where the 400-game criterion straddles it. That
+is a ruleset knob (step 8's compensation is slightly over-generous now that games are ~2 turns
+shorter), and Phase 5's custom decks will move it again, so it is re-checked there rather than
+re-tuned here.
 
 Step 5b (done) added fatigue after the card sweep surfaced a
 non-terminating game and traced it to the scoring rule rather than to any card: with score gated on
@@ -788,7 +792,7 @@ and 6 then varied rules and cards deliberately, each as a same-seed A/B against 
   which is inside the noise floor step 6 documented. The pass/fail split is solid; the choice
   between them is not resolved by one seed alone.
 
-- [ ] **9. Final balance pass — reconcile per-card balance with the global metrics, at the settled
+- [x] **9. Final balance pass — reconcile per-card balance with the global metrics, at the settled
   ruleset.** Every card number on record was measured under a ruleset that has since changed twice.
   Step 7's global cost increase touched most of the set and step 8 now hands seat 2 a compensated
   opening, so **step 6's per-card balance no longer strictly holds** — this step re-establishes it
@@ -830,15 +834,87 @@ and 6 then varied rules and cards deliberately, each as a same-seed A/B against 
   **Out of scope, deliberately:** archetype and deck-composition balance waits for
   `deckMode: "custom"` (Phase 5 step 9) — it is not measurable on a symmetric deck, where both
   seats hold every card. This step balances the *set*, not the decks built from it.
+  **Result: settled at `v1.7-final`, 23 of 36 cards changed across four passes** (`change1` →
+  `change2` → `change2fix` → `change3`), logged card-by-card in `balance/LOG.md`. All four
+  guardrails hold: score margin **−0.32 [−0.68, +0.04]** straddles zero, median length **15** turns
+  with p95 **32**, fatigue decides **1.75%** at 400/400 terminating, and resource types separate by
+  **0.06 z** (spike −0.04, anvil +0.01, wheel −0.02) — the tightest type parity in the whole log.
+  Take rate/turn spans 23–46% with no card outside it.
+  **The pass did not go the way the step planned, and the deviation is the finding.** The budget
+  above ("change only cards whose |z| ≥ 0.6", "a pass that edits twenty cards cannot be evaluated")
+  was written for a per-card tuning problem. What the first two runs actually surfaced was a
+  *structural* one: `change1` and `change2` drifted badly on game shape — games ≥30 turns went
+  8.8% → 15.8% → 16.8%, p95 length 41 → 50 → 55, and fatigue decided 2.8% → 5.3% → **8.3%** of
+  games, approaching the step-5b backstop becoming the win condition again. Reading a `--json` dump
+  of the >40-turn games found the cause, and it was not any card's z-score: **creature supply
+  (4.55 HP/turn onto the board) structurally exceeds damage throughput (2.30 HP/turn)**, so once
+  all six slots fill, replacement fully absorbs removal and unopposed slots — the only scoring
+  path — stop appearing (11.8% per scoring step in long games vs. 40.9% in short ones). Healing was
+  *not* the cause: damage exceeds heal/buff throughput ~8:1, and identically in short games. The
+  mass-removal valve that answers a saturated board (`bubbles`' Burst) had been closed by making it
+  self-lethal, dropping its take rate to 5.7%.
+  **So `change2fix` was a 20-card structural pass, deliberately over the stated budget**, and it
+  reversed all three shape metrics at once — 4.0% of games ≥30 turns, p95 30, fatigue 1.0%, all
+  *better than the step-9 baseline*. Restoring Burst to `all_enemies` + self-damage took it from
+  15.7% to 32.2% take rate at a 62.9% win-when-used, the highest of any version. The budget rule is
+  still right for card-level tuning; it does not apply when the diagnosis is a whole-format ratio,
+  and the tell was that length moved monotonically across passes while no individual card's z
+  explained it.
+  **Two of the four inherited debts closed themselves; two did not.** `circle_planner`/`siphon`
+  (debt a) both landed mid-field once the ruleset settled. `t_flare` (debt b) is now −0.73 with its
+  move imbalance gone — the "nerfed three times, stronger each time" pattern did not survive the new
+  rules. `wave_crash` (debt c) needed the rework the debt predicted (now a clean
+  `deal 2 damage to all enemies`, −1.46 → −0.23); `basic_square` went the other way and is now one
+  of the *strongest* cards (+0.98) after Jab was gated on `health_at_least:4`. Resource-type parity
+  (debt d) is the pass's best single result, and the cause was found rather than tuned: `rally`'s
+  `gain_resource_scaled` was ~57% of spike's entire generation budget, so reworking it collapsed the
+  unspent-resource spread from 0.83 to **0.25** at 4000 games.
+  **The 4000-game rerun is the methodological upgrade this step needed.** Rather than two seeds at
+  400 games, `change2fixrerun` ran 4000 — mean per-card z moved **0.41** against the 400-game run
+  (max 1.12), confirming step 6's ±0.5 noise floor directly, and several 400-game "findings"
+  evaporated (`suffocate` +0.48 → −0.59, `circle_captain` −0.64 → +0.22). At 4000 games **27 of 36**
+  cards have take-rate intervals excluding the field median, versus 16 at 400 — the sample size,
+  not another metric, is what finally made per-card ranking possible. **Quote per-card claims from
+  the 4000-game run only.**
+  **Engine additions this pass needed** (all with tests, 918 total): the `all_creatures` target
+  selector — including its `GreedyAgent` case, whose omission would have silently scored such cards
+  as affecting nothing; `attack_buff_scaled` with `missing_health` *and* `selector_missing_health`
+  scales (a spell has no `SourceCreature`, so the source-reading scale silently computes 0 for one —
+  the negative control is pinned by test); the `health_at_least:<n>` condition, which also meant
+  folding `CardValidator`'s hardcoded check list into a `ParameterisedChecks` array; and
+  `destroyed_this_turn` promoted out of `draw_scaled`'s private special case into the shared
+  `DamageScale` vocabulary. `CardSmokeTests` grew a third probe (buffed above base health) once
+  `basic_square`'s Jab became legal only above its printed health — a deliberate design, but one the
+  existing two probes could never reach.
+  **Known and accepted at close.** `enrage` sits at **−2.06** at 4000 games, 1.4 z below the
+  next-worst card and the set's one genuine dead card. `anchor` (+1.33) and `basic_square::Jab`
+  (44.5% take/turn, second-strongest move) are the clearest overperformers. Spells as a category run
+  **−0.43** against creatures' +0.10, and cost-1 cards average **+0.58** against −0.06 to −0.17 at
+  every other tier. Three cards carry a vestigial second move (`t_body::Overclock` 15.1%,
+  `circle_captain::Wardance` 21.5%, `relic::Unearth` 19.6%). None of these break an exit criterion —
+  every card stays inside the take-rate band — and all are better addressed against real decks in
+  Phase 5 than by another symmetric-deck pass.
+  **One open item.** At 4000 games the margin is **−0.28 [−0.40, −0.16]**, which *excludes* zero on
+  the seat-2 side; at 400 games (`v1.7-final`) it is −0.32 [−0.68, +0.04], which straddles. The
+  criterion is met at the sample size step 8 used, but the larger sample says a small real seat-2
+  edge exists. The likely cause is the step-8 compensation (1/1/1 resources + 1 card) being slightly
+  over-generous now that games run ~2 turns shorter than when it was tuned; the cheapest fix is a
+  ruleset knob (drop to `resourceslow`, 1/1/1 with no extra card), not a card edit. Left for Phase 5
+  to re-check against custom decks, since deck composition will move it again.
 
-**Exit criteria:** all four met. *No extreme take-rate outliers* — take rate/turn spans 27–53% with
-no card outside it, and nothing separates from the field the way the old z = −1.84 floor did
-(step 6). *Game length in target band* — median 14 turns, p95 32, 24.8 cards drawn against a
-72-card deck, 400/400 terminating with fatigue deciding 1.0% (step 7). *Merge tradeoff and
-income-compounding confirmed as real, non-degenerate decisions* — settled in step 2 and unchanged
-since. *First-player advantage near even by score margin* — **−0.20 [−0.59, +0.19]**, straddling
-zero for the first time, via a seat-2 compensation rather than content tuning (step 8).
-Step 9 is a confirmatory pass over the whole set at the settled ruleset, not a new exit criterion.
+**Exit criteria:** all four met, re-confirmed at `v1.7-final` after step 9's card pass.
+*No extreme take-rate outliers* — take rate/turn spans 23–46% with no card outside it, and nothing
+separates from the field the way the old z = −1.84 floor did (step 6, held through step 9).
+*Game length in target band* — median 15 turns, p95 32, 24.8 cards drawn against a 72-card deck,
+400/400 terminating with fatigue deciding 1.75% (step 7's band, restored by step 9 after two
+passes drifted out of it). *Merge tradeoff and income-compounding confirmed as real, non-degenerate
+decisions* — settled in step 2 and unchanged since. *First-player advantage near even by score
+margin* — **−0.32 [−0.68, +0.04]** at 400 games, straddling zero (step 8's method, step 9's cards);
+note the 4000-game rerun reads −0.28 [−0.40, −0.16], a small real seat-2 edge that the criterion's
+own sample size cannot see — see step 9's open item.
+Step 9 additionally settled resource-type parity (0.06 z spread) and unspent-resource parity
+(0.25 spread at 4000 games), neither of which was an exit criterion but both of which had never
+previously been met.
 
 ### Phase 5 — Godot client (desktop + mobile)
 

@@ -477,6 +477,17 @@ public sealed class GreedyAgent : IAgent
 
                 break;
 
+            // Both boards, so a symmetric sweep is scored against the friendlies it also hits
+            // rather than as pure upside -- omitting this case would leave such a card scoring
+            // zero and effectively invisible to the greedy baseline.
+            case TargetSelector.AllCreatures:
+                foreach (var entry in board.AllCreatures())
+                {
+                    yield return entry;
+                }
+
+                break;
+
             case TargetSelector.ChosenEnemy:
             case TargetSelector.ChosenFriendly:
                 // The action already carries the resolved choice -- that is what picking THIS

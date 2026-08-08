@@ -12,6 +12,7 @@ public enum TargetSelector
     RightFriendly,
     AllEnemies,
     AllFriendlies,
+    AllCreatures,
     ChosenEnemy,
     ChosenFriendly,
 }

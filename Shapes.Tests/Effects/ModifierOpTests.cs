@@ -96,4 +96,73 @@ public class ModifierOpTests
         // Both hits got +2, unlike next_attack_bonus which would only apply once.
         Assert.Equal(14, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // 20 - 3 - 3
     }
+
+    [Fact]
+    public void Attack_buff_scaled_reads_the_sources_missing_health()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "hurt", TypeMask.Spike, maxHealth: 6, health: 2))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("attack_buff_scaled", ("target", "self"), ("scale", "missing_health")), ctx);
+
+        Assert.Equal(4, state.Board[new SlotIndex(PlayerId.One, 0)]!.AttackBuff); // 6 - 2
+    }
+
+    [Fact]
+    public void Attack_buff_scaled_grants_nothing_at_full_health()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "healthy", TypeMask.Spike, maxHealth: 6))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        EffectInterpreter.Apply(
+            Eff.Node("attack_buff_scaled", ("target", "self"), ("scale", "missing_health")), ctx);
+
+        Assert.Equal(0, state.Board[new SlotIndex(PlayerId.One, 0)]!.AttackBuff);
+    }
+
+    // Rally is a SPELL, so ctx.SourceSlot is null and scale "missing_health" -- which reads
+    // SourceCreature -- would silently compute 0 for it. selector_missing_health names the
+    // creature instead. This is the case that made the second scale necessary; without it Rally
+    // would load, run, and quietly do nothing.
+    [Fact]
+    public void Attack_buff_scaled_reads_a_named_selector_when_there_is_no_creature_source()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(1, "hurt", TypeMask.Spike, maxHealth: 7, health: 3))
+            .Build();
+        var target = new SlotIndex(PlayerId.One, 1);
+        var ctx = new EffectContext(state, PlayerId.One, sourceSlot: null, chosenTarget: target);
+
+        EffectInterpreter.Apply(
+            Eff.Node("attack_buff_scaled",
+                ("target", "chosen_friendly"),
+                ("scale", "selector_missing_health"),
+                ("health_source", "chosen_friendly")),
+            ctx);
+
+        Assert.Equal(4, state.Board[target]!.AttackBuff); // 7 - 3, despite no source creature
+    }
+
+    [Fact]
+    public void Attack_buff_scaled_with_missing_health_is_zero_for_a_spell()
+    {
+        // The negative control for the test above: the source-reading scale really does yield
+        // nothing without a creature source, which is why the selector form has to exist.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(1, "hurt", TypeMask.Spike, maxHealth: 7, health: 3))
+            .Build();
+        var target = new SlotIndex(PlayerId.One, 1);
+        var ctx = new EffectContext(state, PlayerId.One, sourceSlot: null, chosenTarget: target);
+
+        EffectInterpreter.Apply(
+            Eff.Node("attack_buff_scaled", ("target", "chosen_friendly"), ("scale", "missing_health")),
+            ctx);
+
+        Assert.Equal(0, state.Board[target]!.AttackBuff);
+    }
 }

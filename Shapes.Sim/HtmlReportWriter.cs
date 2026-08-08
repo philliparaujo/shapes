@@ -115,6 +115,15 @@ public static class HtmlReportWriter
   .res-none { opacity: 0.5; }
   td.take.hi { color: #2f9e5e; font-weight: 700; }
   td.take.lo { color: #d14343; font-weight: 700; }
+  /* Interval bounds ride along with the rate they qualify, deliberately dimmer: the point is
+     that they are always visible, not that they compete with the point estimate. */
+  .ci { font-size: 11px; opacity: 0.6; white-space: nowrap; }
+  /* A win rate whose interval clears the field mean. Deliberately a thin underline rather than
+     the bold+color used for take rate -- at 400 games this fires for ~1 card in 36, and giving
+     it the same visual weight as take rate would imply the two columns rank equally well. */
+  td.wr.sep { text-decoration: underline; text-decoration-thickness: 2px; }
+  td.wr.sep-hi { text-decoration-color: #2f9e5e; }
+  td.wr.sep-lo { text-decoration-color: #d14343; }
   /* The field-average row lives in <thead> so it stays put while the body sorts, and is styled
      as a summary rather than as data -- it is a reference line, not a card. */
   tr.avg-row td {
@@ -304,9 +313,23 @@ public static class HtmlReportWriter
   nothing about what a card costs or is meant to do -- a low score on a situational answer card is
   not the same finding as a low score on a vanilla creature. Read the individual columns first.
 </p>
+<p class="hint">
+  <strong>On the win-rate columns.</strong> Both now carry their Wilson interval inline, and a
+  cell is underlined only when that interval clears the <em>field mean</em> (not 50% -- under
+  symmetric decks the whole field sits near 50% by construction, so beating a coin flip is not
+  the interesting comparison). Expect almost nothing to be underlined: both seats hold every card,
+  so most cards contribute a win <em>and</em> a loss in most games and win rate compresses toward
+  the middle mechanically. At 400 games the per-card draw-WR interval is several times wider than
+  the entire field's spread, which is why <strong>take rate, not win rate, is the column this
+  table sorts and colours by</strong> -- take rate measures what a strong agent chose when it had
+  the option, and is the metric a card-level balance change actually moves. Use the draw-WR
+  filter to see how few cards separate on it; a run needs far more games before that column can
+  rank anything.
+</p>
 <div class="controls">
   <label>Min n (offers): <input type="number" id="card-min-n" value="0" min="0"></label>
   <button class="toggle-btn active" id="card-outliers-btn">Outliers only (excludes field median)</button>
+  <button class="toggle-btn" id="card-drawwr-btn" title="Cards whose win-rate-when-drawn interval excludes the field mean. Expect very few: see the note above.">Draw-WR outliers only</button>
   <span class="diff-note">Baseline: <input type="file" id="baseline-input" accept="application/json"> <span id="baseline-status"></span></span>
 </div>
 <table id="card-table">
@@ -351,6 +374,45 @@ let baseline = null;
 
 function pct(x) { return (x * 100).toFixed(1) + '%'; }
 function num(x, d) { return (typeof x === 'number') ? x.toFixed(d === undefined ? 2 : d) : '—'; }
+
+// A rate with its Wilson interval spelled out: "50.3% [45.8, 54.9]".
+//
+// Exists because win-rate columns are the ones most likely to be over-read. Under symmetric
+// decks both seats hold every card, so most cards contribute a win AND a loss in most games and
+// every win rate compresses toward 50% mechanically -- at 400 games the per-card draw-WR
+// interval is several times wider than the whole field's spread. Printing the bounds inline is
+// the cheapest way to make "this card is at 53%" and "this card is indistinguishable from every
+// other card" read differently at a glance.
+function pctInterval(interval) {
+  if (!interval || interval.trials === 0) return '—';
+  return `${pct(interval.rate)} <span class="ci">[${(interval.low * 100).toFixed(1)}, `
+    + `${(interval.high * 100).toFixed(1)}]</span>`;
+}
+
+// Whether a rate is separated from the field at all: does its interval exclude the field's
+// own mean? Cards failing this are not ranked by that column in any meaningful sense.
+function separated(interval, reference) {
+  return interval && interval.trials > 0 && excludes(interval, reference);
+}
+
+// Marking for a win-rate cell. Only cards whose interval actually clears the field mean get
+// marked -- everything else is left plain, which for win rate is most of the table and is the
+// honest rendering of it.
+function wrClass(interval, reference) {
+  if (!separated(interval, reference)) return '';
+  return interval.rate > reference ? 'sep sep-hi' : 'sep sep-lo';
+}
+
+// intervalBar draws on a 0-100% axis. Win rates under symmetric decks occupy roughly 45-55% of
+// that axis, so drawn unzoomed they are all the same centred smudge. These rescale the 30-70%
+// window onto the full bar; clamped so an extreme card pins to an edge instead of overflowing.
+const WR_ZOOM_LO = 0.30, WR_ZOOM_HI = 0.70;
+function zoomRate(r) {
+  return Math.min(1, Math.max(0, (r - WR_ZOOM_LO) / (WR_ZOOM_HI - WR_ZOOM_LO)));
+}
+function zoomInterval(iv) {
+  return { rate: zoomRate(iv.rate), low: zoomRate(iv.low), high: zoomRate(iv.high), trials: iv.trials };
+}
 
 // Cost/attack-type reference data is looked up by id -- not part of MetricsReport itself (that
 // stays pure aggregation over played games), joined in here purely for display so an outlier
@@ -642,6 +704,7 @@ function renderResourceCharts() {
 let cardSort = { key: 'playTakeRate', dir: -1 };
 let moveSort = { key: 'useTakeRate', dir: -1 };
 let cardOutliersOnly = true;
+let cardDrawWrOnly = false;
 
 // --- Composite power score --------------------------------------------------------------
 //
@@ -889,6 +952,11 @@ function visibleCardRows() {
   if (cardOutliersOnly && !baseline) {
     rows = rows.filter(c => c.offerCount > 0 && excludes(c.playTakeRate, fieldMedian));
   }
+  if (cardDrawWrOnly) {
+    const scored = metrics.cardStats.filter(c => c.offerCount > 0);
+    const fieldWinDrawn = mean(scored.map(c => c.winRateWhenDrawn.rate));
+    rows = rows.filter(c => separated(c.winRateWhenDrawn, fieldWinDrawn));
+  }
   return rows;
 }
 
@@ -897,6 +965,13 @@ function cardRows() {
   const minN = parseInt(document.getElementById('card-min-n').value, 10) || 0;
   const baselineById = baseline ? Object.fromEntries(baseline.cardStats.map(c => [c.cardId, c])) : null;
   const composite = computeCompositeScores(metrics.cardStats, minN);
+
+  // Win-rate reference lines are the FIELD MEAN, not 50%: under symmetric decks the whole field
+  // sits near 50% by construction, so "beats a coin flip" is not the interesting comparison --
+  // "beats the other 35 cards" is.
+  const scored = metrics.cardStats.filter(c => c.offerCount > 0);
+  const fieldWinPlayed = mean(scored.map(c => c.winRateWhenPlayed.rate));
+  const fieldWinDrawn = mean(scored.map(c => c.winRateWhenDrawn.rate));
 
   let rows = visibleCardRows();
 
@@ -929,6 +1004,13 @@ function cardRows() {
     const takeClass = c.offerCount === 0 ? '' : excludes(c.playTakeRate, fieldMedian)
       ? (c.playTakeRate.rate > fieldMedian ? 'hi' : 'lo')
       : '';
+    // Win-rate intervals are wide enough relative to the field that the numbers alone under-sell
+    // how much they overlap; the bar makes it visual. Zoomed to 30-70% rather than the 0-100%
+    // the take-rate bars use -- at full scale every card's win rate is the same short dash in
+    // the middle, which is true but unreadable.
+    const drawBar = c.winRateWhenDrawn.trials === 0 ? '' : intervalBar(
+      zoomInterval(c.winRateWhenDrawn), zoomRate(fieldWinDrawn),
+      bl ? zoomInterval(bl.winRateWhenDrawn) : undefined);
     const score = composite[c.cardId];
     const scoreClass = score === null || score === undefined ? '' : (score > 0.5 ? 'hi' : score < -0.5 ? 'lo' : '');
     const scoreCell = score === null || score === undefined ? '—' : (score >= 0 ? '+' : '') + num(score, 2);
@@ -946,8 +1028,8 @@ function cardRows() {
       <td>${c.playCount}</td>
       <td>${pct(c.playTakeRatePerTurn.rate)}</td>
       <td>${c.offeredInTurns}</td>
-      <td>${pct(c.winRateWhenPlayed.rate)}</td>
-      <td>${pct(c.winRateWhenDrawn.rate)}</td>
+      <td class="wr ${wrClass(c.winRateWhenPlayed, fieldWinPlayed)}">${pctInterval(c.winRateWhenPlayed)}</td>
+      <td class="wr ${wrClass(c.winRateWhenDrawn, fieldWinDrawn)}">${pctInterval(c.winRateWhenDrawn)}${drawBar}</td>
       <td>${pct(c.costPressure.rate)}</td>
       <td>${c.survivalSteps.count > 0 ? num(c.survivalSteps.mean, 1) : '—'}</td>
       <td>${c.survivalSteps.count > 0 ? pct(c.scoredWhileAliveRate.rate) : '—'}</td>
@@ -1130,6 +1212,11 @@ document.getElementById('move-min-n').addEventListener('input', renderMoveTable)
 document.getElementById('card-outliers-btn').addEventListener('click', (e) => {
   cardOutliersOnly = !cardOutliersOnly;
   e.target.classList.toggle('active', cardOutliersOnly);
+  renderCardTable();
+});
+document.getElementById('card-drawwr-btn').addEventListener('click', (e) => {
+  cardDrawWrOnly = !cardDrawWrOnly;
+  e.target.classList.toggle('active', cardDrawWrOnly);
   renderCardTable();
 });
 document.getElementById('baseline-input').addEventListener('change', (e) => {

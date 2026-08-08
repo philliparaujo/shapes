@@ -45,6 +45,7 @@ public static class EffectRegistry
         new OnNextRicochetOp(),
 
         new AttackBuffOp(),
+        new AttackBuffScaledOp(),
         new NextAttackBonusOp(),
         new NextDamageTakenBonusOp(),
 

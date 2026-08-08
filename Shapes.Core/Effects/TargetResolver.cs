@@ -26,6 +26,11 @@ public static class TargetResolver
                 .Select(c => c.Slot).ToList(),
             TargetSelector.AllFriendlies => ctx.State.Board.CreaturesOf(ctx.ControllingPlayer)
                 .Select(c => c.Slot).ToList(),
+            // Deliberately symmetric: hits the controller's own board too. Board.AllCreatures
+            // walks PlayerIds.All in slot order, so the resolution order is deterministic and
+            // seeded replays stay byte-identical -- an unordered set here would desync search.
+            TargetSelector.AllCreatures => ctx.State.Board.AllCreatures()
+                .Select(c => c.Slot).ToList(),
             TargetSelector.ChosenEnemy or TargetSelector.ChosenFriendly =>
                 ctx.ChosenTarget is { } chosen ? [chosen] : [],
             _ => throw new ArgumentOutOfRangeException(nameof(selector), selector, "Unknown target selector."),

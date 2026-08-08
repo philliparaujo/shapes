@@ -101,6 +101,39 @@ public class TargetResolverTests
     }
 
     [Fact]
+    public void All_creatures_resolves_to_both_boards_including_the_controllers_own()
+    {
+        // The whole point of the selector: a symmetric sweep (Bubbles' Burst, Wave Crash) hits
+        // the caster's board too, so it is not all_enemies with a wider name.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel).Slot(1, "b", TypeMask.Wheel))
+            .P2(p => p.Slot(0, "x", TypeMask.Anvil))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+
+        var slots = TargetResolver.Resolve(ctx, TargetSelector.AllCreatures);
+
+        Assert.Equal(3, slots.Count);
+        Assert.Contains(new SlotIndex(PlayerId.One, 0), slots);
+        Assert.Contains(new SlotIndex(PlayerId.One, 1), slots);
+        Assert.Contains(new SlotIndex(PlayerId.Two, 0), slots);
+    }
+
+    [Fact]
+    public void All_creatures_resolves_without_a_creature_source()
+    {
+        // Wave Crash is a spell, so SourceSlot is null -- unlike opposing/left_friendly, this
+        // selector must not depend on one.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Wheel))
+            .P2(p => p.Slot(2, "x", TypeMask.Anvil))
+            .Build();
+        var ctx = new EffectContext(state, PlayerId.One, sourceSlot: null, chosenTarget: null);
+
+        Assert.Equal(2, TargetResolver.Resolve(ctx, TargetSelector.AllCreatures).Count);
+    }
+
+    [Fact]
     public void Chosen_enemy_resolves_to_the_resolved_choice()
     {
         var state = new StateBuilder()

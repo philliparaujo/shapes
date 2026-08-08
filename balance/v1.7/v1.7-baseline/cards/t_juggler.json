@@ -1,0 +1,26 @@
+{
+  "id": "t_juggler",
+  "name": "T Juggler",
+  "kind": "creature",
+  "cost": { "spike": 3 },
+  "health": 3,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Toss",
+      "cost": { "spike": 2 },
+      "effects": [
+        { "op": "discard", "amount": 1 },
+        { "op": "gain_resource", "type": "spike", "amount": 3 }
+      ]
+    },
+    {
+      "name": "Catch and Throw",
+      "cost": { "spike": 3 },
+      "effects": [
+        { "op": "draw", "amount": 1 },
+        { "op": "damage", "target": "opposing", "amount": 2 }
+      ]
+    }
+  ]
+}

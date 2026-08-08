@@ -26,6 +26,27 @@ public class EffectTextTests
     }
 
     [Fact]
+    public void All_creatures_target_renders_distinctly_from_all_enemies()
+    {
+        // A missing selector case degrades silently -- the console would render a symmetric
+        // sweep as if it only hit the opponent, which is exactly the misreading this avoids.
+        var text = Shapes.Core.Effects.EffectText.Describe(
+            [Eff.Node("damage", ("target", "all_creatures"), ("amount", 2))]);
+
+        Assert.Contains("all creatures", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Scaled_attack_buff_names_its_scale_basis()
+    {
+        var text = Shapes.Core.Effects.EffectText.Describe(
+            [Eff.Node("attack_buff_scaled", ("target", "self"), ("scale", "missing_health"))]);
+
+        Assert.Contains("attack", text, StringComparison.Ordinal);
+        Assert.Contains("missing health", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Multiple_effects_are_joined()
     {
         var text = Shapes.Core.Effects.EffectText.Describe(
