@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/SlotView.cs" id="1_slotview"]
 
 [node name="SlotView" type="Button"]
-custom_minimum_size = Vector2(260, 234)
+custom_minimum_size = Vector2(330, 297)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -20,28 +20,36 @@ mouse_filter = 2
 theme_override_constants/separation = 2
 
 [node name="CardBody" type="PanelContainer" parent="Layout"]
-custom_minimum_size = Vector2(0, 208)
+custom_minimum_size = Vector2(0, 264)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="CardLayout" type="VBoxContainer" parent="Layout/CardBody"]
+[node name="CardMargin" type="MarginContainer" parent="Layout/CardBody"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
 
-[node name="HeaderRow" type="HBoxContainer" parent="Layout/CardBody/CardLayout"]
+[node name="CardLayout" type="VBoxContainer" parent="Layout/CardBody/CardMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderRow" type="HBoxContainer" parent="Layout/CardBody/CardMargin/CardLayout"]
 custom_minimum_size = Vector2(0, 26)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="TypeBadge" type="HBoxContainer" parent="Layout/CardBody/CardLayout/HeaderRow"]
+[node name="TypeBadge" type="HBoxContainer" parent="Layout/CardBody/CardMargin/CardLayout/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
 theme_override_constants/separation = 2
 
-[node name="NameLabel" type="Label" parent="Layout/CardBody/CardLayout/HeaderRow"]
+[node name="NameLabel" type="Label" parent="Layout/CardBody/CardMargin/CardLayout/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
@@ -49,15 +57,15 @@ clip_text = false
 theme_override_font_sizes/font_size = 12
 text = "—"
 
-[node name="ArtHolder" type="HBoxContainer" parent="Layout/CardBody/CardLayout"]
-custom_minimum_size = Vector2(0, 72)
+[node name="ArtHolder" type="HBoxContainer" parent="Layout/CardBody/CardMargin/CardLayout"]
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 clip_contents = true
-theme_override_constants/separation = 2
+theme_override_constants/separation = 4
 
-[node name="MoveList" type="GridContainer" parent="Layout/CardBody/CardLayout"]
+[node name="MoveList" type="GridContainer" parent="Layout/CardBody/CardMargin/CardLayout"]
 layout_mode = 2
 size_flags_vertical = 8
 mouse_filter = 2
@@ -66,23 +74,31 @@ theme_override_constants/h_separation = 2
 theme_override_constants/v_separation = 2
 
 [node name="StatusBar" type="PanelContainer" parent="Layout"]
-custom_minimum_size = Vector2(0, 26)
+custom_minimum_size = Vector2(0, 33)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="StatusRow" type="HBoxContainer" parent="Layout/StatusBar"]
+[node name="StatusMargin" type="MarginContainer" parent="Layout/StatusBar"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 2
+
+[node name="StatusRow" type="HBoxContainer" parent="Layout/StatusBar/StatusMargin"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 6
 
-[node name="StatusBadges" type="HFlowContainer" parent="Layout/StatusBar/StatusRow"]
+[node name="StatusBadges" type="HFlowContainer" parent="Layout/StatusBar/StatusMargin/StatusRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 0
 
-[node name="HealthLabel" type="Label" parent="Layout/StatusBar/StatusRow"]
+[node name="HealthLabel" type="Label" parent="Layout/StatusBar/StatusMargin/StatusRow"]
 layout_mode = 2
 size_flags_horizontal = 0
 vertical_alignment = 1

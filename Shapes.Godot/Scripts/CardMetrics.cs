@@ -40,7 +40,11 @@ public static class CardMetrics
     public const float TooltipMoveHeight = 34f;
 
     // --- In play -----------------------------------------------------------------------------
-    public const float SlotWidth = 260f;
+    // Widened from 260: at that size a 2-column move grid gave ~124px cells, which truncated the
+    // longest real move name ("Unopposed Growth", ~105px at MoveNameFontSize, plus the cost pip
+    // and separations) and left descriptions too short to wrap. The card scales, the text does
+    // not -- font sizes are shared with the tooltip and stay put.
+    public const float SlotWidth = 330f;
     public const float SlotBodyHeight = SlotWidth * 8f / 10f;     // 10:8
     public const float SlotStatusHeight = SlotWidth / 10f;        // 10:1
     public const float SlotHeight = SlotBodyHeight + SlotStatusHeight; // 10:9 together
@@ -59,7 +63,11 @@ public static class CardMetrics
     // Each cell is half the card width (less the grid separation), and 5:2 on that width.
     public const float SlotMoveWidth = (SlotWidth - 12f) / MoveColumns;
     public const float SlotMoveHeight = SlotMoveWidth * 2f / 5f;
-    public const float SlotArtHeightMin = 72f;
+    public const float SlotArtHeightMin = 80f;
+
+    // Inner margin applied to the card body and the tooltip alike, so text never sits flush
+    // against a card edge (HP, spell effects and move descriptions all did before).
+    public const int CardPadding = 8;
 
     // --- Shared ------------------------------------------------------------------------------
     public const int MoveNameFontSize = 11;

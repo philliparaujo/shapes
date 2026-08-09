@@ -30,12 +30,12 @@ namespace Shapes.Godot.Scripts;
 // rather than this panel re-deriving one shape from the other.
 public partial class HoverDetailPanel : Control
 {
-    [Export] public NodePath NameLabelPath { get; set; } = "Panel/Layout/TitleRow/NameLabel";
-    [Export] public NodePath CostBadgePath { get; set; } = "Panel/Layout/TitleRow/CostBadge";
-    [Export] public NodePath ArtHolderPath { get; set; } = "Panel/Layout/ArtHolder";
-    [Export] public NodePath StatLabelPath { get; set; } = "Panel/Layout/StatLabel";
-    [Export] public NodePath EffectsLabelPath { get; set; } = "Panel/Layout/EffectsLabel";
-    [Export] public NodePath MoveListPath { get; set; } = "Panel/Layout/MoveList";
+    [Export] public NodePath NameLabelPath { get; set; } = "Panel/PanelMargin/Layout/TitleRow/NameLabel";
+    [Export] public NodePath CostBadgePath { get; set; } = "Panel/PanelMargin/Layout/TitleRow/CostBadge";
+    [Export] public NodePath ArtHolderPath { get; set; } = "Panel/PanelMargin/Layout/ArtHolder";
+    [Export] public NodePath StatLabelPath { get; set; } = "Panel/PanelMargin/Layout/StatLabel";
+    [Export] public NodePath EffectsLabelPath { get; set; } = "Panel/PanelMargin/Layout/EffectsLabel";
+    [Export] public NodePath MoveListPath { get; set; } = "Panel/PanelMargin/Layout/MoveList";
 
     private Label? _nameLabel;
     private Control? _costBadge;

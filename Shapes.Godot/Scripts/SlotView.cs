@@ -44,15 +44,19 @@ public partial class SlotView : Button
     // PLAN.md B1a2: a board creature's hover payload is its full MERGED move list (MovesOf
     // across every card folded into it), which isn't any single CardDefinition's CardText -- see
     // HoverDetailPanel's header for why that rules out reusing CardFace's CardText-shaped event.
-    public event Action<string, string, IReadOnlyList<MoveText>>? HoverStarted;
+    // Carries a whole CardText (PLAN.md B1c): the board creature's hover used to send only a name
+    // and a move list, so its tooltip had no cost pip, no art and no printed HP -- the three
+    // things that make a tooltip look like the card it describes. The live Health/MaxHealth still
+    // travels separately, since that is instance state the CardDefinition cannot know.
+    public event Action<CardText, string>? HoverStarted;
     public event Action? HoverEnded;
 
-    [Export] public NodePath NameLabelPath { get; set; } = "Layout/CardBody/CardLayout/HeaderRow/NameLabel";
-    [Export] public NodePath TypeBadgePath { get; set; } = "Layout/CardBody/CardLayout/HeaderRow/TypeBadge";
-    [Export] public NodePath ArtHolderPath { get; set; } = "Layout/CardBody/CardLayout/ArtHolder";
-    [Export] public NodePath MoveListPath { get; set; } = "Layout/CardBody/CardLayout/MoveList";
-    [Export] public NodePath HealthLabelPath { get; set; } = "Layout/StatusBar/StatusRow/HealthLabel";
-    [Export] public NodePath StatusBadgesPath { get; set; } = "Layout/StatusBar/StatusRow/StatusBadges";
+    [Export] public NodePath NameLabelPath { get; set; } = "Layout/CardBody/CardMargin/CardLayout/HeaderRow/NameLabel";
+    [Export] public NodePath TypeBadgePath { get; set; } = "Layout/CardBody/CardMargin/CardLayout/HeaderRow/TypeBadge";
+    [Export] public NodePath ArtHolderPath { get; set; } = "Layout/CardBody/CardMargin/CardLayout/ArtHolder";
+    [Export] public NodePath MoveListPath { get; set; } = "Layout/CardBody/CardMargin/CardLayout/MoveList";
+    [Export] public NodePath HealthLabelPath { get; set; } = "Layout/StatusBar/StatusMargin/StatusRow/HealthLabel";
+    [Export] public NodePath StatusBadgesPath { get; set; } = "Layout/StatusBar/StatusMargin/StatusRow/StatusBadges";
 
     // "+N atk" reads as a stat, not a status icon -- amber and bold sets it apart from both the
     // plain-white health number and the dimmer glyph badges around it, so a glance distinguishes
@@ -69,9 +73,14 @@ public partial class SlotView : Button
 
     private SlotIndex _slot;
     private bool _hasFriendlyDraggableCreature;
-    private string? _hoverName;
+    // One CardText per card folded into this creature, in merge order -- the same order the art
+    // panes render left to right, which is what lets a hover pick by horizontal position.
+    private IReadOnlyList<CardText>? _hoverCards;
     private string? _hoverStatLine;
-    private IReadOnlyList<MoveText>? _hoverMoves;
+
+    // Which source card the cursor is currently over, so crossing the midline of a merged
+    // creature swaps the tooltip without needing to leave and re-enter the slot. -1 = not hovered.
+    private int _hoveredCardIndex = -1;
 
     public override void _Ready()
     {
@@ -83,20 +92,55 @@ public partial class SlotView : Button
         _moveList = GetNode<Container>(MoveListPath);
         ToggleMode = false;
         Pressed += () => Tapped?.Invoke();
-        MouseEntered += () =>
+        MouseEntered += () => RaiseHover();
+        MouseExited += () =>
         {
-            if (_hoverName is { } name && _hoverStatLine is { } line && _hoverMoves is { } moves)
-            {
-                HoverStarted?.Invoke(name, line, moves);
-            }
+            _hoveredCardIndex = -1;
+            HoverEnded?.Invoke();
         };
-        MouseExited += () => HoverEnded?.Invoke();
+    }
+
+    // Mouse motion inside the slot re-checks which half is hovered, so a merged creature swaps
+    // its tooltip as the cursor crosses the midline. MouseEntered alone can't do this: it fires
+    // once on entry and carries no position.
+    public override void _GuiInput(InputEvent @event)
+    {
+        if (@event is InputEventMouseMotion)
+        {
+            RaiseHover();
+        }
+    }
+
+    // Picks the source card under the cursor and raises it. For an unmerged creature there is
+    // only one card, so the position never matters; for a merged one the slot's width is split
+    // evenly in merge order, matching the left-to-right order the art panes render in.
+    private void RaiseHover()
+    {
+        if (_hoverCards is not { Count: > 0 } cards || _hoverStatLine is not { } line)
+        {
+            return;
+        }
+
+        var index = 0;
+        if (cards.Count > 1 && Size.X > 0f)
+        {
+            var fraction = GetLocalMousePosition().X / Size.X;
+            index = Mathf.Clamp((int)(fraction * cards.Count), 0, cards.Count - 1);
+        }
+
+        if (index == _hoveredCardIndex)
+        {
+            return;
+        }
+
+        _hoveredCardIndex = index;
+        HoverStarted?.Invoke(cards[index], line);
     }
 
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,
         IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves,
-        IReadOnlyList<MoveText>? hoverMoves = null, string? hoverName = null)
+        IReadOnlyList<CardText>? hoverCards = null)
     {
         _slot = slot;
         _hasFriendlyDraggableCreature = creature is not null && isDraggable;
@@ -127,9 +171,9 @@ public partial class SlotView : Button
             _healthLabel!.Text = string.Empty;
             Disabled = false; // empty slots stay tappable for merge/placement targeting
             TooltipText = string.Empty;
-            _hoverName = null;
+            _hoverCards = null;
             _hoverStatLine = null;
-            _hoverMoves = null;
+            _hoveredCardIndex = -1;
             return;
         }
 
@@ -220,11 +264,14 @@ public partial class SlotView : Button
         // Status folds into the same stat line HoverDetailPanel shows -- B1a2's own note flagged
         // this as B1b's natural extension point rather than a second hover mechanism.
         var statusSuffix = badges.Count == 0 ? string.Empty : $"  {string.Join(" ", badges.Select(b => b.Glyph))}";
-        // Falls back to the slot's own (possibly merged) display name when the caller didn't pick
-        // a specific source card -- the tooltip's title must name whichever card's moves it shows.
-        _hoverName = hoverName ?? displayName;
+
+        // The stat line carries LIVE health plus status; everything else the tooltip shows (name,
+        // cost pip, art, printed HP, moves) comes from the CardText of whichever source card is
+        // hovered. Health has to travel separately because a merged creature's current/max is a
+        // property of the instance, not of either card that made it.
         _hoverStatLine = $"{creature.Health}/{creature.MaxHealth} HP{statusSuffix}";
-        _hoverMoves = hoverMoves ?? [.. moves.Select(m => m.Text)];
+        _hoverCards = hoverCards;
+        _hoveredCardIndex = -1;
 
         foreach (var (index, text, isUsable) in moves)
         {

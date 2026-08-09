@@ -23,25 +23,33 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="Layout" type="VBoxContainer" parent="Panel"]
+[node name="PanelMargin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Layout" type="VBoxContainer" parent="Panel/PanelMargin"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="TitleRow" type="HBoxContainer" parent="Panel/Layout"]
+[node name="TitleRow" type="HBoxContainer" parent="Panel/PanelMargin/Layout"]
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 6
 
-[node name="CostBadge" type="MarginContainer" parent="Panel/Layout/TitleRow"]
+[node name="CostBadge" type="MarginContainer" parent="Panel/PanelMargin/Layout/TitleRow"]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 4
 mouse_filter = 2
 
-[node name="NameLabel" type="Label" parent="Panel/Layout/TitleRow"]
+[node name="NameLabel" type="Label" parent="Panel/PanelMargin/Layout/TitleRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -51,26 +59,26 @@ autowrap_mode = 3
 theme_override_font_sizes/font_size = 12
 text = "Card Name"
 
-[node name="ArtHolder" type="MarginContainer" parent="Panel/Layout"]
+[node name="ArtHolder" type="MarginContainer" parent="Panel/PanelMargin/Layout"]
 custom_minimum_size = Vector2(0, 171)
 layout_mode = 2
 mouse_filter = 2
 clip_contents = true
 
-[node name="EffectsLabel" type="Label" parent="Panel/Layout"]
+[node name="EffectsLabel" type="Label" parent="Panel/PanelMargin/Layout"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/font_size = 10
 autowrap_mode = 2
 text = ""
 
-[node name="MoveList" type="VBoxContainer" parent="Panel/Layout"]
+[node name="MoveList" type="VBoxContainer" parent="Panel/PanelMargin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="StatLabel" type="Label" parent="Panel/Layout"]
+[node name="StatLabel" type="Label" parent="Panel/PanelMargin/Layout"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 mouse_filter = 2

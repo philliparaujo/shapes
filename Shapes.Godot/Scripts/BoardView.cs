@@ -90,8 +90,12 @@ public partial class BoardView : Control
             // nothing for GameRoot to decide. HoverDetailPanel is fixed in one screen corner (see
             // its own header), so every source just says what to show, never where.
             panel.HandCardHoverStarted += text => _hoverDetailPanel!.Show(text);
-            panel.SlotHoverStarted += (name, statLine, moves) =>
-                _hoverDetailPanel!.Show(name, statLine, string.Empty, moves);
+            // A board creature's tooltip is the full card (cost pip, art, moves) with its LIVE
+            // health substituted for the card's printed value -- otherwise a damaged 2/5 creature
+            // would show its card's "5 HP" and read as undamaged.
+            panel.SlotHoverStarted += (card, statLine) =>
+                _hoverDetailPanel!.Show(
+                    card.Name, statLine, card.SpellEffects, card.Moves, card.PrimaryType, card.CostAmount);
             panel.HoverEnded += () => _hoverDetailPanel!.Hide();
         }
 
