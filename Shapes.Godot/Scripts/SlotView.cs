@@ -230,7 +230,10 @@ public partial class SlotView : Button
                 continue;
             }
 
-            var pane = ResourceIconFactory.CreateArtPlaceholder(t);
+            // Real art per source card where it exists, placeholder otherwise (CardArt) -- keyed
+            // on sourceId so a merge shows each contributing card's own art, the same
+            // per-source-card rule the type-shape panes already followed.
+            var pane = CardArt.For(sourceId, t);
             pane.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
             pane.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
             _artHolder.AddChild(pane);

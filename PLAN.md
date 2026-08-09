@@ -587,10 +587,10 @@ tap-select-then-tap-target flow, while deliberately touch-first, doesn't match g
 (taunt/reflect/ricochet), `IsStunned`, `AttackBuff`, and the one-shot `NextAttackBonus`/
 `NextDamageTakenBonus` are all tracked by Core today (see `CreatureInstance.cs`) and none of it
 reaches the board. Both are real reworks of A3/A5's interaction layer, not a skin over it, so they
-get their own sub-steps rather than hiding inside "animation." Sequenced before B1's actual art
-pass for the same reason A5 was sequenced before B1 originally: animating a slot view that's about
-to be redesigned for status icons and move buttons means reworking the animation once the redesign
-lands.
+get their own sub-steps rather than hiding inside "animation." Sequenced before B1's art and
+animation passes (B1c/B1d) for the same reason A5 was sequenced before B1 originally: animating a
+slot view that's about to be redesigned for status icons and move buttons means reworking the
+animation once the redesign lands.
 
 - [x] **B1a. Drag-and-drop replaces tap for play/merge; moves become always-visible buttons, not
   drag targets.** Splits by action kind rather than being one uniform gesture:
@@ -885,11 +885,60 @@ lands.
   rule `CardText`/`MoveText` already follow. 6 new tests (17 total in `StatusIconsTests.cs`).
   **Not editor-verified** — same standing limitation as every Godot-side step this phase (no
   editor/CLI available here); verified by `dotnet build` (clean, 0 warnings) and the full test
-  suite (966/966, `Shapes.Core` touched only by the one read-only getter). Flag for a real
-  playtest before B1c.
-- [ ] **B1c. Real card art and animation** — play/move/merge/score/destroy, driven by A2's diff,
-  now over the drag-based interactions and status-aware slot view B1a/B1b establish. The original
-  scope of this step, sequenced last because it's the one piece that would otherwise need redoing.
+  suite (966/966, `Shapes.Core` touched only by the one read-only getter). Subsequently
+  playtested and confirmed, as every B-milestone step has been.
+**B1's original "art and animation" line splits into B1c (art) and B1d (animation),
+2026-08-08.** They share a sentence in the old plan but almost nothing as tasks: art is a
+layout-and-asset problem, animation is a node-lifetime problem, and each has a definition of done
+the other doesn't affect. Bundling them means animation blocks on an asset decision it doesn't
+need. Same reason B1a spawned B1a2 — scope that surfaced on contact gets its own step. **Art keeps
+the B1c number deliberately:** eight source comments across `Shapes.Godot`/`Shapes.Godot.Adapter`
+already cite "PLAN.md B1c" for art concerns (card proportions, art placeholders, cost badges,
+per-source-card art panes), and renumbering art would invalidate every one of them.
+
+- [ ] **B1c. Real card art** — replaces the placeholder geometry on card faces and board slots with
+  actual artwork.
+  **Substantially begun already, ahead of this entry** (commits `e023b55` "Significant card UI
+  improvements from specs" and `c8da205`, both against `references/card dimensions.pdf`): `CardMetrics`
+  now centralizes card proportions, `ResourceIconFactory` draws type shapes as both small cost badges
+  and a full-panel `CreateArtPlaceholder`, `SlotView` renders split art for merged creatures, and
+  `HoverDetailPanel`/`CardFace`/`MoveRowFactory` were rebuilt around the spec's layout. What exists is
+  *placeholder geometry in the right places* — the layout question is largely answered, the asset
+  question is untouched.
+  **What remains is the asset-source decision, which wants making before the rest of the step rather
+  than during it** — the same note D1 already carries for audio, and for the same reason:
+  commissioned, generated, purchased, and keep-the-geometric-placeholders are four different projects
+  with different timelines. Note the last is a legitimate answer: the shapes *are* the theme, and the
+  placeholder may be the art. The one hard constraint is the type cycle — B4 needs the
+  rock-paper-scissors relationship legible from the board itself, so whatever gets chosen must encode
+  type distinctly, which the current shape-per-type scheme already does.
+  Nothing in `Shapes.Godot` references a `Texture2D` yet; the only image asset is Godot's default
+  `icon.svg`. Introducing real textures is the point where import settings, atlasing, and mobile
+  texture budget first matter.
+- [ ] **B1d. Animation driven by A2's diff** — play/move/merge/score/destroy, over the drag-based
+  interactions and status-aware slot view B1a/B1b established. Sequenced last in B1 because it's the
+  piece that would otherwise need redoing.
+  **The seam exists but is unused:** `GameSession.Submit` returns a `StateDiff` (per-slot
+  before/after `CreatureSnapshot`s, per-player score/resource/hand-size deltas) built and unit-tested
+  in A2, and the entire `Shapes.Godot` project references `StateDiff` exactly once — in a comment.
+  `GameRoot.Submit` discards the return value and calls `RefreshAll`, which re-renders from
+  `_session.State` wholesale. Wiring it through is the small part.
+  **The real work is that current rendering is structurally unanimatable.** `PlayerPanel.RenderSlots`
+  `QueueFree`s every `SlotView` and re-instantiates from scratch on each render, and `RenderHand`
+  does the same for every `CardFace` — there is no node identity across frames to tween. A5 already
+  hit the mild form of this (the rebuild silently wiped `SetHighlighted` targeting marks, patched by
+  reapplying the set after render); animation is the same problem with no cheap patch. Decide
+  deliberately between reconciling nodes across renders (keep identity, update in place) and driving
+  animation from a separate layer that reads the diff before the rebuild — this choice *is* the step,
+  and the wrong one means rewriting `PlayerPanel` twice.
+  **Two design calls this step owns:** (1) one action can yield several slot changes at once — a
+  merge is a destroy plus a stat change, a play can damage a target — and the diff is an unordered
+  set, not a script, so animation order has to be derived; (2) whether animations block input, which
+  decides whether a fast player can outrun the tween queue. Neither is answerable from the diff alone.
+  **Verifiability caveat:** animation bugs are signal-timing, re-entrancy, and node-lifetime bugs —
+  disproportionately the class `dotnet build` and the test suite cannot see, and the class A3's three
+  playtest-only bugs came from. Budget playtest rounds accordingly; this step is less hand-traceable
+  than any Godot step so far.
 - [ ] **B2. AI opponent via `IAgent`** (difficulty = search budget), off the main thread and capped
   on mobile. `Choose(AgentContext, CancellationToken)` already takes the token, so the seam exists
   — **what's missing is the policy**: what the player sees during a ~2s search, and what happens

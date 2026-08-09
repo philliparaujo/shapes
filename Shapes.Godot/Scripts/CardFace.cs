@@ -77,7 +77,8 @@ public partial class CardFace : Button
         {
             // ArtHolder is a MarginContainer, so it sorts this child to fill itself -- no
             // anchors/offsets preset, which would bake in a pre-layout (0,0) rect here.
-            _artHolder.AddChild(ResourceIconFactory.CreateArtPlaceholder(artType));
+            // Real art when this card has some, the geometric placeholder otherwise (CardArt).
+            _artHolder.AddChild(CardArt.For(cardId, artType));
         }
 
         foreach (var child in _costBadge!.GetChildren())

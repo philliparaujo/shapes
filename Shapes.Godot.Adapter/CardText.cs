@@ -36,7 +36,13 @@ public sealed record MoveText(string Name, string Cost, string Effects, Resource
 // Public (not internal) because Shapes.Godot's SlotView also needs it, for a merged creature's
 // per-source-card art pane (PLAN.md B1c) -- a second cross-assembly copy inside Shapes.Godot
 // itself would triple the duplication instead of keeping it at the one accepted layer.
+// CardId travels with the text (PLAN.md B1c) so a view can look up that card's art. Every art
+// site is reached through a CardText already -- the hand card's face, its hover tooltip, and a
+// board creature's hover all carry one -- so carrying the id here is what lets art resolve
+// without threading a second parameter through three event signatures. It is the card's stable
+// id, not its JSON filename; see CardArt on why that distinction is load-bearing.
 public sealed record CardText(
+    string CardId,
     string Name,
     string Cost,
     string TypeIcons,
@@ -55,6 +61,7 @@ public sealed record CardText(
         var costAmount = primaryType is { } t ? card.Cost[t] : 0;
 
         return new CardText(
+            card.Id,
             card.Name,
             ResourceIcons.DescribeCost(card.Cost),
             ResourceIcons.Describe(card.Types),

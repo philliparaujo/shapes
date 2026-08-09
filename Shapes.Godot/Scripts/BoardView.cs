@@ -95,7 +95,8 @@ public partial class BoardView : Control
             // would show its card's "5 HP" and read as undamaged.
             panel.SlotHoverStarted += (card, statLine) =>
                 _hoverDetailPanel!.Show(
-                    card.Name, statLine, card.SpellEffects, card.Moves, card.PrimaryType, card.CostAmount);
+                    card.Name, statLine, card.SpellEffects, card.Moves, card.PrimaryType,
+                    card.CostAmount, card.CardId);
             panel.HoverEnded += () => _hoverDetailPanel!.Hide();
         }
 

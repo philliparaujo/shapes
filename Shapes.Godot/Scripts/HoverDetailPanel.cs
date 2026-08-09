@@ -66,7 +66,7 @@ public partial class HoverDetailPanel : Control
     // creature's hover doesn't need either -- its icons are already visible inline on the slot).
     public void Show(
         string name, string statLine, string spellEffects, IReadOnlyList<MoveText> moves,
-        ResourceType? primaryType = null, int costAmount = 0)
+        ResourceType? primaryType = null, int costAmount = 0, string? cardId = null)
     {
         _nameLabel!.Text = name;
         _nameLabel.Visible = name.Length > 0;
@@ -94,7 +94,11 @@ public partial class HoverDetailPanel : Control
 
         if (primaryType is { } artType)
         {
-            _artHolder.AddChild(ResourceIconFactory.CreateArtPlaceholder(artType));
+            // cardId is optional only because Show's other callers predate art; when it is null
+            // this still renders the placeholder, same as before.
+            _artHolder.AddChild(cardId is null
+                ? ResourceIconFactory.CreateArtPlaceholder(artType)
+                : CardArt.For(cardId, artType));
         }
 
         foreach (var child in _moveList!.GetChildren())
@@ -126,5 +130,5 @@ public partial class HoverDetailPanel : Control
     // repeating it as text was redundant (and the PDF shows no such line).
     public void Show(CardText text) => Show(
         text.Name, text.IsCreature ? $"{text.Health} HP" : "Spell",
-        text.SpellEffects, text.Moves, text.PrimaryType, text.CostAmount);
+        text.SpellEffects, text.Moves, text.PrimaryType, text.CostAmount, text.CardId);
 }
