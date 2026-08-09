@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/SlotView.cs" id="1_slotview"]
 
 [node name="SlotView" type="Button"]
-custom_minimum_size = Vector2(260, 250)
+custom_minimum_size = Vector2(260, 234)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -19,41 +19,72 @@ anchor_bottom = 1.0
 mouse_filter = 2
 theme_override_constants/separation = 2
 
-[node name="HeaderRow" type="HBoxContainer" parent="Layout"]
+[node name="CardBody" type="PanelContainer" parent="Layout"]
+custom_minimum_size = Vector2(0, 208)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="CardLayout" type="VBoxContainer" parent="Layout/CardBody"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="HeaderRow" type="HBoxContainer" parent="Layout/CardBody/CardLayout"]
+custom_minimum_size = Vector2(0, 26)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="TypeLabel" type="Label" parent="Layout/HeaderRow"]
+[node name="TypeBadge" type="HBoxContainer" parent="Layout/CardBody/CardLayout/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 0
-text = ""
+mouse_filter = 2
+theme_override_constants/separation = 2
 
-[node name="NameLabel" type="Label" parent="Layout/HeaderRow"]
+[node name="NameLabel" type="Label" parent="Layout/CardBody/CardLayout/HeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 autowrap_mode = 3
 clip_text = false
+theme_override_font_sizes/font_size = 12
 text = "—"
 
-[node name="StatusRow" type="HBoxContainer" parent="Layout"]
+[node name="ArtHolder" type="HBoxContainer" parent="Layout/CardBody/CardLayout"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+clip_contents = true
+theme_override_constants/separation = 2
+
+[node name="MoveList" type="GridContainer" parent="Layout/CardBody/CardLayout"]
+layout_mode = 2
+size_flags_vertical = 8
+mouse_filter = 2
+columns = 2
+theme_override_constants/h_separation = 2
+theme_override_constants/v_separation = 2
+
+[node name="StatusBar" type="PanelContainer" parent="Layout"]
+custom_minimum_size = Vector2(0, 26)
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 4
 
-[node name="HealthLabel" type="Label" parent="Layout/StatusRow"]
+[node name="StatusRow" type="HBoxContainer" parent="Layout/StatusBar"]
 layout_mode = 2
-size_flags_horizontal = 0
-text = ""
+mouse_filter = 2
+theme_override_constants/separation = 6
 
-[node name="StatusBadges" type="HFlowContainer" parent="Layout/StatusRow"]
+[node name="StatusBadges" type="HFlowContainer" parent="Layout/StatusBar/StatusRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 0
 
-[node name="MoveList" type="VBoxContainer" parent="Layout"]
+[node name="HealthLabel" type="Label" parent="Layout/StatusBar/StatusRow"]
 layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 2
+size_flags_horizontal = 0
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = ""

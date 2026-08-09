@@ -90,8 +90,8 @@ public partial class BoardView : Control
             // nothing for GameRoot to decide. HoverDetailPanel is fixed in one screen corner (see
             // its own header), so every source just says what to show, never where.
             panel.HandCardHoverStarted += text => _hoverDetailPanel!.Show(text);
-            panel.SlotHoverStarted += (statLine, moves) =>
-                _hoverDetailPanel!.Show(string.Empty, string.Empty, statLine, string.Empty, moves);
+            panel.SlotHoverStarted += (name, statLine, moves) =>
+                _hoverDetailPanel!.Show(name, statLine, string.Empty, moves);
             panel.HoverEnded += () => _hoverDetailPanel!.Hide();
         }
 

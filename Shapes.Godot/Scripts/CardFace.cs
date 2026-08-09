@@ -1,14 +1,17 @@
 using System;
 using Godot;
+using Shapes.Core.Primitives;
 using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// A hand card's face: name, cost, health, and (for creatures) a compact name+cost line per
-// move -- enough to recognize what the card can eventually do without needing full effect text
-// in a space this small. There is deliberately no tap-to-inspect panel here (PLAN.md B1a removed
-// CardDetailPanel along with tap-to-play); full move text is available via hover instead
-// (HoverStarted below, PLAN.md B1a2) rather than a tap panel or crammed into the compact card.
+// A hand card's face: title, art, and a cost pip that bleeds off the top-left corner -- the
+// "In hand" column of references/card dimensions.pdf, which draws exactly those three elements at
+// 7:6 (7:5 art, 5:1 title, 2:1 pip) and no others. No move list and no HP here on purpose: the
+// PDF's hand card is a cut-off full card, and a hand of them is for recognizing what you hold,
+// not reading it. Full text (moves, HP, descriptions) is the hover tooltip's job instead
+// (HoverStarted below, PLAN.md B1a2); there is no tap-to-inspect panel (PLAN.md B1a removed
+// CardDetailPanel along with tap-to-play).
 //
 // The script is attached directly to the root Button (CardFace IS the Button) -- load-bearing,
 // not stylistic, same reasoning as SlotView: Godot's _GetDragData is dispatched to whatever
@@ -35,14 +38,12 @@ public partial class CardFace : Button
     public event Action? HoverEnded;
 
     [Export] public NodePath NameLabelPath { get; set; } = "Layout/NameLabel";
-    [Export] public NodePath CostLabelPath { get; set; } = "Layout/CostLabel";
-    [Export] public NodePath StatLabelPath { get; set; } = "Layout/StatLabel";
-    [Export] public NodePath MoveListPath { get; set; } = "Layout/MoveList";
+    [Export] public NodePath ArtHolderPath { get; set; } = "Layout/ArtHolder";
+    [Export] public NodePath CostBadgePath { get; set; } = "CostBadge";
 
     private Label? _nameLabel;
-    private Label? _costLabel;
-    private Label? _statLabel;
-    private VBoxContainer? _moveList;
+    private Control? _artHolder;
+    private Control? _costBadge;
 
     private string? _cardId;
     private bool _isDraggable;
@@ -51,9 +52,8 @@ public partial class CardFace : Button
     public override void _Ready()
     {
         _nameLabel = GetNode<Label>(NameLabelPath);
-        _costLabel = GetNode<Label>(CostLabelPath);
-        _statLabel = GetNode<Label>(StatLabelPath);
-        _moveList = GetNode<VBoxContainer>(MoveListPath);
+        _artHolder = GetNode<Control>(ArtHolderPath);
+        _costBadge = GetNode<Control>(CostBadgePath);
         Pressed += () => Tapped?.Invoke();
         MouseEntered += () => { if (_text is { } t) HoverStarted?.Invoke(t); };
         MouseExited += () => HoverEnded?.Invoke();
@@ -66,27 +66,29 @@ public partial class CardFace : Button
         _text = text;
 
         _nameLabel!.Text = text.Name;
-        _costLabel!.Text = text.Cost;
-        _statLabel!.Text = text.IsCreature ? $"{text.Health} HP  {text.TypeIcons}" : "Spell";
         Modulate = isActionable ? Colors.White : new Color(1f, 1f, 1f, 0.55f);
 
-        foreach (var child in _moveList!.GetChildren())
+        foreach (var child in _artHolder!.GetChildren())
         {
             child.QueueFree();
         }
 
-        // Compact name+cost only, deliberately not the full MoveButtonFactory rendering
-        // SlotView uses -- a hand card's real estate can't fit full effect text without either
-        // scrolling or overlapping neighboring rows (see PLAN.md B1a's layout-overflow history),
-        // and the full text isn't actionable yet anyway since the card isn't on the board. Full
-        // text is available via hover instead (PLAN.md B1a2).
-        foreach (var move in text.Moves)
+        if (text.PrimaryType is { } artType)
         {
-            _moveList.AddChild(new Label
-            {
-                Text = $"{move.Name} [{move.Cost}]",
-                HorizontalAlignment = HorizontalAlignment.Center,
-            });
+            // ArtHolder is a MarginContainer, so it sorts this child to fill itself -- no
+            // anchors/offsets preset, which would bake in a pre-layout (0,0) rect here.
+            _artHolder.AddChild(ResourceIconFactory.CreateArtPlaceholder(artType));
+        }
+
+        foreach (var child in _costBadge!.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        if (text.PrimaryType is { } costType)
+        {
+            _costBadge.AddChild(
+                ResourceIconFactory.Create(costType, ResourceIconFactory.IconSize.Medium, text.CostAmount));
         }
     }
 

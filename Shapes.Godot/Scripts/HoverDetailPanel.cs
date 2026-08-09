@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using Shapes.Core.Primitives;
 using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
@@ -29,18 +30,16 @@ namespace Shapes.Godot.Scripts;
 // rather than this panel re-deriving one shape from the other.
 public partial class HoverDetailPanel : Control
 {
-    [Export] public NodePath NameLabelPath { get; set; } = "Panel/Layout/NameLabel";
-    [Export] public NodePath CostLabelPath { get; set; } = "Panel/Layout/CostLabel";
+    [Export] public NodePath NameLabelPath { get; set; } = "Panel/Layout/TitleRow/NameLabel";
+    [Export] public NodePath CostBadgePath { get; set; } = "Panel/Layout/TitleRow/CostBadge";
+    [Export] public NodePath ArtHolderPath { get; set; } = "Panel/Layout/ArtHolder";
     [Export] public NodePath StatLabelPath { get; set; } = "Panel/Layout/StatLabel";
     [Export] public NodePath EffectsLabelPath { get; set; } = "Panel/Layout/EffectsLabel";
     [Export] public NodePath MoveListPath { get; set; } = "Panel/Layout/MoveList";
 
-    // Matches MoveButtonFactory's board-move font size, so a creature's hover panel is no larger
-    // than its on-board move buttons already are.
-    private const int MoveListFontSize = 11;
-
     private Label? _nameLabel;
-    private Label? _costLabel;
+    private Control? _costBadge;
+    private Control? _artHolder;
     private Label? _statLabel;
     private Label? _effectsLabel;
     private VBoxContainer? _moveList;
@@ -48,7 +47,8 @@ public partial class HoverDetailPanel : Control
     public override void _Ready()
     {
         _nameLabel = GetNode<Label>(NameLabelPath);
-        _costLabel = GetNode<Label>(CostLabelPath);
+        _costBadge = GetNode<Control>(CostBadgePath);
+        _artHolder = GetNode<Control>(ArtHolderPath);
         _statLabel = GetNode<Label>(StatLabelPath);
         _effectsLabel = GetNode<Label>(EffectsLabelPath);
         _moveList = GetNode<VBoxContainer>(MoveListPath);
@@ -61,38 +61,70 @@ public partial class HoverDetailPanel : Control
 
     // name/cost are individually optional (SlotView's board-creature hover has neither -- its
     // display name and stats are already one combined statLine, and a board creature has no
-    // cost) so each label hides rather than rendering an empty line when its field is blank.
-    public void Show(string name, string cost, string statLine, string spellEffects, IReadOnlyList<MoveText> moves)
+    // cost) so the name label hides rather than rendering an empty line when blank, and
+    // primaryType null skips both the cost badge and the art placeholder (PLAN.md B1c: a board
+    // creature's hover doesn't need either -- its icons are already visible inline on the slot).
+    public void Show(
+        string name, string statLine, string spellEffects, IReadOnlyList<MoveText> moves,
+        ResourceType? primaryType = null, int costAmount = 0)
     {
         _nameLabel!.Text = name;
         _nameLabel.Visible = name.Length > 0;
-        _costLabel!.Text = cost;
-        _costLabel.Visible = cost.Length > 0;
         _statLabel!.Text = statLine;
         _effectsLabel!.Text = spellEffects;
         _effectsLabel.Visible = spellEffects.Length > 0;
+
+        foreach (var child in _costBadge!.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        // CostBadge/ArtHolder are MarginContainers, so each sorts its child to fill itself -- no
+        // anchors/offsets preset, which would bake in a pre-layout (0,0) rect.
+        if (primaryType is { } costType)
+        {
+            _costBadge.AddChild(
+                ResourceIconFactory.Create(costType, ResourceIconFactory.IconSize.Medium, costAmount));
+        }
+
+        foreach (var child in _artHolder!.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        if (primaryType is { } artType)
+        {
+            _artHolder.AddChild(ResourceIconFactory.CreateArtPlaceholder(artType));
+        }
 
         foreach (var child in _moveList!.GetChildren())
         {
             child.QueueFree();
         }
 
+        // Shared with the board's move buttons (MoveRowFactory): numbered cost pip, then the move
+        // name over its description in smaller text. Previously this view built its own row with
+        // an unnumbered pip and name+description concatenated into one label at one size, which is
+        // exactly the drift a shared component removes.
+        // Each row is clamped to a fixed height rather than sized by its own wrapped text: an
+        // uncapped description label grows the row, the list, and the whole panel, which is what
+        // let the move list swallow the tooltip. ClipContents inside the row (MoveRowFactory)
+        // trims anything that still overflows rather than pushing the card taller.
         foreach (var move in moves)
         {
-            var label = new Label
-            {
-                Text = $"{move.Name} [{move.Cost}]: {move.Effects}",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            };
-            label.AddThemeFontSizeOverride("font_size", MoveListFontSize);
-            _moveList.AddChild(label);
+            var row = MoveRowFactory.CreateContent(move);
+            row.CustomMinimumSize = new Vector2(0, CardMetrics.TooltipMoveHeight);
+            row.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin;
+            _moveList.AddChild(row);
         }
 
         Visible = true;
     }
 
-    // Convenience for the exact-one-CardDefinition case (CardFace's hand card).
+    // Convenience for the exact-one-CardDefinition case (CardFace's hand card). No type glyphs in
+    // the stat line: the cost badge already carries the card's type as its shape and color, so
+    // repeating it as text was redundant (and the PDF shows no such line).
     public void Show(CardText text) => Show(
-        text.Name, text.Cost, text.IsCreature ? $"{text.Health} HP  {text.TypeIcons}" : "Spell",
-        text.SpellEffects, text.Moves);
+        text.Name, text.IsCreature ? $"{text.Health} HP" : "Spell",
+        text.SpellEffects, text.Moves, text.PrimaryType, text.CostAmount);
 }

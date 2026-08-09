@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://Scripts/CardFace.cs" id="1_cardface"]
 
 [node name="CardFace" type="Button"]
-custom_minimum_size = Vector2(140, 140)
+custom_minimum_size = Vector2(140, 120)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -15,25 +15,29 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-alignment = 1
+clip_contents = true
+theme_override_constants/separation = 0
 
 [node name="NameLabel" type="Label" parent="Layout"]
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 horizontal_alignment = 1
-autowrap_mode = 2
+vertical_alignment = 1
+autowrap_mode = 3
 text = "Card"
+theme_override_font_sizes/font_size = 10
 
-[node name="CostLabel" type="Label" parent="Layout"]
+[node name="ArtHolder" type="MarginContainer" parent="Layout"]
+custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
-horizontal_alignment = 1
-text = ""
+size_flags_vertical = 3
+mouse_filter = 2
+clip_contents = true
 
-[node name="StatLabel" type="Label" parent="Layout"]
-layout_mode = 2
-horizontal_alignment = 1
-autowrap_mode = 2
-text = ""
-
-[node name="MoveList" type="VBoxContainer" parent="Layout"]
-layout_mode = 2
+[node name="CostBadge" type="MarginContainer" parent="."]
+layout_mode = 1
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 24.0
+offset_bottom = 24.0
 mouse_filter = 2

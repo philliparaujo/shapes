@@ -44,14 +44,15 @@ public partial class SlotView : Button
     // PLAN.md B1a2: a board creature's hover payload is its full MERGED move list (MovesOf
     // across every card folded into it), which isn't any single CardDefinition's CardText -- see
     // HoverDetailPanel's header for why that rules out reusing CardFace's CardText-shaped event.
-    public event Action<string, IReadOnlyList<MoveText>>? HoverStarted;
+    public event Action<string, string, IReadOnlyList<MoveText>>? HoverStarted;
     public event Action? HoverEnded;
 
-    [Export] public NodePath NameLabelPath { get; set; } = "Layout/HeaderRow/NameLabel";
-    [Export] public NodePath TypeLabelPath { get; set; } = "Layout/HeaderRow/TypeLabel";
-    [Export] public NodePath HealthLabelPath { get; set; } = "Layout/StatusRow/HealthLabel";
-    [Export] public NodePath StatusBadgesPath { get; set; } = "Layout/StatusRow/StatusBadges";
-    [Export] public NodePath MoveListPath { get; set; } = "Layout/MoveList";
+    [Export] public NodePath NameLabelPath { get; set; } = "Layout/CardBody/CardLayout/HeaderRow/NameLabel";
+    [Export] public NodePath TypeBadgePath { get; set; } = "Layout/CardBody/CardLayout/HeaderRow/TypeBadge";
+    [Export] public NodePath ArtHolderPath { get; set; } = "Layout/CardBody/CardLayout/ArtHolder";
+    [Export] public NodePath MoveListPath { get; set; } = "Layout/CardBody/CardLayout/MoveList";
+    [Export] public NodePath HealthLabelPath { get; set; } = "Layout/StatusBar/StatusRow/HealthLabel";
+    [Export] public NodePath StatusBadgesPath { get; set; } = "Layout/StatusBar/StatusRow/StatusBadges";
 
     // "+N atk" reads as a stat, not a status icon -- amber and bold sets it apart from both the
     // plain-white health number and the dimmer glyph badges around it, so a glance distinguishes
@@ -60,30 +61,33 @@ public partial class SlotView : Button
     private static readonly Color ExpiringBadgeColor = new(1f, 1f, 1f, 0.55f);
 
     private Label? _nameLabel;
+    private Control? _typeBadge;
+    private Control? _artHolder;
     private Label? _healthLabel;
-    private Label? _typeLabel;
     private Container? _statusBadges;
-    private VBoxContainer? _moveList;
+    private Container? _moveList;
 
     private SlotIndex _slot;
     private bool _hasFriendlyDraggableCreature;
+    private string? _hoverName;
     private string? _hoverStatLine;
     private IReadOnlyList<MoveText>? _hoverMoves;
 
     public override void _Ready()
     {
         _nameLabel = GetNode<Label>(NameLabelPath);
+        _typeBadge = GetNode<Control>(TypeBadgePath);
+        _artHolder = GetNode<Control>(ArtHolderPath);
         _healthLabel = GetNode<Label>(HealthLabelPath);
-        _typeLabel = GetNode<Label>(TypeLabelPath);
         _statusBadges = GetNode<Container>(StatusBadgesPath);
-        _moveList = GetNode<VBoxContainer>(MoveListPath);
+        _moveList = GetNode<Container>(MoveListPath);
         ToggleMode = false;
         Pressed += () => Tapped?.Invoke();
         MouseEntered += () =>
         {
-            if (_hoverStatLine is { } line && _hoverMoves is { } moves)
+            if (_hoverName is { } name && _hoverStatLine is { } line && _hoverMoves is { } moves)
             {
-                HoverStarted?.Invoke(line, moves);
+                HoverStarted?.Invoke(name, line, moves);
             }
         };
         MouseExited += () => HoverEnded?.Invoke();
@@ -92,7 +96,7 @@ public partial class SlotView : Button
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,
         IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves,
-        IReadOnlyList<MoveText>? hoverMoves = null)
+        IReadOnlyList<MoveText>? hoverMoves = null, string? hoverName = null)
     {
         _slot = slot;
         _hasFriendlyDraggableCreature = creature is not null && isDraggable;
@@ -107,13 +111,23 @@ public partial class SlotView : Button
             child.QueueFree();
         }
 
+        foreach (var child in _typeBadge!.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        foreach (var child in _artHolder!.GetChildren())
+        {
+            child.QueueFree();
+        }
+
         if (creature is null)
         {
             _nameLabel!.Text = "—";
             _healthLabel!.Text = string.Empty;
-            _typeLabel!.Text = string.Empty;
             Disabled = false; // empty slots stay tappable for merge/placement targeting
             TooltipText = string.Empty;
+            _hoverName = null;
             _hoverStatLine = null;
             _hoverMoves = null;
             return;
@@ -126,12 +140,57 @@ public partial class SlotView : Button
         // the width it needs. Health moved to its own row (StatusRow) alongside the status
         // badges instead of sharing the header with the name, which is what let a long merged
         // name push the whole slot taller before.
-        var name = cards.TryGet(creature.CardId, out var card) ? card!.Name : creature.CardId;
-        var displayName = creature.IsMerged ? $"{name}+" : name;
+        // A merged creature names every card folded into it ("Basic T + Columns"), not just the
+        // one whose CardId it kept plus a "+" -- the previous form silently dropped the second
+        // card's identity, which is the one thing a player most needs to read off a merge (it
+        // determines the combined move list and both defensive types). MergedFrom already holds
+        // the ids in merge order, and is capped at RuleSet.MaxMergeDepth (2).
+        var displayName = string.Join(
+            " + ",
+            creature.MergedFrom.Select(id => cards.TryGet(id, out var c) ? c!.Name : id));
+        if (displayName.Length == 0)
+        {
+            displayName = cards.TryGet(creature.CardId, out var card) ? card!.Name : creature.CardId;
+        }
+
         _nameLabel!.Text = displayName;
-        _typeLabel!.Text = ResourceIcons.Describe(creature.Types);
         _healthLabel!.Text = $"{creature.Health}/{creature.MaxHealth}";
         Disabled = false;
+
+        // Type badge: the creature's own defensive TypeMask can hold 2-3 types once merged, so
+        // this shows one small icon per type rather than trying to pick a single "primary" one --
+        // unlike a hand/tooltip card's single play-cost type, a board creature's type set is the
+        // actual rules-relevant fact (TypeChart's 2x-vulnerability rule reads all of it).
+        foreach (var type in creature.Types.ToArray())
+        {
+            _typeBadge.AddChild(ResourceIconFactory.Create(type, ResourceIconFactory.IconSize.Small));
+        }
+
+        // Placeholder art (PLAN.md B1c): one giant shape for an unmerged creature, or two
+        // side-by-side (one per source card) for a merged one -- MergedFrom is capped at
+        // RuleSet.MaxMergeDepth (2), so "two panes" is the real worst case, not a guess. Each
+        // pane keys off that source card's own play-cost type (CardText.SinglePipType's
+        // derivation, re-applied per source id) rather than the union in creature.Types, so a
+        // Spike+Anvil merge shows one triangle pane and one square pane instead of picking just
+        // one to show.
+        foreach (var sourceId in creature.MergedFrom)
+        {
+            if (!cards.TryGet(sourceId, out var sourceCard) || sourceCard is null)
+            {
+                continue;
+            }
+
+            var sourceType = CardText.SinglePipType(sourceCard.Cost);
+            if (sourceType is not { } t)
+            {
+                continue;
+            }
+
+            var pane = ResourceIconFactory.CreateArtPlaceholder(t);
+            pane.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            pane.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            _artHolder.AddChild(pane);
+        }
 
         var badges = StatusIcons.Describe(creature);
         foreach (var badge in badges)
@@ -152,16 +211,19 @@ public partial class SlotView : Button
             _statusBadges.AddChild(label);
         }
 
-        // Hover always shows the creature's full move list regardless of whose turn it is or
-        // who owns it -- board buttons (below) stay restricted to the active player's own
-        // creatures (moves aren't actionable otherwise and would just be board noise), but
-        // reading what an opponent's creature CAN do is exactly what hover is for. Falls back to
-        // `moves` itself when the caller didn't supply a separate hover list (the active
-        // player's own creature, where the two lists are the same thing anyway).
+        // Hover shows one card's worth of detail even for a merged creature (the caller decides
+        // which -- see PlayerPanel.RenderSlots), so a merged tooltip stays the same size as every
+        // other card's rather than growing to hold up to 4 moves. The board slot itself already
+        // shows the full merged move set as buttons, so nothing is unreachable. Falls back to
+        // `moves` when the caller supplied no separate hover list (an unmerged creature, where the
+        // two lists are the same thing anyway).
         // Status folds into the same stat line HoverDetailPanel shows -- B1a2's own note flagged
         // this as B1b's natural extension point rather than a second hover mechanism.
         var statusSuffix = badges.Count == 0 ? string.Empty : $"  {string.Join(" ", badges.Select(b => b.Glyph))}";
-        _hoverStatLine = $"{displayName}  {creature.Health}/{creature.MaxHealth} HP  {ResourceIcons.Describe(creature.Types)}{statusSuffix}";
+        // Falls back to the slot's own (possibly merged) display name when the caller didn't pick
+        // a specific source card -- the tooltip's title must name whichever card's moves it shows.
+        _hoverName = hoverName ?? displayName;
+        _hoverStatLine = $"{creature.Health}/{creature.MaxHealth} HP{statusSuffix}";
         _hoverMoves = hoverMoves ?? [.. moves.Select(m => m.Text)];
 
         foreach (var (index, text, isUsable) in moves)

@@ -77,12 +77,12 @@ text = "△0 ▢0 ◯0"
 [node name="OpponentPanel" parent="Layout" instance=ExtResource("2_playerpanel")]
 layout_mode = 2
 size_flags_vertical = 3
-size_flags_stretch_ratio = 0.2
+size_flags_stretch_ratio = 0.3
 
 [node name="SelfPanel" parent="Layout" instance=ExtResource("2_playerpanel")]
 layout_mode = 2
 size_flags_vertical = 3
-size_flags_stretch_ratio = 0.8
+size_flags_stretch_ratio = 0.7
 
 [node name="GameOverPanel" parent="." instance=ExtResource("4_gameover")]
 

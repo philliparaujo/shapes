@@ -32,12 +32,12 @@ public partial class PlayerPanel : Control
     // fixed in one screen corner (see its own header on why), so unlike every drag/drop event
     // above these carry no position -- only what to show.
     public event Action<CardText>? HandCardHoverStarted;
-    public event Action<string, IReadOnlyList<MoveText>>? SlotHoverStarted;
+    public event Action<string, string, IReadOnlyList<MoveText>>? SlotHoverStarted;
     public event Action? HoverEnded;
 
     [Export] public NodePath SlotContainerPath { get; set; } = "Slots";
     [Export] public NodePath SpacerPath { get; set; } = "Spacer";
-    [Export] public NodePath HandContainerPath { get; set; } = "HandScroll/Hand";
+    [Export] public NodePath HandContainerPath { get; set; } = "HandScroll/HandMargin/Hand";
 
     private HBoxContainer? _slotContainer;
     private Control? _spacer;
@@ -92,38 +92,56 @@ public partial class PlayerPanel : Control
             _slotContainer.AddChild(slotView);
             var creature = state.Board[slot];
 
-            // Board buttons: every move on the creature, not just the currently-usable ones
-            // (PLAN.md B1a) -- only populated for the active player's own creatures, since the
-            // opponent's moves are never actionable and showing buttons for them would just be
-            // board noise. Hover (PLAN.md B1a2) is a separate concern from board buttons: it
-            // always shows a creature's full move list regardless of owner, since reading what an
-            // opponent's creature CAN do is exactly what hover is for.
+            // Board buttons: every move on every creature renders, including the opponent's
+            // (PLAN.md B1a extended by B1c). Ownership decides whether a move is *usable*, never
+            // whether it is *visible* -- an opponent's creature is exactly the thing a player
+            // needs to read before committing an attack, and hiding its moves made an enemy
+            // creature look like it had none. Opponent moves come through with IsUsable false, so
+            // MoveButtonFactory renders them disabled and dimmed, same as any unaffordable move.
             List<MoveText>? hoverMoves = null;
+            string? hoverName = null;
             var moves = new List<(int Index, MoveText Text, bool IsUsable)>();
             if (creature is not null)
             {
                 var moveDefs = cards.MovesOf(creature.MergedFrom);
-                hoverMoves = [.. moveDefs.Select(MoveText.Of)];
+                var boardMoves = moveDefs.Select(MoveText.Of).ToList();
 
-                if (slot.Owner == state.ActivePlayer)
+                var isOwnCreature = slot.Owner == state.ActivePlayer;
+                for (var i = 0; i < moveDefs.Count; i++)
                 {
-                    for (var i = 0; i < moveDefs.Count; i++)
-                    {
-                        var isUsable = legalActions.OfType<UseMoveAction>().Any(a => a.SourceSlot == slot && a.MoveIndex == i);
-                        moves.Add((i, hoverMoves[i], isUsable));
-                    }
+                    var isUsable = isOwnCreature && legalActions.OfType<UseMoveAction>()
+                        .Any(a => a.SourceSlot == slot && a.MoveIndex == i);
+                    moves.Add((i, boardMoves[i], isUsable));
+                }
+
+                // The hover tooltip shows ONE source card, not the merged whole (PLAN.md B1c): a
+                // merged creature holds up to 4 moves, and rendering all of them makes its tooltip
+                // taller than every other card's, which is the one thing a fixed-size tooltip
+                // cannot absorb. The board slot already shows the full merged move set as its 2x2
+                // button grid, so nothing is hidden -- hover just falls back to a single card's
+                // worth of detail. First card in merge order is the one whose CardId the creature
+                // kept, so it's the stable choice rather than an arbitrary one.
+                var hoverCardId = creature.MergedFrom.Count > 0 ? creature.MergedFrom[0] : creature.CardId;
+                if (cards.TryGet(hoverCardId, out var hoverCard) && hoverCard is not null)
+                {
+                    hoverMoves = [.. hoverCard.Moves.Select(MoveText.Of)];
+                    hoverName = hoverCard.Name;
+                }
+                else
+                {
+                    hoverMoves = boardMoves;
                 }
             }
 
             var isDraggable = creature is not null && legalActions.OfType<MergeAction>()
                 .Any(a => a.SourceSlot == slot);
 
-            slotView.Render(slot, creature, cards, isDraggable, moves, hoverMoves);
+            slotView.Render(slot, creature, cards, isDraggable, moves, hoverMoves, hoverName);
             slotView.Tapped += () => SlotTapped?.Invoke(slot);
             slotView.MoveChosen += index => MoveChosen?.Invoke(slot, index);
             slotView.HandCardDropped += cardId => CardDroppedOnSlot?.Invoke(cardId, slot);
             slotView.CreatureDropped += source => CreatureDroppedOnSlot?.Invoke(source, slot);
-            slotView.HoverStarted += (statLine, moveTexts) => SlotHoverStarted?.Invoke(statLine, moveTexts);
+            slotView.HoverStarted += (name, statLine, moveTexts) => SlotHoverStarted?.Invoke(name, statLine, moveTexts);
             slotView.HoverEnded += () => HoverEnded?.Invoke();
             _slotViews[slot] = slotView;
         }
@@ -209,8 +227,9 @@ public partial class PlayerPanel : Control
     }
 
     // Matches (with a little breathing room past) HoverDetailPanel's fixed bottom-left box width
-    // -- see RenderHand's own note on why the hand row needs to clear it.
-    private const float HoverPanelClearanceWidth = 280f;
+    // -- see RenderHand's own note on why the hand row needs to clear it. Derived from the same
+    // CardMetrics constant the panel itself is sized from, so the two can't drift apart.
+    private const float HoverPanelClearanceWidth = CardMetrics.TooltipWidth + 32f;
 
     private static readonly PackedScene SlotViewScene = GD.Load<PackedScene>("res://Scenes/SlotView.tscn");
     private static readonly PackedScene CardFaceScene = GD.Load<PackedScene>("res://Scenes/CardFace.tscn");

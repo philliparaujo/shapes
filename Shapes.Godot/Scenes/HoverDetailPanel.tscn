@@ -8,8 +8,8 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 12.0
-offset_top = -272.0
-offset_right = 264.0
+offset_top = -355.0
+offset_right = 252.0
 offset_bottom = -12.0
 grow_vertical = 0
 mouse_filter = 2
@@ -28,34 +28,53 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
 
-[node name="NameLabel" type="Label" parent="Panel/Layout"]
+[node name="TitleRow" type="HBoxContainer" parent="Panel/Layout"]
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_filter = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 13
+theme_override_constants/separation = 6
+
+[node name="CostBadge" type="MarginContainer" parent="Panel/Layout/TitleRow"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="NameLabel" type="Label" parent="Panel/Layout/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+horizontal_alignment = 0
+vertical_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 12
 text = "Card Name"
 
-[node name="CostLabel" type="Label" parent="Panel/Layout"]
+[node name="ArtHolder" type="MarginContainer" parent="Panel/Layout"]
+custom_minimum_size = Vector2(0, 171)
 layout_mode = 2
 mouse_filter = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 11
-text = ""
-
-[node name="StatLabel" type="Label" parent="Panel/Layout"]
-layout_mode = 2
-mouse_filter = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 11
-text = ""
+clip_contents = true
 
 [node name="EffectsLabel" type="Label" parent="Panel/Layout"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 10
 autowrap_mode = 2
 text = ""
 
 [node name="MoveList" type="VBoxContainer" parent="Panel/Layout"]
 layout_mode = 2
+size_flags_vertical = 3
 mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="StatLabel" type="Label" parent="Panel/Layout"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+mouse_filter = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = ""

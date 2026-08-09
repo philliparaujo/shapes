@@ -19,12 +19,19 @@ layout_mode = 2
 size_flags_vertical = 3
 
 [node name="HandScroll" type="ScrollContainer" parent="."]
-custom_minimum_size = Vector2(0, 150)
+custom_minimum_size = Vector2(0, 140)
 layout_mode = 2
 size_flags_horizontal = 3
 horizontal_scroll_mode = 2
 vertical_scroll_mode = 0
 
-[node name="Hand" type="HBoxContainer" parent="HandScroll"]
+[node name="HandMargin" type="MarginContainer" parent="HandScroll"]
 layout_mode = 2
-theme_override_constants/separation = 8
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+
+[node name="Hand" type="HBoxContainer" parent="HandScroll/HandMargin"]
+layout_mode = 2
+theme_override_constants/separation = 16
