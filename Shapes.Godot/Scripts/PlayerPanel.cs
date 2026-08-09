@@ -79,8 +79,16 @@ public partial class PlayerPanel : Control
 
     private void RenderSlots(GameState state, CardDatabase cards, PlayerId player, IReadOnlyList<GameAction> legalActions)
     {
+        // RemoveChild before QueueFree, not QueueFree alone: QueueFree only marks a node for
+        // deletion at end of frame, so a bare QueueFree leaves the old SlotViews as children of
+        // _slotContainer until then. The AddChild loop below runs in the SAME frame, so without
+        // the RemoveChild the container briefly holds 6 children (3 dying + 3 new) instead of 3,
+        // which skews the HBoxContainer's centered layout and the GlobalPosition BoardAnimator
+        // reads off the new SlotViews via CollectSlotRects -- exactly the "animation renders at
+        // the wrong slot" symptom this fixes.
         foreach (var child in _slotContainer!.GetChildren())
         {
+            _slotContainer.RemoveChild(child);
             child.QueueFree();
         }
 
@@ -143,8 +151,11 @@ public partial class PlayerPanel : Control
         GameState state, CardDatabase cards, PlayerId player, bool isActiveHand,
         IReadOnlyList<GameAction> legalActions)
     {
+        // RemoveChild before QueueFree -- see RenderSlots' note on why a bare QueueFree leaves
+        // stale children in the container for the rest of this frame.
         foreach (var child in _handContainer!.GetChildren())
         {
+            _handContainer.RemoveChild(child);
             child.QueueFree();
         }
 
@@ -194,6 +205,20 @@ public partial class PlayerPanel : Control
 
             face.HoverStarted += text => HandCardHoverStarted?.Invoke(text);
             face.HoverEnded += () => HoverEnded?.Invoke();
+        }
+    }
+
+    // Where each slot currently sits in global coordinates, for BoardAnimator's overlay
+    // (PLAN.md B1d). Rects, not SlotView references: RenderSlots QueueFrees every view on the
+    // next render, so handing out nodes would hand out something about to dangle -- the overlay
+    // needs a position, and a position outlives the node it came from.
+    public void CollectSlotRects(Dictionary<SlotIndex, Rect2> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+
+        foreach (var (slot, view) in _slotViews)
+        {
+            into[slot] = new Rect2(view.GlobalPosition, view.Size);
         }
     }
 

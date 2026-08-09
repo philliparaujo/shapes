@@ -887,6 +887,7 @@ animation once the redesign lands.
   editor/CLI available here); verified by `dotnet build` (clean, 0 warnings) and the full test
   suite (966/966, `Shapes.Core` touched only by the one read-only getter). Subsequently
   playtested and confirmed, as every B-milestone step has been.
+
 **B1's original "art and animation" line splits into B1c (art) and B1d (animation),
 2026-08-08.** They share a sentence in the old plan but almost nothing as tasks: art is a
 layout-and-asset problem, animation is a node-lifetime problem, and each has a definition of done
@@ -896,49 +897,89 @@ the B1c number deliberately:** eight source comments across `Shapes.Godot`/`Shap
 already cite "PLAN.md B1c" for art concerns (card proportions, art placeholders, cost badges,
 per-source-card art panes), and renumbering art would invalidate every one of them.
 
-- [ ] **B1c. Real card art** — replaces the placeholder geometry on card faces and board slots with
-  actual artwork.
-  **Substantially begun already, ahead of this entry** (commits `e023b55` "Significant card UI
-  improvements from specs" and `c8da205`, both against `references/card dimensions.pdf`): `CardMetrics`
-  now centralizes card proportions, `ResourceIconFactory` draws type shapes as both small cost badges
-  and a full-panel `CreateArtPlaceholder`, `SlotView` renders split art for merged creatures, and
-  `HoverDetailPanel`/`CardFace`/`MoveRowFactory` were rebuilt around the spec's layout. What exists is
-  *placeholder geometry in the right places* — the layout question is largely answered, the asset
-  question is untouched.
-  **What remains is the asset-source decision, which wants making before the rest of the step rather
-  than during it** — the same note D1 already carries for audio, and for the same reason:
-  commissioned, generated, purchased, and keep-the-geometric-placeholders are four different projects
-  with different timelines. Note the last is a legitimate answer: the shapes *are* the theme, and the
-  placeholder may be the art. The one hard constraint is the type cycle — B4 needs the
-  rock-paper-scissors relationship legible from the board itself, so whatever gets chosen must encode
-  type distinctly, which the current shape-per-type scheme already does.
-  Nothing in `Shapes.Godot` references a `Texture2D` yet; the only image asset is Godot's default
-  `icon.svg`. Introducing real textures is the point where import settings, atlasing, and mobile
-  texture budget first matter.
-- [ ] **B1d. Animation driven by A2's diff** — play/move/merge/score/destroy, over the drag-based
-  interactions and status-aware slot view B1a/B1b established. Sequenced last in B1 because it's the
-  piece that would otherwise need redoing.
-  **The seam exists but is unused:** `GameSession.Submit` returns a `StateDiff` (per-slot
-  before/after `CreatureSnapshot`s, per-player score/resource/hand-size deltas) built and unit-tested
-  in A2, and the entire `Shapes.Godot` project references `StateDiff` exactly once — in a comment.
-  `GameRoot.Submit` discards the return value and calls `RefreshAll`, which re-renders from
-  `_session.State` wholesale. Wiring it through is the small part.
-  **The real work is that current rendering is structurally unanimatable.** `PlayerPanel.RenderSlots`
-  `QueueFree`s every `SlotView` and re-instantiates from scratch on each render, and `RenderHand`
-  does the same for every `CardFace` — there is no node identity across frames to tween. A5 already
-  hit the mild form of this (the rebuild silently wiped `SetHighlighted` targeting marks, patched by
-  reapplying the set after render); animation is the same problem with no cheap patch. Decide
-  deliberately between reconciling nodes across renders (keep identity, update in place) and driving
-  animation from a separate layer that reads the diff before the rebuild — this choice *is* the step,
-  and the wrong one means rewriting `PlayerPanel` twice.
-  **Two design calls this step owns:** (1) one action can yield several slot changes at once — a
-  merge is a destroy plus a stat change, a play can damage a target — and the diff is an unordered
-  set, not a script, so animation order has to be derived; (2) whether animations block input, which
-  decides whether a fast player can outrun the tween queue. Neither is answerable from the diff alone.
-  **Verifiability caveat:** animation bugs are signal-timing, re-entrancy, and node-lifetime bugs —
-  disproportionately the class `dotnet build` and the test suite cannot see, and the class A3's three
-  playtest-only bugs came from. Budget playtest rounds accordingly; this step is less hand-traceable
-  than any Godot step so far.
+- [~] **B1c. Real card art — IN PROGRESS: pipeline done, 5 of 36 cards authored.** Replaces the
+  placeholder geometry on card faces and board slots with actual artwork.
+  **Layout groundwork landed first** (commits `e023b55` "Significant card UI improvements from specs"
+  and `c8da205`, both against `references/card dimensions.pdf`): `CardMetrics` centralizes card
+  proportions, `ResourceIconFactory` draws type shapes as both small cost badges and a full-panel
+  `CreateArtPlaceholder`, `SlotView` renders split art for merged creatures, and
+  `HoverDetailPanel`/`CardFace`/`MoveRowFactory` were rebuilt around the spec's layout.
+  **Asset-source decision: generated raster art, authored at 2:1** (1774×887 in practice). Derived
+  from the four aspect ratios the same art must survive — 7:5 in hand and in the tooltip, 2:1 in
+  play, and ~1:1 per pane when merged — so 2:1 is the widest target and the centered square is the
+  intersection of all four. **The authoring rule that follows: subject inside the centered 1:1
+  square, horizontally centered, focal point ~42–45% from the top** (biased up because every art
+  region sits directly under a title band, and nothing ever crops vertically, so the bias is free).
+  The outer thirds are bleed, seen only in the in-play view.
+  **`CardArt.For(cardId, fallbackType)` is the whole seam** — resolves `res://art/cards/{cardId}.png`
+  and falls back to `CreateArtPlaceholder` when a card has no art yet, which is what makes the set
+  fillable one card at a time rather than all-or-nothing. Three call sites cover all four contexts:
+  `CardFace` (hand), `HoverDetailPanel` (tooltip, both hand-card and board-creature hover), and
+  `SlotView` (in play, keyed per source card so a merge shows each contributor's own art).
+  **Keyed on the card ID, never the JSON filename** — those agree for 35 of 36 cards and the
+  exception is the reason for the rule: `safeguard.json` still carries the id `patch_up` (renamed in
+  v1.7; the id stayed because `balance/` history keys off it). `CardText` gained a `CardId` field to
+  carry this, which reaches every art site without touching the three hover event signatures.
+  `CardArtTests` asserts every art file names a real card id — the art→card direction only, since
+  the reverse would just fail for every not-yet-drawn card. Verified failing on a planted
+  `safeguard.png` before being left green, because a silent placeholder fallback is exactly what
+  makes a misnamed file invisible.
+  **Two rendering details are load-bearing:** `StretchMode.KeepAspectCovered` (crop, never
+  letterbox — a card face must not show bars against the panel behind it), and
+  `ExpandMode.IgnoreSize` with a zero `CustomMinimumSize`, without which a 1774px-wide source
+  imposes a 1774px floor on card width and blows out every layout it appears in.
+  **First playtest confirmed the two risk cases**: the merged 1:1 panes (the tightest crop in the
+  game) read clearly, and type legibility survives the placeholder→art transition, which was the
+  open question for B4. Real art and placeholders coexist on one board without looking broken.
+  **Remaining: author the other 31 cards.** No code work is expected — dropping a correctly named
+  PNG into `Shapes.Godot/art/cards/` is the entire per-card cost. Not yet addressed, and cheap to
+  defer until the set is complete: texture import settings, atlasing, and the mobile texture budget
+  (~2.4MB per source PNG × 36 is not a shippable number as-is).
+- [x] **B1d. Animation driven by A2's diff** — play/move/merge/damage/heal/destroy/score, over the
+  drag-based interactions and status-aware slot view B1a/B1b established. Sequenced last in B1
+  because it's the piece that would otherwise need redoing.
+  **A2's seam is finally consumed.** `GameSession.Submit` has returned a `StateDiff` since A2 and
+  nothing read it — `GameRoot.Submit` discarded the return value, and the whole `Shapes.Godot`
+  project mentioned `StateDiff` exactly once, in a comment. `Submit` now captures it and passes it
+  to `BoardView.PlayAnimation` after `RefreshAll`.
+  **Resolved the step's central choice — overlay, not node reconciliation.** `PlayerPanel`'s render
+  path still `QueueFree`s and rebuilds every `SlotView`/`CardFace`, exactly as before; `BoardAnimator`
+  is a mouse-transparent full-rect `Control` above the board that spawns its own short-lived nodes at
+  slot positions and frees them. Reconciling node identity was the alternative and was rejected on
+  risk: it would touch every event-rewiring path in `PlayerPanel`, which is precisely where A3's three
+  playtest-only bugs and A5's dropped-highlight bug came from — all lifetime/rewiring mistakes
+  invisible to the type checker. **The honest cost:** this animates *at* slots, so a move is a ghost
+  frame at the destination rather than the card itself sliding. That is a real polish ceiling, and
+  reconciliation stays available later without rewriting `AnimationScript`, which is expressed in
+  slots and cues rather than nodes.
+  **`AnimationScript` (Adapter, pure, 12 tests) derives order the diff cannot.** A `StateDiff` is an
+  unordered *set*: it says what differs, never what happened. Two derivations live here — (1)
+  rejoining a departure and a matching arrival (same `CardId` and `Health`) into one `Move`, since
+  the diff reports a move as two unrelated slot changes with nothing linking them, and (2) the cue
+  ordering: move/play → merge → damage → heal → destroy → score. **Damage-before-destroy is the
+  load-bearing one** — a killing blow is both, and the reverse order animates the damage number over
+  an already-empty slot. Sorted stably, so two creatures hit by one spell always animate in board
+  order rather than enumeration order. Placed in `Shapes.Godot.Adapter` rather than `Shapes.Godot`
+  precisely because it is list-to-list translation with no node concept in it, which makes the
+  ordering rules testable without an editor — the same reasoning that put `StateDiff` there in A2.
+  **Input policy decided: animations never block input.** This follows from A6 — every action is a
+  committed decision, and the state has *already* changed before anything draws, so gating input
+  would be showing the player a lie about what is interactive. Every effect is self-contained and
+  self-freeing rather than a queue that must drain, so acting fast just overlaps the previous
+  action's cues instead of dropping or delaying them.
+  **Two Godot-specific traps handled:** layout rects are collected via `CallDeferred` because a
+  freshly rebuilt `SlotView` has no settled `Size`/`GlobalPosition` until the layout pass runs (the
+  same pre-layout `(0,0)` trap `ResourceIconFactory` already documents), and the `StateDiff` is
+  stashed in a field rather than passed as `CallDeferred` arguments, which marshal through Variant
+  and cannot carry a plain C# record. `PlayerPanel.CollectSlotRects` hands out `Rect2`s, never
+  `SlotView` references — a node reference would dangle at the next render, which is the exact
+  failure the overlay exists to avoid.
+  **Not editor-verified** — same standing limitation as every Godot-side step this phase; verified by
+  `dotnet build` (clean, 0 warnings) and the suite (979/979). Animation bugs are disproportionately
+  signal-timing and node-lifetime bugs, the class neither can see, so this wants a real playtest more
+  than any step so far. **Specifically worth checking:** that cues land on the right slots after a
+  hand-size change re-lays out the board, and that rapid consecutive actions overlap cleanly rather
+  than stacking up.
 - [ ] **B2. AI opponent via `IAgent`** (difficulty = search budget), off the main thread and capped
   on mobile. `Choose(AgentContext, CancellationToken)` already takes the token, so the seam exists
   — **what's missing is the policy**: what the player sees during a ~2s search, and what happens

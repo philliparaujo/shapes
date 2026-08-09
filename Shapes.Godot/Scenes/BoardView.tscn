@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://dv6q0boardview001"]
+[gd_scene load_steps=7 format=3 uid="uid://dv6q0boardview001"]
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
 [ext_resource type="PackedScene" path="res://Scenes/GameOverPanel.tscn" id="4_gameover"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="5_hoverdetail"]
+[ext_resource type="Script" path="res://Scripts/BoardAnimator.cs" id="6_boardanimator"]
 
 [node name="BoardView" type="Control"]
 layout_mode = 3
@@ -83,6 +84,14 @@ size_flags_stretch_ratio = 0.34
 layout_mode = 2
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.66
+
+[node name="BoardAnimator" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("6_boardanimator")
 
 [node name="GameOverPanel" parent="." instance=ExtResource("4_gameover")]
 

@@ -270,8 +270,12 @@ public partial class GameRoot : Control
             return;
         }
 
-        _session.Submit(action);
+        // The StateDiff A2 built this whole adapter to produce, finally consumed (PLAN.md B1d).
+        // Captured BEFORE RefreshAll, because it describes the transition into the state that
+        // RefreshAll is about to draw -- and played after, so the cues land over the new board.
+        var diff = _session.Submit(action);
         _boardView!.ClearSelection();
         RefreshAll();
+        _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
     }
 }

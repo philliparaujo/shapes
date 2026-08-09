@@ -46,6 +46,7 @@ public partial class BoardView : Control
     [Export] public NodePath CancelTargetingButtonPath { get; set; } = "Layout/StatusBar/CancelTargetingButton";
     [Export] public NodePath GameOverPanelPath { get; set; } = "GameOverPanel";
     [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
+    [Export] public NodePath BoardAnimatorPath { get; set; } = "BoardAnimator";
 
     private PlayerPanel? _opponentPanel;
     private PlayerPanel? _selfPanel;
@@ -59,8 +60,10 @@ public partial class BoardView : Control
     private Button? _cancelTargetingButton;
     private GameOverPanel? _gameOverPanel;
     private HoverDetailPanel? _hoverDetailPanel;
+    private BoardAnimator? _boardAnimator;
 
     private IReadOnlyList<GameAction>? _pendingTargetActions;
+    private (StateDiff Diff, PlayerId SelfSeat)? _pendingAnimation;
 
     public override void _Ready()
     {
@@ -76,6 +79,7 @@ public partial class BoardView : Control
         _cancelTargetingButton = GetNode<Button>(CancelTargetingButtonPath);
         _gameOverPanel = GetNode<GameOverPanel>(GameOverPanelPath);
         _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
+        _boardAnimator = GetNode<BoardAnimator>(BoardAnimatorPath);
 
         foreach (var panel in new[] { _opponentPanel!, _selfPanel! })
         {
@@ -143,6 +147,60 @@ public partial class BoardView : Control
 
         _endTurnButton!.Disabled = !legalActions.OfType<EndTurnAction>().Any();
         _gameOverPanel!.Visible = false;
+
+        RefreshAnimatorLayout();
+    }
+
+    // Slot rects for BoardAnimator (PLAN.md B1d). Deferred by one frame on purpose: RenderSlots
+    // has just replaced every SlotView, and a freshly added Control's Size/GlobalPosition are
+    // not settled until Godot's layout pass runs -- reading them synchronously here yields the
+    // pre-layout (0,0) rect, the same trap ResourceIconFactory's own notes already document for
+    // shapes drawn before their container sizes them.
+    private void RefreshAnimatorLayout()
+    {
+        CallDeferred(nameof(CollectAnimatorLayout));
+    }
+
+    private void CollectAnimatorLayout()
+    {
+        if (_boardAnimator is null || _opponentPanel is null || _selfPanel is null)
+        {
+            return;
+        }
+
+        var rects = new Dictionary<SlotIndex, Rect2>();
+        _opponentPanel.CollectSlotRects(rects);
+        _selfPanel.CollectSlotRects(rects);
+
+        _boardAnimator.UpdateLayout(
+            rects,
+            new Rect2(_selfScoreLabel!.GlobalPosition, _selfScoreLabel.Size),
+            new Rect2(_opponentScoreLabel!.GlobalPosition, _opponentScoreLabel.Size));
+    }
+
+    // One action's visible feedback. Called after Render, so the overlay draws over the board as
+    // it now is -- the state has already changed (see BoardAnimator's header on why animation
+    // never gates input).
+    public void PlayAnimation(StateDiff diff, PlayerId selfSeat)
+    {
+        // Stashed in a field rather than passed as CallDeferred arguments: those marshal through
+        // Godot's Variant, which cannot carry a plain C# record like StateDiff. Deferred for the
+        // same reason the layout collection is -- this runs immediately after a Render, and the
+        // rects it needs are only correct once that render's layout pass has run.
+        _pendingAnimation = (diff, selfSeat);
+        CallDeferred(nameof(PlayPendingAnimation));
+    }
+
+    private void PlayPendingAnimation()
+    {
+        if (_pendingAnimation is not var (diff, selfSeat) || diff is null)
+        {
+            return;
+        }
+
+        _pendingAnimation = null;
+        CollectAnimatorLayout();
+        _boardAnimator?.Play(diff, selfSeat);
     }
 
     public void ShowGameOver(PlayerId? winner)
