@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Godot;
+using Shapes.Ai.Agents;
 using Shapes.Core.Actions;
 using Shapes.Core.Cards;
 using Shapes.Core.Primitives;
@@ -11,17 +13,27 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// Owns the one GameSession for a hotseat game and is the only script that submits
-// GameActions. Sub-views never touch GameSession directly -- they raise Godot signals
-// (SlotTapped, EndTurnRequested, ...) that GameRoot listens to and turns into
-// GameSession.Submit calls, then pushes the resulting StateDiff/legal-action list back down
-// to RefreshAll. This keeps every scene a pure view: PLAN.md A2's "UI only ever submits
-// GameActions and never mutates state" boundary, extended down to the scene tree.
+// Owns the one GameSession for a match and is the only script that submits GameActions.
+// Sub-views never touch GameSession directly -- they raise Godot signals (SlotTapped,
+// EndTurnRequested, ...) that GameRoot listens to and turns into GameSession.Submit calls,
+// then pushes the resulting StateDiff/legal-action list back down to RefreshAll. This keeps
+// every scene a pure view: PLAN.md A2's "UI only ever submits GameActions and never mutates
+// state" boundary, extended down to the scene tree.
 //
 // PLAN.md B1a: playing a card is drag-only now -- there is no tap-to-play fallback and no
 // card-detail inspect panel. Full card/move detail is available on hover instead (PLAN.md
 // B1a2, HoverDetailPanel) -- BoardView owns showing/hiding it directly since hover never
 // submits a GameAction, so GameRoot never sees those events at all.
+//
+// PLAN.md C1 (AI-opponent wiring pulled forward from C5, 2026-08-09): either seat, both, or
+// neither can be AI-controlled -- Lobby.cs builds the per-seat SeatConfig and GameRoot only
+// ever sees "is this seat's IAgent null (human) or not." Search runs SYNCHRONOUSLY on the main
+// thread for this first pass -- IAgent.Choose's own header already anticipates Phase 5 running
+// it off-thread with cooperative cancellation, but that needs a threading/UI-feedback design
+// (what does the player see during a ~2s search, what happens if the app backgrounds mid-search)
+// this step deliberately does not make. A human-v-AI game at the default iteration presets
+// (200/1000/5000) is a short, bounded stall per AI turn, not a hang -- acceptable to ship now
+// and worth revisiting the moment a slower device or a higher difficulty makes it not.
 public partial class GameRoot : Control
 {
     [Export] public NodePath BoardViewPath { get; set; } = "BoardView";
@@ -29,6 +41,7 @@ public partial class GameRoot : Control
 
     private GameSession? _session;
     private CardDatabase? _cards;
+    private Dictionary<PlayerId, IAgent?> _agents = new();
 
     private BoardView? _boardView;
 
@@ -44,10 +57,18 @@ public partial class GameRoot : Control
         _boardView.EndTurnRequested += OnEndTurnRequested;
         _boardView.DiscardRequested += OnDiscardRequested;
 
-        StartNewGame(Seed == 0 ? (ulong)DateTime.UtcNow.Ticks : Seed);
+        // Set by Lobby.cs immediately before ChangeSceneToFile; null only if GameRoot.tscn was
+        // opened/run directly (e.g. mid-development in the editor) rather than reached through
+        // the lobby -- falls back to two-human hotseat, A-milestone's original mode, rather than
+        // failing to start.
+        var config = PendingMatch.Config;
+        PendingMatch.Config = null;
+        var seed = config?.Seed ?? (Seed == 0 ? (ulong)DateTime.UtcNow.Ticks : Seed);
+
+        StartNewGame(seed, config);
     }
 
-    private void StartNewGame(ulong seed)
+    private void StartNewGame(ulong seed, MatchConfig? config)
     {
         var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
         _cards = CardLoader.FromDirectory(cardsDir);
@@ -57,7 +78,21 @@ public partial class GameRoot : Control
         _session = new GameSession(rules, _cards, random, PlayerId.One);
         _session.Start(rules.StartingHandSize);
 
+        // Derived per-seat streams, not one shared source -- two agents drawing from a single
+        // IRandomSource would interleave their draws, so changing one seat's agent would change
+        // the other's decisions too (same reasoning as Shapes.Console's BuildAgent call site).
+        _agents = new Dictionary<PlayerId, IAgent?>
+        {
+            [PlayerId.One] = config is null
+                ? null
+                : AgentFactory.Build(config.PlayerOne, seed * 7919, _cards),
+            [PlayerId.Two] = config is null
+                ? null
+                : AgentFactory.Build(config.PlayerTwo, seed * 104729, _cards),
+        };
+
         RefreshAll();
+        RunAiTurns();
     }
 
     private void RefreshAll()
@@ -73,6 +108,32 @@ public partial class GameRoot : Control
         if (_session.State.IsOver)
         {
             _boardView.ShowGameOver(_session.State.Winner);
+        }
+    }
+
+    // Keeps calling the active seat's agent until control returns to a human seat or the game
+    // ends -- one Choose() call per ACTION, not per turn, the same granularity
+    // Shapes.Console's main loop uses, so a turn that needs several actions (e.g. discard down
+    // to the hand limit, then play) plays out exactly as it would against a human at that seat.
+    // Called after every state-changing event (StartNewGame, Submit) so an AI-v-AI game runs to
+    // completion without any UI input, and a human-v-AI game hands back to the human the moment
+    // it's their turn.
+    private void RunAiTurns()
+    {
+        if (_session is null || _cards is null || _boardView is null)
+        {
+            return;
+        }
+
+        while (!_session.State.IsOver && _agents.TryGetValue(_session.State.ActivePlayer, out var agent)
+               && agent is not null)
+        {
+            var context = AgentContext.ForActivePlayer(_session.State, _cards);
+            var action = agent.Choose(context);
+
+            var diff = _session.Submit(action);
+            RefreshAll();
+            _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
         }
     }
 
@@ -277,5 +338,11 @@ public partial class GameRoot : Control
         _boardView!.ClearSelection();
         RefreshAll();
         _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
+
+        // A human action can hand the turn straight to an AI seat (or all the way back to the
+        // same human, if the action didn't end the turn) -- RunAiTurns is the one place that
+        // decides whose move it is next, so every path that changes state runs through it rather
+        // than each UI handler re-deciding "was that seat human."
+        RunAiTurns();
     }
 }

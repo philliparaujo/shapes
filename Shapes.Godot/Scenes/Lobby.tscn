@@ -1,0 +1,71 @@
+[gd_scene load_steps=2 format=3 uid="uid://dv6q0lobby001"]
+
+[ext_resource type="Script" path="res://Scripts/Lobby.cs" id="1_lobby"]
+
+[node name="Lobby" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_lobby")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -160.0
+offset_right = 220.0
+offset_bottom = 160.0
+theme_override_constants/separation = 24
+
+[node name="TitleLabel" type="Label" parent="Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+text = "Shapes"
+
+[node name="PlayerOne" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Label" type="Label" parent="Layout/PlayerOne"]
+layout_mode = 2
+text = "Player 1"
+
+[node name="KindPicker" type="OptionButton" parent="Layout/PlayerOne"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="DifficultyPicker" type="OptionButton" parent="Layout/PlayerOne"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="PlayerTwo" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Label" type="Label" parent="Layout/PlayerTwo"]
+layout_mode = 2
+text = "Player 2"
+
+[node name="KindPicker" type="OptionButton" parent="Layout/PlayerTwo"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="DifficultyPicker" type="OptionButton" parent="Layout/PlayerTwo"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="StartButton" type="Button" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 52)
+text = "Start Game"
+
+[node name="CardBrowserButton" type="Button" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "Card Browser"

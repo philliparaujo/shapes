@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 8 / 17     |
+| 5 — Godot client                         | 10 / 18    |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -593,300 +593,99 @@ slot view that's about to be redesigned for status icons and move buttons means 
 animation once the redesign lands.
 
 - [x] **B1a. Drag-and-drop replaces tap for play/merge; moves become always-visible buttons, not
-  drag targets.** Splits by action kind rather than being one uniform gesture:
-  - **Play a card** — drag from hand onto a board slot (`SlotView._CanDropData`/`_DropData`,
-    creature placement) or the self panel's background (`PlayerPanel._CanDropData`/`_DropData`,
-    targetless spell), replacing A3's tap-card→tap-slot flow. A spell that needs a `chosen_*`
-    target can also be dropped directly on the enemy creature it targets and resolves
-    immediately — the natural gesture for that card type — with A5's tap-to-target UI as the
-    fallback only when the drop point can't supply both a placement slot and a separate chosen
-    target at once (a creature card whose own play-effect targets something).
-  - **Merge** — drag a friendly creature onto an adjacent friendly creature
-    (`SlotView`'s own drag source + drop target), replacing the merge option that used to be
-    buried in `MoveMenu` (now deleted, along with `MoveMenu.tscn` — nothing calls it anymore).
-  - **Use a move — deliberately NOT a drag.** Each `SlotView` now renders a `MoveList` of
-    always-visible buttons for that creature's currently-usable moves (collapsing the old
-    tap-slot→`MoveMenu`-popup→tap-move into one click, and fixing "moves not shown on the board"
-    as a side effect rather than a separate task). A move needing a `chosen_*` target still uses
-    A5's tap-to-target afterward. Decided over drag-to-attack because a drag alone can't
-    disambiguate a creature with 2+ legal moves onto the same target.
-  - **Discard** stays tap-based (unchanged) — `AwaitingDiscard` is still a distinct, rare, gated
-    mode with no drag precedent.
-  - New `DragPayload` (`Shapes.Godot/Scripts`) packs a hand-card-id or a source `SlotIndex` into
-    the `Godot.Collections.Dictionary` shape `_GetDragData`/`_DropData` require (Godot's drag API
-    trades in `Variant`, not arbitrary C# objects); `_CanDropData`/`_DropData` only ever *report*
-    a drop happened; `GameRoot` re-checks every drop against real `LegalActions()` before
-    submitting, the same "view reports, GameRoot decides" split every gesture in this codebase
-    already followed. Godot's built-in "release outside any valid target = no drop" also replaces
-    the need for an explicit cancel gesture on these actions (A5's "Cancel Targeting" button
-    still stands for the chosen-target step drag can't fully replace).
-  - **`CardDetailPanel` (A3/A4) is deleted, not just unused** — playing a card is drag-only, with
-    no tap-to-play fallback and no tap-to-inspect panel. A per-card detail view (likely shown on
-    hover, once hover is meaningful on desktop) is planned as its own later piece rather than kept
-    as a tap panel in the meantime; a tap on a hand card now does nothing except during
-    `AwaitingDiscard`, where it still requests a discard (unchanged, still tap-based, no drag
-    precedent for that mode). `BoardView.PendingPlacementCardId`/`BeginPlacingCard`/
-    `CancelPlacement` went with it — a creature's placement slot is now always supplied directly
-    by the drop, so the tap-driven two-step placement path had no remaining caller.
-  - **Real bugs caught during first-pass playtesting, not review — same as A5's own history, and
-    the reason this section grew from "implemented" to "implemented, played, fixed":**
-    (1) **Drags did not fire at all.** Root cause: `_GetDragData`/`_CanDropData`/`_DropData` are
-    Godot virtuals dispatched to whichever `Control` is actually under the mouse, and both
-    `SlotView` and `CardFace` were a wrapper `Control` with a child `Button` — the `Button`
-    (topmost, default `mouse_filter` `Stop`) absorbed every mouse-down-and-drag gesture and Godot
-    never called the wrapper's overrides at all, so the whole feature was dead on arrival despite
-    compiling and unit-testing clean. Fixed by making both scenes' root node the `Button` itself
-    (script attached directly to it) rather than a `Control` wrapping one — the node Godot asks
-    for drag data is now the same node whose script provides it. (2) Move buttons displayed only
-    a name/cost, with full effect text in `TooltipText` — a hover-only reveal, which directly
-    violates A3's own "no hover-dependent information" rule (a touch client has no hover). Fixed
-    by putting the effect text directly in the button's label with `AutowrapMode` instead.
-    (3) `SlotView._CanDropData` accepts any drag (by design, so a targetless spell can be dropped
-    on an occupied slot, not just empty board space) — meaning the first version of
-    `OnCardDroppedOnSlot` treated "no creature placement matches this slot" as a dead end instead
-    of falling through to the spell path, so dropping a spell anywhere but literal empty space or
-    the panel's outer margin silently did nothing. Fixed by falling through to the same
-    targetless-spell resolution `PlayerPanel`'s own background drop uses. (4) No path existed for
-    a targeted spell dropped directly on its target (the single most natural gesture for that
-    card type) — fixed by resolving `TargetSlot is null && ChosenTarget == slot` before falling
-    through further.
-  - **Round 2, after a real playtest confirmed drag/merge/cancel all work:** layout was still
-    broken — small default window, board move lists overflowing off-screen, hand cards too narrow
-    to show anything, unusable moves not rendered at all. `project.godot` gained a `[display]`
-    section (maximized launch, `canvas_items`/`expand` stretch). **The overflow's real cause: a
-    `CustomMinimumSize` of `(0, 48)` on a move button is a floor, not a cap** — Godot sizes a
-    container to fit its widest child's *unwrapped* minimum, so width 0 let the button (and
-    everything containing it, up through the whole board row) grow to fit the single longest
-    effect-text line instead of ever wrapping. First fix attempt gave move buttons a fixed width
-    plus a per-slot `ScrollContainer` to bound height.
-  - **Round 3, after that attempt still overlapped panels in practice:** a `ScrollContainer`'s
-    `custom_minimum_size` is *also* a floor, not a cap — its own reported size still grows to fit
-    its content unless something above it enforces a hard limit, so nesting a scroll container
-    inside an already-unbounded `VBoxContainer` chain didn't actually bound anything. The deeper
-    issue: `BoardView`'s `OpponentPanel`/`SelfPanel` split the window a fixed 50/50 by
-    `size_flags_vertical`, so *any* growth in one panel's real content past its 50% share pushed
-    into the other rather than growing the window — which is what produced the actual bug (self
-    panel's slots rendering on top of the hand row). Per explicit direction (no scrolling
-    anywhere, no truncation, reduce information density instead): **hand cards now show name+cost
-    only per move, no effect text** (`CardFace.Render` adds a plain compact `Label` per move, not
-    the full `MoveButtonFactory` button) — full text there is deferred to a future hover-detail
-    view rather than fought into a space too small for it. Board slots keep full move text but
-    with a real, non-negotiable fixed size: `MoveButtonFactory`'s buttons are 240×42 with
-    `ClipText = true` and an 11pt font override as a hard backstop (if effect text still doesn't
-    fit two wrapped lines, it clips with an ellipsis rather than growing), and `SlotView` itself
-    is `250×260` with `clip_contents = true` so nothing inside it can ever push the surrounding
-    layout regardless of edge cases in text measurement. That fixed budget was sized off the real
-    worst case, not a guess: `RuleSet.MaxMergeDepth` is 2 and every real card has exactly 2 moves,
-    so 4 moves is the hard ceiling a creature can ever show, never more — the same fact that makes
-    a fixed, scroll-free height budget viable rather than fundamentally unsound. Window default
-    grew to 1600×1000 and `PlayerPanel.HandScroll`'s floor dropped to 150px (just enough for a
-    140-tall `CardFace`) to fit the arithmetic: 1000px window − 44px turn bar, split 50/50 between
-    panels, comfortably covers `Info` + a maxed-out 260px `Slots` row + `HandScroll`.
-  - **Unusable moves render too, disabled and dimmed, not omitted** (both rounds kept this):
-    `PlayerPanel.RenderSlots` builds every move on the creature with an `IsUsable` flag rather than
-    filtering to legal ones, and `MoveButtonFactory` sets `Button.Disabled` from it (which also
-    correctly blocks the click, no separate guard needed) — otherwise "no moves" and "one move I
-    can't currently use" looked identical.
-  - **Still not editor-verified end-to-end.** Round 1's drag/merge/cancel fixes were confirmed by
-    the user's own playtest; round 2 was caught broken by the same route (a screenshot showing
-    panels overlapping); round 3 has not yet been re-tested. Three real patterns worth grepping
-    for in any future scene built the same way: a wrapper-`Control`-around-a-`Button` silently
-    eating drag dispatch (round 1), `CustomMinimumSize`/`ScrollContainer` sizing being a floor
-    rather than a cap (rounds 2–3), and a fixed percentage split between two panels whose content
-    height isn't actually fixed.
-- [x] **B1a2. Hover detail view — the debt B1a's compacting left behind.** B1a's round 3 removed
-  full move text from hand cards (name+cost only) and `CardDetailPanel` entirely, promising "shown
-  on hover" as the replacement each time (see B1a's own notes) without ever scheduling it — this
-  closes that loop rather than leaving it a dangling comment. Desktop-only by nature (mobile has no
-  hover, and Godot never dispatches `MouseEntered`/`MouseExited` without a mouse), so it's additive
-  over B1a's tap/drag model, not a replacement for it: hovering a hand card or board slot shows
-  `HoverDetailPanel` (new scene/script) with the same full name/cost/stats/spell-effects/move-text
-  rendering `CardDetailPanel` used to, minus the Play button (`mouse_filter = Ignore` throughout so
-  the tooltip itself is never a click target — a hoverable tooltip that could be clicked would blur
-  "inspecting" vs. "acting"), and dismisses on mouse-out. `CardFace` and `SlotView` raise
-  `HoverStarted`/`HoverEnded`, forwarded through `PlayerPanel`; `BoardView` owns the panel and
-  wires those events directly rather than bubbling through `GameRoot`, since hover never submits a
-  `GameAction` and there's nothing for `GameRoot` to decide. **Two different payload shapes, kept
-  separate rather than forced together:** a `CardFace`'s hand card is exactly one
-  `CardDefinition`'s `CardText`; a `SlotView`'s board creature shows the *merged* move list
-  (`MovesOf` across every card folded in via `MergedFrom`), which isn't any single card's
-  `CardText` — `HoverDetailPanel.Show` takes plain fields so each caller hands over what it
-  actually has, with a `CardText`-shaped overload as a convenience for `CardFace`'s exact case.
-  Also clamps itself inside the viewport a frame after showing (`CallDeferred`, since the panel's
-  real laid-out size isn't known until layout settles), so a slot in the last column/row doesn't
-  render its tooltip off-screen. Also the natural home for B1b's status detail (a hovered creature
-  can show *why* a badge is showing — which effect granted the taunt, how many turns left) once
-  B1b lands, rather than needing a second hover mechanism later.
-  - **First real playtest (2/5 items passed clean): drag-drop, hover-shows, hover-dismiss, and
-    board slot readability all confirmed working.** Two real gaps found: (1) the merged board-slot
-    hover was accurate but redundant, since board moves are already always-visible (`MoveButtonFactory`,
-    step B1a) — the useful case for this step turned out to be hand cards, where full text isn't
-    otherwise visible; (2) the tooltip rendered off the bottom of the screen for hand cards, since
-    they sit near the bottom row and the panel only ever grew downward from the hovered control's
-    top edge.
-  - **Fix: upward expansion + horizontal reflow + matching font size, plus the layout regrouping
-    the user asked for alongside it.** `HoverDetailPanel.Show` gained `hoveredSize`/`expandUpward`
-    parameters — hand cards always expand upward (anchor the panel's *bottom* to the card's top,
-    not top-to-top) since every hand card lives in the bottom row; board slots keep the original
-    downward anchor since they aren't pinned to an edge. Positioning also now centers horizontally
-    over the hovered control (`hoveredSize.X`) rather than left-aligning, and the font size dropped
-    to match `MoveButtonFactory`'s 11pt so a full tooltip actually fits. **Sibling reflow, not
-    resizing the hovered card itself:** the first instinct (grow the hovered `CardFace`'s own
-    `CustomMinimumSize` on hover) was rejected before shipping — resizing the control the cursor is
-    over moves its edges out from under a cursor that hasn't moved, risking a
-    `MouseExited`/`MouseEntered` flicker loop. Fixed instead with zero-width spacer `Control`s
-    between every hand card (and before the first/after the last), each pair straddling a card and
-    widened only on that card's hover — `PlayerPanel.RenderHand` tracks a running "spacer before
-    this card" local across the loop so adjacent cards share the spacer between them.
-  - **Status bar consolidated and rebalanced, per explicit request alongside the hover fix rather
-    than a separate pass.** Score/resources moved out of each `PlayerPanel` (which no longer owns
-    or renders them) into one `StatusBar` row at the very top of `BoardView`, alongside the turn
-    label, cancel-targeting button, and end-turn button — previously scattered across two
-    per-panel `Info` rows plus a separate middle `TurnBar`. `OpponentPanel`/`SelfPanel` now split
-    remaining vertical space 35/65 (`size_flags_stretch_ratio`) rather than an even 50/50, since
-    only the self panel needs room for a full hand row. `SlotView`'s fixed height also tightened
-    (260→230, tighter internal separation) freeing top/bottom margin for the new split.
-  - **Scene-file note:** `HoverDetailPanel.tscn` was resaved by the Godot editor between rounds,
-    which reassigned its `uid://` and stripped the hand-authored child nodes down to the bare root
-    — rebuilt with the editor's new UID kept (not reverted) and the full `Panel`/`Layout`/label
-    tree restored, since the UID is now the authoritative one Godot itself assigned.
-  - **Second playtest of the round-2 fixes found three more real bugs, none of them guesswork —
-    each traced to a specific cause:**
-    1. **Opponent's `"N card(s)"` label floated in a large empty gap below their slots**, because
-       `Hand` (inside `HandScroll`) had `size_flags_vertical = 3` and the opponent panel — now
-       getting 35% of a maximized window while showing only 3 short slots and one label — had far
-       more space than that content needed, so the expand-fill stretched `Hand` (and vertically
-       centered its lone child) across all the leftover room. Fixed by removing `Hand`'s vertical
-       expand flag (sizes to natural content height) and adding an explicit `Spacer` `Control`
-       between `Slots` and `HandScroll` in `PlayerPanel.tscn` to absorb the leftover space instead
-       — `HandScroll` now sits at a fixed height pinned toward the bottom of the panel's share.
-    2. **Hand-card tooltips still expanded downward for creatures specifically, not spells** — not
-       a code-path difference (both go through the same `Show(CardText, ...)` overload) but a
-       *size* one: the fix that reduces move-list-label font size to 11pt had only been applied to
-       `EffectsLabel` (spells) and missed the dynamically-created move labels (creatures only, since
-       spells have no `MoveList` entries) in `HoverDetailPanel.Show`. A creature's taller
-       still-oversized panel pushed `globalPosition.Y - size.Y` negative, which the viewport clamp
-       then snapped to `Y = 0` (top of screen) — visually indistinguishable from "expanding
-       downward from the top" even though the anchor logic itself was correct. Fixed by applying
-       `MoveListFontSize` (11pt, matching `MoveButtonFactory`) to the move-list labels too; once the
-       panel is short enough the upward math stays positive and the clamp never engages.
-    3. **Sibling reflow was "very buggy"** — a real race, not a one-off: two adjacent cards share
-       the spacer between them, so a fast mouse move from card N to card N+1 could fire N+1's
-       `HoverStarted` (widening the shared spacer) before N's `HoverEnded` fires and narrows that
-       same spacer back to zero — leaving it collapsed while N+1 was still actively hovered. Fixed
-       with an owner-token per spacer (`_spacerOwner`, keyed by an incrementing per-`CardFace`
-       token, not the card id, since a hand can hold duplicate cards): a narrow-back only applies
-       if the card ending its hover is still the one that most recently widened that spacer.
-  - **Third playtest of the round-3 fixes found the font-size fix hadn't actually closed the
-    sizing gap, plus the opponent's dead space was still visible.** Root cause of the sizing
-    miss: `HoverDetailPanel.Show` measured `_panel.Size` via `CallDeferred` on the theory that
-    Godot's container-sort pass would have committed by then, but `AddChild`-ing the move-list
-    labels the same call also schedules its own deferred layout work, and there was no guarantee
-    those two deferred calls ran in the order needed — the read could still land on a stale size,
-    producing tooltips with text overflowing the bottom edge or a width that never grew to fit a
-    wrapped line. **Fixed by dropping `CallDeferred` entirely**: `Show` now calls
-    `_panel.GetCombinedMinimumSize()` (computes the required size synchronously from current
-    children, not from whatever Godot's own schedule last committed) and `ResetSize()` to force
-    the container to adopt it immediately, then does the position math against that value in the
-    same call. **Opponent dead space:** the 35/65 split was still a fixed ratio regardless of the
-    opponent panel's actual (small) content — tightened further to 20/80, a deliberate choice to
-    keep a predictable fixed split rather than switch to content-based natural sizing, which would
-    have made the self panel's height jump around whenever the opponent's board briefly grew tall
-    (e.g. mid-turn move buttons).
-  - **Sibling-shift-on-hover dropped entirely, not fixed a third time.** The owner-token fix
-    (previous round) closed the stuck-collapsed race, but a structural issue remained underneath
-    it: widening a spacer moves the *next* card's position, and if that shift lands the now-moved
-    card under a still-stationary cursor, it can itself fire a fresh `HoverStarted` and cascade —
-    the same class of self-interference `CardFace`'s own note already ruled out resizing the
-    hovered card itself for, just relocated to a neighbor instead of eliminated. Removed rather
-    than chased further: the sizing/positioning fix above already removes most of the visual
-    overlap that motivated shifting neighbors in the first place, and a mouse-transparent,
-    correctly-sized tooltip needs no layout cooperation from its neighbors to read cleanly.
-  - **Fourth playtest: the round-4 sizing fix worked (board-slot tooltips called "decent"), the
-    opponent-gap fix didn't (spacer still sat *before* the label instead of after it), and the
-    anchored-tooltip model itself was reconsidered.** Two closing changes, one a bug fix and one
-    a design change made deliberately rather than chased as a bug:
-    - **Opponent gap, actually fixed this time:** the fixed `Spacer` scene node always sat between
-      `Slots` and `HandScroll` regardless of content, so even after tightening the panel ratio the
-      opponent's collapsed `"N card(s)"` line still rendered *after* an always-expanding gap
-      instead of right under their slots. `PlayerPanel` now holds a reference to `Spacer` and sets
-      its `SizeFlagsVertical` per-render: `ExpandFill` (push the hand row down) only when
-      `isActiveHand`, `Fill` (collapse to nothing) for the opponent's count-label case — the
-      previous fix changed the ratio the gap could grow *within* without ever addressing that the
-      gap existed unconditionally in the wrong place.
-    - **Anchored-to-hover replaced with a fixed screen position, per explicit direction, not a
-      bug fix.** Every prior round's tooltip bugs (round 2's downward-only growth, round 3's
-      upward-math-vs-clamp interaction, round 4's stale-size overflow) were symptoms of the same
-      root choice: a tooltip that repositions itself based on what's hovered has to get that
-      repositioning right against every screen edge, hovered-control shape, and content-size
-      combination, and each fix successfully closed one case while the next playtest found
-      another. Replaced entirely with one fixed box in the bottom-left corner of the screen
-      (`HoverDetailPanel.tscn`'s root anchored `anchors_preset = 2`, offsets pinning a 252×260
-      box 12px from the left/bottom edges) that never moves regardless of whether the hovered
-      element is a hand card, one of your board creatures, or one of the opponent's — `SlotView`/
-      `CardFace` now only say *what* to show (`HoverDetailPanel.Show` dropped `hoveredSize`/
-      `expandUpward`/all position math entirely), never *where*. `PlayerPanel.RenderHand` adds a
-      left-padding spacer (`HoverPanelClearanceWidth`, 280px) before the first hand card so it
-      doesn't render underneath the now-permanent corner box; the box is `mouse_filter = Ignore`
-      throughout regardless, so it was never able to block a click or drag, only visually sit in
-      front of a card.
-  - **Fifth playtest: the fixed-position tooltip and clearance padding both confirmed working;
-    two real gaps left.** (1) The hand-count relocation request had actually meant the status
-    bar, not just closer spacing within `PlayerPanel` — moved for real this time: `BoardView`'s
-    `StatusBar`/`OpponentInfo` gained `OpponentHandCountLabel` next to the opponent's
-    score/resources, set from `state[waiting].Hand.Count` in `BoardView.Render`;
-    `PlayerPanel.RenderHand`'s `!isActiveHand` branch now renders nothing at all (the count
-    lived nowhere else in `PlayerPanel` once this moved, so the whole branch collapsed to an
-    early return). (2) **Hovering an opponent's board creature showed no moves** — traced to
-    `RenderSlots` only ever computing a move list `if (slot.Owner == state.ActivePlayer)`, a
-    check that was correct for board *buttons* (opponent moves aren't actionable, showing
-    buttons for them would be noise) but got applied to the *hover* data too, which shares the
-    same source list. The two are different questions — "can this be clicked" vs. "what can
-    this creature do" — and hover only ever needs the second one, regardless of ownership. Fixed
-    by decoupling: `SlotView.Render` gained an optional `hoverMoves` parameter (defaults to the
-    button list when omitted, the active-player case where the two happen to be the same data);
-    `PlayerPanel.RenderSlots` now always computes the creature's full move list for hover and
-    only additionally builds the owner-gated button list on top of it.
-  - **Not editor-verified beyond the five playtests above** — this sixth round has not itself
-    been played yet. Same standing limitation as every Godot-side step this phase (no editor/CLI
-    available here); verified by `dotnet build` (clean) and the full 951-test suite (`Shapes.Core`
-    untouched), not by hovering/playing again.
+  drag targets.** Splits by action kind: **play** a card by dragging it onto a board slot
+  (`SlotView._CanDropData`/`_DropData`) or, for a targetless spell, onto the self panel's
+  background (`PlayerPanel`) — replacing A3's tap-card→tap-slot flow. A spell needing a `chosen_*`
+  target can also be dropped directly on the enemy creature it targets, resolving immediately;
+  A5's tap-to-target UI remains the fallback only when the drop can't supply both a placement slot
+  and a chosen target at once. **Merge** is drag a friendly creature onto an adjacent friendly one
+  (`MoveMenu`, which used to bury this option, is deleted along with `MoveMenu.tscn`). **Using a
+  move is deliberately NOT a drag** — `SlotView` renders a `MoveList` of always-visible buttons for
+  the creature's currently-usable moves, since a drag alone can't disambiguate 2+ legal moves onto
+  the same target; a move needing a `chosen_*` target still finishes with A5's tap-to-target.
+  **Discard stays tap-based** (`AwaitingDiscard` has no drag precedent). New `DragPayload` packs a
+  hand-card-id or source `SlotIndex` into the `Variant`-shaped dictionary Godot's drag API
+  requires; `_CanDropData`/`_DropData` only ever *report* a drop, and `GameRoot` re-checks every
+  one against real `LegalActions()` before submitting — the same "view reports, GameRoot decides"
+  split every gesture here follows. **`CardDetailPanel` (A3/A4) is deleted, not just unused** —
+  playing is drag-only, with no tap-to-play or tap-to-inspect fallback; a tap on a hand card now
+  does nothing outside `AwaitingDiscard`.
+  **Found only by playtesting, not review, same as A5's history:** (1) `SlotView`/`CardFace` were
+  originally a wrapper `Control` around a child `Button`; Godot dispatches `_GetDragData`/
+  `_CanDropData`/`_DropData` to whichever `Control` is under the mouse, and the topmost `Button`
+  absorbed every drag gesture before the wrapper's overrides ever ran — dead on arrival despite a
+  clean build. Fixed by making both scenes' root node the `Button` itself. (2) Move-button effect
+  text was `TooltipText`-only, violating A3's "no hover-dependent information" rule on a touch
+  client with no hover — moved into the label with `AutowrapMode`. (3)/(4) Drop-target fallthrough
+  gaps (a spell dropped on an occupied slot, or directly on its own target) — fixed by routing both
+  through the same resolution paths their non-drag equivalents already used.
+  **Two more real layout bugs, chased through several fix attempts each:** a small default window
+  plus **`CustomMinimumSize` being a floor, not a cap** — a `(0, 48)` move button let Godot size
+  the whole board row to its widest *unwrapped* line instead of ever wrapping, and nesting a
+  `ScrollContainer` inside it didn't bound anything either, since a `ScrollContainer`'s own
+  `custom_minimum_size` is the same kind of floor. Root layout bug underneath both: `BoardView`
+  split the window a fixed 50/50 between panels, so real content growing past its half pushed into
+  the other panel instead of the window growing. Resolved per explicit direction (no scrolling, no
+  truncation, less density instead): hand cards show name+cost only per move (full text deferred
+  to what became B1a2's hover view); board slots keep full move text inside a real fixed budget —
+  `MoveButtonFactory` buttons at 240×42 with `ClipText`/an 11pt floor, `SlotView` itself clipped —
+  sized off the true worst case (`MaxMergeDepth` 2 × every real card having exactly 2 moves = 4
+  moves, never more), so a scroll-free fixed height is sound rather than a guess. Window default
+  grew to 1600×1000 to fit the arithmetic. Unusable moves render disabled/dimmed rather than
+  omitted (`IsUsable` flows through to `Button.Disabled`), so "no moves" and "one move I can't use
+  yet" don't look identical.
+- [x] **B1a2. Hover detail view — the debt B1a's compacting left behind**, closing the "shown on
+  hover" promise B1a's text-reduction made rather than leaving it a dangling comment. Desktop-only
+  (mobile dispatches no `MouseEntered`/`MouseExited`), additive over B1a's tap/drag model:
+  hovering a hand card or board slot shows `HoverDetailPanel` with the same full
+  name/cost/stats/effects/move-text `CardDetailPanel` used to (no Play button, `mouse_filter =
+  Ignore` throughout so a tooltip can never itself be a click target). `CardFace`'s hand card is
+  exactly one `CardDefinition`'s `CardText`; a `SlotView`'s board creature shows the *merged* move
+  list across every card folded in via `MergedFrom`, so `HoverDetailPanel.Show` takes plain fields
+  with a `CardText`-shaped convenience overload for `CardFace`'s case, rather than forcing one
+  payload shape. Also the natural home for B1b's later status detail, once it lands.
+  **Six playtest rounds, each catching a real bug the previous one didn't — the load-bearing
+  lessons, not the blow-by-blow:** early rounds anchored the tooltip to the hovered control (grow
+  upward for hand cards since they sit on the bottom row, reflow neighboring cards via spacers to
+  avoid overlap) and chased a sequence of real but narrow bugs from that choice — downward-only
+  growth, a stale-size read racing a same-frame `AddChild`'s own deferred layout, a spacer race
+  between adjacent cards' hover-start/hover-end. **Root cause, once named plainly: a tooltip that
+  repositions itself off what's hovered has to get that repositioning right against every screen
+  edge, control shape, and content size, and each fix closed one case while the next playtest found
+  another.** Replaced entirely with a fixed box in the bottom-left corner of the screen that never
+  moves regardless of what's hovered (`HoverDetailPanel.tscn` anchored, ~252×260, 12px from the
+  edges); `SlotView`/`CardFace` now only say *what* to show, never *where*.
+  `PlayerPanel.RenderHand` adds left padding (`HoverPanelClearanceWidth`) so the first hand cards
+  don't render under the now-permanent box. Sibling-reflow-on-hover was dropped outright rather
+  than fixed a third time, once the fixed-position tooltip removed the overlap it existed to avoid.
+  **Two structural fixes landed alongside the tooltip work, per explicit request:** the status bar
+  consolidated (score/resources/turn label/end-turn button all in one `BoardView`-level `StatusBar`
+  instead of scattered per-panel rows), and `OpponentPanel`/`SelfPanel`'s split tightened from an
+  even 50/50 to 20/80 — a deliberate fixed ratio (not content-based sizing, which would make the
+  self panel's height jump whenever the opponent's board grows tall mid-turn) reflecting that only
+  the self panel needs room for a full hand row. Hovering an opponent's board creature also showed
+  no moves at first — `RenderSlots` gated the move *list* on ownership when only the move *button*
+  should be, since "can this be clicked" and "what can this creature do" are different questions;
+  `SlotView.Render` gained an optional `hoverMoves` parameter to decouple them.
+  **Not editor-verified beyond those six playtests** — same standing limitation as every Godot-side
+  step this phase; verified by `dotnet build` (clean) and the full test suite, not by hovering
+  again.
 - [x] **B1b. Status/keyword display on the board slot, at a glance, no tap required.** New
-  `StatusIcons.Describe(CreatureInstance)` (`Shapes.Godot.Adapter`, 11 tests) returns one
-  `StatusBadge` (glyph + tooltip) per active status: shield=taunt, mirror=reflect,
-  left/right-arrow=ricochet (oriented by `RicochetDirection`), lightning=stun. `AttackBuff`
-  (persistent, cumulative) shows as a `+N atk` badge rather than an icon since it's a number worth
-  reading directly; `NextAttackBonus`/`NextDamageTakenBonus` (one-shot) get their own icon since
-  they silently change the next combat's math and a player choosing a target needs to see that
-  before committing. Taunt distinguishes persistent from `until_next_turn` (dimmed via
-  `StatusBadge.IsExpiring`) using a new public `CreatureInstance.TauntExpiresNextTurn` getter —
-  the one `Shapes.Core` change this step needed, read-only exposure of a rule the class already
-  enforces, not new engine behaviour. `SlotView` renders the row as a single wrapped `StatusLabel`
-  (glyphs joined) with every badge's meaning as the row's tooltip; the same badge glyphs fold into
-  the B1a2 hover stat line (`HoverDetailPanel`'s natural extension point, per that step's own
-  closing note) rather than needing a second hover mechanism.
-  **Also reworked `SlotView`'s layout** (screenshot showed a merged creature's concatenated name,
-  e.g. "Circle Cadet+", pushing the whole slot taller): resource/type icons moved inline with the
-  name on a `HeaderRow` (type label fixed-width, name label `size_flags_horizontal=3` so it alone
-  wraps/expands — nothing else in the row can grow the slot), health moved to a `StatusRow` shared
-  with the new status badges instead of the header. Slot widened 250→260 for breathing room now
-  that the header carries icons plus a wrapping name.
-  **Follow-up (same session): styling and reactive-trigger coverage.** (1) `StatusBadge` gained
-  `IsText`, set only on the `+N atk` buff — `SlotView` renders each badge as its own `Label` now
-  (an `HFlowContainer`, `StatusBadges`, replacing the single joined `StatusLabel`) so the buff can
-  carry its own color/size (amber, 14pt) distinct from health's plain-white number and from the
-  dimmer glyph badges beside it, and `IsExpiring` badges dim via the same per-label `Modulate`
-  mechanism `SetHighlighted` already uses elsewhere. Per-badge `TooltipText` replaced the old
-  single joined-string tooltip on the button itself. (2) `PendingOnNextDamageTaken`/
-  `PendingOnNextRicochet` (arbitrary armed effects, e.g. "next time this takes damage: gain 3
-  anvil") now report a badge too — `StatusIcons` casts the `object?`-typed field back to
-  `EffectNode` (the same cast `Effects.Ops` already does; `State` stays untouched) and reuses
-  `EffectText.Describe` on it rather than hand-authoring a phrase, the same synthesis-not-authoring
-  rule `CardText`/`MoveText` already follow. 6 new tests (17 total in `StatusIconsTests.cs`).
-  **Not editor-verified** — same standing limitation as every Godot-side step this phase (no
-  editor/CLI available here); verified by `dotnet build` (clean, 0 warnings) and the full test
-  suite (966/966, `Shapes.Core` touched only by the one read-only getter). Subsequently
-  playtested and confirmed, as every B-milestone step has been.
+  `StatusIcons.Describe(CreatureInstance)` (`Shapes.Godot.Adapter`, 17 tests) returns one
+  `StatusBadge` (glyph + tooltip) per active status — shield=taunt, mirror=reflect,
+  arrow=ricochet, lightning=stun, `+N atk` as text rather than an icon since it's a number worth
+  reading directly, and the one-shot `NextAttackBonus`/`NextDamageTakenBonus` triggers each get
+  their own icon since they silently change the next combat's math. Taunt distinguishes persistent
+  from `until_next_turn` (dimmed via `IsExpiring`) using a new public
+  `CreatureInstance.TauntExpiresNextTurn` getter, the one read-only `Shapes.Core` exposure this
+  step needed. Badges render as their own `Label`s in an `HFlowContainer` (so the attack buff can
+  carry its own color/size, amber/14pt, distinct from health and the dimmer glyph badges) and fold
+  into the B1a2 hover stat line rather than needing a second hover mechanism.
+  **Also reworked `SlotView`'s layout**, since a merged creature's concatenated name ("Circle
+  Cadet+") was pushing the whole slot taller: resource/type icons moved inline with the name on a
+  `HeaderRow` where only the name label expands/wraps, health moved to a `StatusRow` shared with
+  the new badges. **Not editor-verified** — verified by `dotnet build` (clean) and the full test
+  suite; subsequently playtested and confirmed, as every B-milestone step has been.
 
 **B1's original "art and animation" line splits into B1c (art) and B1d (animation),
 2026-08-08.** They share a sentence in the old plan but almost nothing as tasks: art is a
@@ -897,111 +696,107 @@ the B1c number deliberately:** eight source comments across `Shapes.Godot`/`Shap
 already cite "PLAN.md B1c" for art concerns (card proportions, art placeholders, cost badges,
 per-source-card art panes), and renumbering art would invalidate every one of them.
 
-- [~] **B1c. Real card art — IN PROGRESS: pipeline done, 5 of 36 cards authored.** Replaces the
-  placeholder geometry on card faces and board slots with actual artwork.
-  **Layout groundwork landed first** (commits `e023b55` "Significant card UI improvements from specs"
-  and `c8da205`, both against `references/card dimensions.pdf`): `CardMetrics` centralizes card
-  proportions, `ResourceIconFactory` draws type shapes as both small cost badges and a full-panel
-  `CreateArtPlaceholder`, `SlotView` renders split art for merged creatures, and
-  `HoverDetailPanel`/`CardFace`/`MoveRowFactory` were rebuilt around the spec's layout.
-  **Asset-source decision: generated raster art, authored at 2:1** (1774×887 in practice). Derived
-  from the four aspect ratios the same art must survive — 7:5 in hand and in the tooltip, 2:1 in
-  play, and ~1:1 per pane when merged — so 2:1 is the widest target and the centered square is the
-  intersection of all four. **The authoring rule that follows: subject inside the centered 1:1
-  square, horizontally centered, focal point ~42–45% from the top** (biased up because every art
-  region sits directly under a title band, and nothing ever crops vertically, so the bias is free).
-  The outer thirds are bleed, seen only in the in-play view.
-  **`CardArt.For(cardId, fallbackType)` is the whole seam** — resolves `res://art/cards/{cardId}.png`
-  and falls back to `CreateArtPlaceholder` when a card has no art yet, which is what makes the set
-  fillable one card at a time rather than all-or-nothing. Three call sites cover all four contexts:
-  `CardFace` (hand), `HoverDetailPanel` (tooltip, both hand-card and board-creature hover), and
-  `SlotView` (in play, keyed per source card so a merge shows each contributor's own art).
-  **Keyed on the card ID, never the JSON filename** — those agree for 35 of 36 cards and the
-  exception is the reason for the rule: `safeguard.json` still carries the id `patch_up` (renamed in
-  v1.7; the id stayed because `balance/` history keys off it). `CardText` gained a `CardId` field to
-  carry this, which reaches every art site without touching the three hover event signatures.
-  `CardArtTests` asserts every art file names a real card id — the art→card direction only, since
-  the reverse would just fail for every not-yet-drawn card. Verified failing on a planted
-  `safeguard.png` before being left green, because a silent placeholder fallback is exactly what
-  makes a misnamed file invisible.
-  **Two rendering details are load-bearing:** `StretchMode.KeepAspectCovered` (crop, never
-  letterbox — a card face must not show bars against the panel behind it), and
-  `ExpandMode.IgnoreSize` with a zero `CustomMinimumSize`, without which a 1774px-wide source
-  imposes a 1774px floor on card width and blows out every layout it appears in.
-  **First playtest confirmed the two risk cases**: the merged 1:1 panes (the tightest crop in the
-  game) read clearly, and type legibility survives the placeholder→art transition, which was the
-  open question for B4. Real art and placeholders coexist on one board without looking broken.
-  **Remaining: author the other 31 cards.** No code work is expected — dropping a correctly named
-  PNG into `Shapes.Godot/art/cards/` is the entire per-card cost. Not yet addressed, and cheap to
-  defer until the set is complete: texture import settings, atlasing, and the mobile texture budget
-  (~2.4MB per source PNG × 36 is not a shippable number as-is).
+- [~] **B1c. Real card art — IN PROGRESS: pipeline done, 5 of 36 cards authored.** Replaces
+  placeholder geometry on card faces and board slots with actual artwork. Layout groundwork landed
+  first (`CardMetrics` centralizes card proportions; `ResourceIconFactory` draws type shapes as
+  both cost badges and a full-panel placeholder; `SlotView` renders split art for merged
+  creatures). **Asset-source decision: generated raster art, authored at 2:1** (1774×887), derived
+  from the four aspect ratios the same art must survive (7:5 in hand/tooltip, 2:1 in play, ~1:1 per
+  pane when merged) — 2:1 is the widest target and the centered square is the intersection of all
+  four, so the authoring rule is subject inside that centered square, focal point ~42–45% from the
+  top (biased up since every art region sits under a title band and nothing crops vertically).
+  **`CardArt.For(cardId, fallbackType)` is the whole seam** — resolves `res://art/cards/{cardId}.png`,
+  falls back to the placeholder when absent, which is what makes the set fillable one card at a
+  time. **Keyed on the card ID, never the JSON filename** — `safeguard.json` still carries the id
+  `patch_up` (renamed in v1.7; the id stayed because `balance/` history keys off it), so `CardText`
+  carries a `CardId` field reaching every art site. `CardArtTests` asserts every art file names a
+  real card id, verified failing on a planted misnamed file first — a silent placeholder fallback
+  is exactly what makes that invisible otherwise. **Two rendering details are load-bearing:**
+  `StretchMode.KeepAspectCovered` (crop, never letterbox) and `ExpandMode.IgnoreSize` with a zero
+  `CustomMinimumSize` (without it, the 1774px-wide source imposes a 1774px floor on every layout it
+  appears in). First playtest confirmed the two risk cases (merged 1:1 panes stay legible; type
+  legibility survives the placeholder→art transition). **Remaining: author the other 31 cards** —
+  dropping a correctly named PNG in is the entire per-card cost; texture import settings, atlasing,
+  and the mobile texture budget (~2.4MB per source PNG × 36) are deliberately deferred until the
+  set is complete.
 - [x] **B1d. Animation driven by A2's diff** — play/move/merge/damage/heal/destroy/score, over the
   drag-based interactions and status-aware slot view B1a/B1b established. Sequenced last in B1
-  because it's the piece that would otherwise need redoing.
-  **A2's seam is finally consumed.** `GameSession.Submit` has returned a `StateDiff` since A2 and
-  nothing read it — `GameRoot.Submit` discarded the return value, and the whole `Shapes.Godot`
-  project mentioned `StateDiff` exactly once, in a comment. `Submit` now captures it and passes it
-  to `BoardView.PlayAnimation` after `RefreshAll`.
+  because it's the piece that would otherwise need redoing. **A2's seam is finally consumed:**
+  `GameSession.Submit` has returned a `StateDiff` since A2 with nothing reading it; `Submit` now
+  captures it and passes it to `BoardView.PlayAnimation` after `RefreshAll`.
   **Resolved the step's central choice — overlay, not node reconciliation.** `PlayerPanel`'s render
-  path still `QueueFree`s and rebuilds every `SlotView`/`CardFace`, exactly as before; `BoardAnimator`
-  is a mouse-transparent full-rect `Control` above the board that spawns its own short-lived nodes at
-  slot positions and frees them. Reconciling node identity was the alternative and was rejected on
-  risk: it would touch every event-rewiring path in `PlayerPanel`, which is precisely where A3's three
-  playtest-only bugs and A5's dropped-highlight bug came from — all lifetime/rewiring mistakes
-  invisible to the type checker. **The honest cost:** this animates *at* slots, so a move is a ghost
-  frame at the destination rather than the card itself sliding. That is a real polish ceiling, and
-  reconciliation stays available later without rewriting `AnimationScript`, which is expressed in
-  slots and cues rather than nodes.
-  **`AnimationScript` (Adapter, pure, 12 tests) derives order the diff cannot.** A `StateDiff` is an
-  unordered *set*: it says what differs, never what happened. Two derivations live here — (1)
-  rejoining a departure and a matching arrival (same `CardId` and `Health`) into one `Move`, since
-  the diff reports a move as two unrelated slot changes with nothing linking them, and (2) the cue
-  ordering: move/play → merge → damage → heal → destroy → score. **Damage-before-destroy is the
-  load-bearing one** — a killing blow is both, and the reverse order animates the damage number over
-  an already-empty slot. Sorted stably, so two creatures hit by one spell always animate in board
-  order rather than enumeration order. Placed in `Shapes.Godot.Adapter` rather than `Shapes.Godot`
-  precisely because it is list-to-list translation with no node concept in it, which makes the
-  ordering rules testable without an editor — the same reasoning that put `StateDiff` there in A2.
-  **Input policy decided: animations never block input.** This follows from A6 — every action is a
-  committed decision, and the state has *already* changed before anything draws, so gating input
-  would be showing the player a lie about what is interactive. Every effect is self-contained and
-  self-freeing rather than a queue that must drain, so acting fast just overlaps the previous
-  action's cues instead of dropping or delaying them.
-  **Two Godot-specific traps handled:** layout rects are collected via `CallDeferred` because a
-  freshly rebuilt `SlotView` has no settled `Size`/`GlobalPosition` until the layout pass runs (the
-  same pre-layout `(0,0)` trap `ResourceIconFactory` already documents), and the `StateDiff` is
-  stashed in a field rather than passed as `CallDeferred` arguments, which marshal through Variant
-  and cannot carry a plain C# record. `PlayerPanel.CollectSlotRects` hands out `Rect2`s, never
-  `SlotView` references — a node reference would dangle at the next render, which is the exact
-  failure the overlay exists to avoid.
-  **Not editor-verified** — same standing limitation as every Godot-side step this phase; verified by
-  `dotnet build` (clean, 0 warnings) and the suite (979/979). Animation bugs are disproportionately
-  signal-timing and node-lifetime bugs, the class neither can see, so this wants a real playtest more
-  than any step so far. **Specifically worth checking:** that cues land on the right slots after a
-  hand-size change re-lays out the board, and that rapid consecutive actions overlap cleanly rather
-  than stacking up.
-- [ ] **B2. AI opponent via `IAgent`** (difficulty = search budget), off the main thread and capped
-  on mobile. `Choose(AgentContext, CancellationToken)` already takes the token, so the seam exists
-  — **what's missing is the policy**: what the player sees during a ~2s search, and what happens
-  when the app is backgrounded mid-search. Cancel-and-restart on resume is the safe default;
-  decide it here rather than discovering it on a device.
-- [ ] **B3. Interrupted-game persistence** — mobile is the platform that kills a backgrounded app
-  mid-turn, so "resume game" is a different problem from "save deck" and is scheduled separately
-  from it (C3). Two viable mechanisms: serialize `GameState` (needs RNG stream position,
-  `PendingDiscards`, `MergedFrom` chains, `TurnEvents` — all of it, correctly), or replay
-  seed-plus-action-log, which Phase 1's determinism guarantee already makes sound and is the
-  cheaper bet. Pick one deliberately; a half-serialized state that desyncs is worse than no resume.
-- [ ] **B4. Tutorial / rules surfacing** — **the item the old plan omitted entirely, and the
-  difference between playable and learnable.** Nothing about the ruleset is self-evident from a
-  board: a rock-paper-scissors type cycle, merging that can *increase* vulnerability, scoring that
-  requires an unopposed slot, and fatigue. The console gave players that context in text and the
-  Godot client gives them none. Minimum bar: the type cycle legible on the board itself, and a
-  reachable rules reference.
+  path still `QueueFree`s and rebuilds every `SlotView`/`CardFace`; `BoardAnimator` is a
+  mouse-transparent full-rect `Control` above the board that spawns its own short-lived nodes at
+  slot positions and frees them. Reconciling node identity was the alternative, rejected on risk:
+  it would touch every event-rewiring path in `PlayerPanel`, precisely where A3's playtest bugs and
+  A5's dropped-highlight bug came from. **The honest cost:** this animates *at* slots, so a move is
+  a ghost frame at the destination rather than the card sliding — a real polish ceiling, with
+  reconciliation still available later without rewriting `AnimationScript`.
+  **`AnimationScript` (Adapter, pure, 12 tests) derives order the diff cannot** — a `StateDiff` is
+  an unordered set, so this rejoins a departure+arrival pair (same `CardId`/`Health`) into one
+  `Move`, and imposes the cue ordering move/play → merge → damage → heal → destroy → score.
+  **Damage-before-destroy is the load-bearing rule** — a killing blow is both, and the reverse
+  order animates the damage number over an already-empty slot. **Input policy: animations never
+  block input**, following from A6 — the state has already changed before anything draws, so every
+  effect is self-contained and self-freeing rather than a queue that must drain.
+  **Two real bugs found post-playtest (2026-08-09), neither visible to the type checker or the
+  test suite:** (1) `BoardAnimator.Place` set a spawned node's `Position` before its `Scale`; since
+  `Ghost`'s frame scales around a centered `PivotOffset`, applying scale *after* position dragged
+  the rendered corner right/down by `pivot * (1 - scale)` — fixed by scaling first, positioning
+  last. (2) `PlayerPanel.RenderSlots`/`RenderHand` called `QueueFree()` on old children without
+  `RemoveChild()` first; since `QueueFree` only marks a node for deletion at end-of-frame, the
+  container briefly held both the dying and the new children in the same frame `BoardAnimator`
+  reads `GlobalPosition` from, which is what actually put animations at the wrong slot (the
+  pivot-scale bug was real but too small to be the reported symptom). Fixed by `RemoveChild`ing
+  immediately. **Still wants a real editor playtest to confirm both fixes** — verified so far only
+  by `dotnet build` (clean) and the full suite, the same standing limitation as every Godot-side
+  step this phase.
 
 #### Milestone C — the other scenes
 
-- [ ] **C1. Lobby / match setup** — seat choice, opponent (human hotseat or AI difficulty), ruleset.
-  Small, but it's what stops A-milestone launch config from calcifying into hardcoded scene state.
+**B2/B3/B4 moved here from Milestone B, after C1/C4, 2026-08-09.** All three assumed an AI
+opponent was imminent, and B2 specifically would have pushed hotseat toward a secondary mode
+rather than the primary one it still is. Deferring them past the lobby (C1) and card browser (C4)
+keeps 2-human hotseat as the mode worth investing in near-term — more play-screen settings and
+polish on the game that already exists, rather than clearing room for AI by cutting hotseat early.
+Renumbered C5–C7 to keep the milestone's own step order meaningful rather than leaving gaps.
+**C5's core then pulled forward into C1 the same day**, once C1 was actually being built: a lobby
+that offers an AI difficulty toggle and then does nothing when it's picked is worse than not
+offering it, so C1 below ships a working AI seat rather than a decorative one. What stayed behind
+in C5 is specifically the parts that need real design (off-main-thread search, cancellation,
+backgrounded-app policy), not "AI opponent" as a whole.
+
+- [x] **C1. Lobby / match setup, including a working AI seat (C5's core pulled forward).** Player
+  choice per seat, independently — Human, Random, Greedy, IS-MCTS, or IS-MCTS with the heuristic
+  playout policy — so 0, 1, or 2 human players are just two independent pickers rather than a mode
+  switch; ruleset choice is not yet exposed (still `RuleSet.Default` only, C2's deckbuilder is the
+  natural point to revisit that). `Lobby.tscn`/`Lobby.cs` is the new `run/main_scene`, replacing
+  `GameRoot.tscn`'s old role; `ChangeSceneToFile` into `GameRoot.tscn` on Start, with the chosen
+  `MatchConfig` carried across via `PendingMatch` (a plain static field set immediately before the
+  scene change and consumed once in `GameRoot._Ready` — Godot has no constructor-argument path
+  through a scene change, and this is the smallest mechanism that covers it; opening `GameRoot.tscn`
+  directly in the editor still falls back to two-human hotseat rather than failing to start).
+  **`AgentFactory`/`AgentKind`/`SeatConfig`/`MatchConfig`** (`Shapes.Godot.Adapter`, 8 tests) mirror
+  `Shapes.Console`'s `BuildAgent` switch exactly — same five kinds, same per-seat derived random
+  stream (`seed * 7919` / `seed * 104729`) — so the lobby offers nothing the console hasn't already
+  proven out. Difficulty is an iteration count (`SearchBudget.OfIterations`, presets 200/1000/5000),
+  never a time budget, for the same reason the console's `--iterations` is: a wall-clock budget
+  makes the same seed play a different game on a different machine.
+  **AI turns run synchronously on the main thread — a deliberate first pass, not an oversight.**
+  `GameRoot.RunAiTurns` calls the active seat's `agent.Choose` → `Submit` in a loop, one call per
+  *action* (matching `Shapes.Console`'s own loop granularity, so a turn needing several actions —
+  discard down to the hand limit, then play — plays out identically to a human at that seat), until
+  control reaches a human seat or the game ends; called after `StartNewGame` and after every human
+  `Submit`, so a human-v-AI game hands off automatically in both directions and an AI-v-AI game runs
+  to completion with no input at all. **What C5 still owns:** running that search off the main
+  thread with cooperative cancellation, and the backgrounded-app/what-the-player-sees-during-search
+  policy that needs before either matters — a stall during a 200–5000-iteration search on desktop is
+  short enough to ship as-is, but is exactly the thing a slower device or a higher difficulty preset
+  would turn into a real freeze.
+  **Not editor-verified** — same standing limitation as every Godot-side step this phase; verified
+  by `dotnet build` (clean) and the full test suite (987/987), including an all-AI-seat game run to
+  completion over three seeds (`MatchConfigTests`) as the closest thing to an editor playtest
+  reachable outside the editor.
 - [ ] **C2. Deckbuilder** (`deckMode: "custom"`) — also owns migrating the determinizer off its
   symmetric-deck assumption, since custom decks make the opponent's decklist itself hidden (a
   belief-distribution problem, not just a partition problem). Most of `Determinizer` and its test
@@ -1011,9 +806,155 @@ per-source-card art panes), and renumbering art would invalidate every one of th
   ruleset today so the unmigrated path fails loudly rather than silently sampling nonsense. First
   belief model: constrain to cards demonstrably played, fill the rest uniformly within
   deck-size/copy limits — crude but sound, same justification as Phase 2's uniform sampling.
-- [ ] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half, B3 having
+- [ ] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half, C6 having
   taken the interrupted-game half.
-- [ ] **C4. Card browser / stats** — the collection view, reading `CardDatabase` and `EffectText`.
+- [x] **C4. Card browser** — every card, always shown in full detail, filterable, in a grid. A
+  separate scene (`CardBrowser.tscn`) rather than a lobby tab, per explicit direction, reached from
+  a "Card Browser" button on `Lobby.tscn` and returning via its own Back button — the same one-line
+  `ChangeSceneToFile` convention `Lobby` already established for reaching `GameRoot`.
+  **Reuses the live-game view scripts rather than building a parallel renderer.**
+  `HoverDetailPanel`/`SlotView` already render from static `CardText`/`CardDefinition` data (A4's
+  `EffectText` synthesis), so a card looks identical here and on the real board. Nothing here
+  submits a `GameAction` or touches `GameSession` — every cell is built once from `CardDatabase.All`
+  and never mutated (`SlotView` renders with `isDraggable: false`). The in-play cell uses a
+  synthetic `SlotIndex(PlayerId.One, 0)` and a fresh full-health `CreatureInstance(card.Id,
+  card.Health, card.Types)` in place of a live `Board` — `SlotView.Render` only ever needed a
+  `CreatureInstance` and a `CardDatabase`, never `GameState`.
+  **Revised same day, before this ever reached a user playtest** — the first pass (in-hand face +
+  hover-triggered tooltip + single-column rows, described in an earlier draft of this entry) was
+  replaced outright per follow-up direction: every card now shows its full tooltip
+  (`HoverDetailPanel.Show(CardText)`) permanently rather than needing a hover, a `GridContainer`
+  replaces the row list so cards sit side by side, `CardFace`/the in-hand format and the per-row
+  name/kind label are both gone (redundant once the tooltip and in-play view already carry the
+  name), and a filter bar (`Kind`: All/Creature/Spell, `Cost`: All/1–5, `Type`: All/Spike/Anvil/
+  Wheel, `Creature view`: Tooltip/In-play) rebuilds the grid from `CardDatabase.All` on every
+  change rather than filtering a static list. Cost/type filters read `CardText.SinglePipType`/the
+  card's single-type cost amount, the same derivation the cost badge itself uses, so a filter can
+  never disagree with what the badge shows. A spell has no board presence, so `Creature view` only
+  changes a creature's cell — a spell always renders as its tooltip regardless of that filter's
+  setting, per its own semantics rather than a special case bolted on. `HoverDetailPanel`'s root
+  anchors are baked for its usual full-rect-parent, fixed-corner use (PLAN.md B1a2); confirmed by
+  an actual run, not assumed, that a `GridContainer` parent overrides a child's own anchor/position
+  the same way `HBoxContainer` already does elsewhere, so no changes to that scene were needed to
+  reuse it as a grid cell.
+  **Two real bugs, both caught by actual headless Godot runs, neither visible to `dotnet build` or
+  the test suite:** (1, first pass) building a row's `CardFace`/`SlotView` children and calling
+  `.Render(...)` on them before adding the row itself to the live scene tree — a node's `_Ready`
+  (which resolves its own `GetNode<...>` child references) only fires once a node enters the tree
+  its scene root is already part of, not merely once it becomes a child of an off-tree `Control`, so
+  `Render` threw a `NullReferenceException` on a still-null label reference. Fixed by attaching
+  every node to the live tree before calling any `Render`, a lesson this revision's `BuildCell`
+  still follows. (2) None found in the revision itself — verified clean on the first headless pass,
+  unlike the first version.
+  **Editor-verified, unlike most Godot-side steps this phase** — a locally available Godot 4.5.1
+  binary made real headless runs and on-screen screenshots possible (a throwaway rig scene, deleted
+  after use): `--headless` loads of `Lobby.tscn`, `CardBrowser.tscn`, and `GameRoot.tscn` all clean,
+  plus screenshots confirming the grid layout, the default (Tooltip, All/All/All) view, and the
+  Kind=Creature + Creature view=In-play filter combination all render correctly — the first steps in
+  Phase 5 to get an actual editor/runtime check rather than resting on `dotnet build` and the test
+  suite alone.
+  **Revised again same day: 5 columns, a reordered filter bar, and a real "Merged" creature
+  type.** Grid widened 4→5 columns; filter order changed to Type, Cost, Kind, Creature type,
+  (Kind=Creature only) Creature view — `Kind` and `Creature view` now hide themselves
+  (`OptionButton.Visible`, not disabled) whenever `Creature type = Merged` is selected, since a
+  merged creature is always a creature shown in-play, so those two controls would otherwise offer
+  choices that do nothing. **A new sort rule (cost, then name, then resource type) applies
+  everywhere** — the plain grid, and the creature list the merge pickers themselves are built
+  from, so "First"/"Second" list creatures in the same order the plain grid would show them.
+  **A search bar** (top-right, `LineEdit.TextChanged`) narrows by a case-insensitive name
+  substring, composing with every other filter rather than replacing them.
+  **`Creature type = Merged` is a REAL merge, not a cosmetic double-render** — reveals a
+  First/Second row (`MergeBar`) and builds every *ordered* pairing of two creatures (originally
+  27×26, corrected to 27×27 in a later revision below) by constructing each source's own
+  `CreatureInstance` and calling `receiving.AbsorbMerge(absorbed, cards.MoveCountOf)` — the exact
+  method `ActionExecutor.ApplyMerge` calls on a real board, so the combined health/types/move list
+  shown here is what a real merge actually produces, not a hand-assembled approximation that could
+  drift from it. Order matters and is preserved deliberately: `AbsorbMerge`'s move-list
+  concatenation and merged display name both depend on which source is "first," so "Circle A +
+  Circle B" and "Circle B + Circle A" are genuinely different cells, not duplicates. First/Second
+  each default to "All" (every pairing) and narrow to one specific creature when set; to see a
+  specific reverse pairing, pick the two creatures in the other order (a `Flip` checkbox was tried
+  and removed the same day — see the next revision).
+  **Verified the same way as the first revision** — headless loads clean, plus screenshots of the
+  default grid (5 columns, correct sort order), a filtered single merged pairing, and the full
+  unfiltered 702-pairing grid (scrolls, does not hang or error) confirmed all correct before this
+  was considered done.
+  **Revised a third time same day, after real use surfaced three problems this round's own
+  verification hadn't caught:**
+  1. **Slow.** Every filter change rebuilt every matching cell as real Godot nodes (`SlotView`/
+     `HoverDetailPanel` — a `Panel`, a `StyleBoxFlat`, several `Label`s, move buttons, art panes
+     each), and the unfiltered Merged case is 702 of them at once. Nothing was being
+     "recomputed" in the sense of repeated engine work — `AbsorbMerge` itself is a handful of
+     field adds — the cost was node/scene construction, so caching pure data would not have
+     fixed it. **Fixed with pagination**, not caching: `RebuildGrid` now computes the full
+     filtered/sorted result list as plain data first (cheap, no nodes — a new `Entry` record,
+     either one card or one merge pairing), then instantiates real cells for only the current
+     25-card page (5×5, matching the grid's own column count). A `PageBar` (`< Prev` / `Page N /
+     M (total)` / `Next >`) appears only when there's more than one page; any filter change
+     resets to page 1.
+  2. **`Creature view` (and `Kind`) stayed visible under `Creature type = Merged`.**
+     `OnCreatureTypeChanged` hid the `OptionButton`s themselves but never their sibling `Label`
+     nodes (`KindLabel`/`ViewModeLabel` in `CardBrowser.tscn`), so the filter bar showed
+     "Kind"/"Creature view" text sitting over an empty gap where the dropdown used to be —
+     looked like the filter never hid at all. Fixed by hiding each label alongside its control.
+  3. **Flip didn't visibly do anything.** It swapped which of the First/Second *filters*
+     supplied the absorbing vs. absorbed creature before filtering — correct in isolation, but
+     with both pickers left on "All" (the default state right after switching to Merged, the
+     state most likely to be tried first) every ordered pair already appears both ways in the
+     unfiltered list, so swapping the filters is a genuine no-op there. **Removed rather than
+     reworked**, per explicit direction, once a per-cell-swap alternative (visibly flips even at
+     "All", but only by relabeling which of two *already-separately-existing* entries a cell
+     shows, so the full unfiltered set doesn't actually change either) was weighed and rejected
+     as solving nothing real: First/Second already reach every reverse pairing directly by
+     picking the two creatures in the other order, which is what shipped instead.
+  **Verified the same way as every revision this step** — headless loads clean; screenshots
+  confirm the label-hiding fix, a 25-of-702 first page with working `Prev`/`Next` (page 2 of 2
+  correctly shows the remaining 11 cards for a 36-total Original filter), and that picking
+  First/Second in reversed order renders the reversed merge.
+  **Revised a fourth time same day: `Creature view`'s visibility was only wired to `Creature
+  type`, never to `Kind`**, so it stayed visible (and usable) even with `Kind = All` or `Spell`,
+  where it has nothing to control — a spell has no in-play view regardless of this filter.
+  `OnKindChanged` (new) and `OnCreatureTypeChanged` now both defer to one shared
+  `UpdateViewModeVisibility`, which shows `Creature view` (and its label) only when `Creature
+  type = Original` AND `Kind = Creature`, and — not just hides it — resets it to `Tooltip`
+  whenever it's hidden, since `BuildOriginalCell` reads `_viewModeFilter.Selected` regardless of
+  `Visible` and a stale `In-play` selection left over from a prior `Kind = Creature` session must
+  not silently keep affecting spell cells the next time the control is hidden. Verified with
+  screenshots: `Kind = All` hides it; `Kind = Creature` shows it (defaulted to `Tooltip`); and a
+  `Creature` → `In-play` → `Spell` sequence hides it and correctly renders all spells as tooltips
+  rather than getting stuck.
+  **Revised a fifth time same day: merged pairings excluded a card with itself.**
+  `MergedEntries()` skipped `first.Id == second.Id` on the reasoning "a creature cannot merge with
+  itself" — true of one *instance*, but not of two separate copies of the same card played to
+  adjacent slots, which is a real, legal board scenario:
+  `ActionGenerator.AddMergeActions` rules out same-**slot** merges (`sourceSlot == targetSlot`),
+  never same-**card-id** ones, and `AbsorbMerge` itself never checks `CardId` equality either, so
+  rendering "Circle + Circle" needed no special case once the skip was removed — 27×27 = 729
+  ordered pairings (including 27 self-pairs), not 27×26 = 702. Verified with a screenshot:
+  "Basic Circle + Basic Circle" renders at 4/4 health (2+2), both move sets and both art panes
+  duplicated, exactly matching what merging two real copies on a board would produce.
+- [ ] **C4b. Card stats** — win-rate/pick-rate context per card from `balance/LOG.md`, deferred out
+  of C4 rather than bundled: the collection *view* needed no balance data to be useful, and
+  pulling live numbers into the client raises its own question (bundled at build time, or read from
+  disk) that the browser itself didn't need answered to ship.
+- [ ] **C5. AI opponent responsiveness: off the main thread, capped on mobile** — C1 shipped a
+  working AI seat that searches synchronously; this is specifically what's left. `Choose(AgentContext,
+  CancellationToken)` already takes the token, so the seam exists — **what's missing is the
+  policy**: what the player sees during a ~2s search, and what happens when the app is backgrounded
+  mid-search. Cancel-and-restart on resume is the safe default; decide it here rather than
+  discovering it on a device.
+- [ ] **C6. Interrupted-game persistence** — mobile is the platform that kills a backgrounded app
+  mid-turn, so "resume game" is a different problem from "save deck" and is scheduled separately
+  from it (C3). Two viable mechanisms: serialize `GameState` (needs RNG stream position,
+  `PendingDiscards`, `MergedFrom` chains, `TurnEvents` — all of it, correctly), or replay
+  seed-plus-action-log, which Phase 1's determinism guarantee already makes sound and is the
+  cheaper bet. Pick one deliberately; a half-serialized state that desyncs is worse than no resume.
+- [ ] **C7. Tutorial / rules surfacing** — **the item the old plan omitted entirely, and the
+  difference between playable and learnable.** Nothing about the ruleset is self-evident from a
+  board: a rock-paper-scissors type cycle, merging that can *increase* vulnerability, scoring that
+  requires an unopposed slot, and fatigue. The console gave players that context in text and the
+  Godot client gives them none. Minimum bar: the type cycle legible on the board itself, and a
+  reachable rules reference.
 
 #### Milestone D — ship
 
