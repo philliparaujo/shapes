@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Godot;
 using Shapes.Ai.Agents;
 using Shapes.Core.Actions;
@@ -27,23 +29,48 @@ namespace Shapes.Godot.Scripts;
 //
 // PLAN.md C1 (AI-opponent wiring pulled forward from C5, 2026-08-09): either seat, both, or
 // neither can be AI-controlled -- Lobby.cs builds the per-seat SeatConfig and GameRoot only
-// ever sees "is this seat's IAgent null (human) or not." Search runs SYNCHRONOUSLY on the main
-// thread for this first pass -- IAgent.Choose's own header already anticipates Phase 5 running
-// it off-thread with cooperative cancellation, but that needs a threading/UI-feedback design
-// (what does the player see during a ~2s search, what happens if the app backgrounds mid-search)
-// this step deliberately does not make. A human-v-AI game at the default iteration presets
-// (200/1000/5000) is a short, bounded stall per AI turn, not a hang -- acceptable to ship now
-// and worth revisiting the moment a slower device or a higher difficulty makes it not.
+// ever sees "is this seat's IAgent null (human) or not."
+//
+// PLAN.md C5 (2026-08-09): AI turns run off the main thread and pace themselves, so an AI-v-AI
+// game is actually watchable instead of the loop running to completion in one synchronous frame
+// (the earlier C1 cut) and only the final game-over screen ever rendering. RunAiTurns is now
+// `async void` -- the correct shape for a Godot event-loop entry point with no caller awaiting
+// it (same category as a signal handler) -- and does two things neither Choose nor Submit did
+// before: `await Task.Run(...)` moves the actual search off the UI thread, so a multi-second
+// IS-MCTS budget no longer freezes input/rendering while it runs; and `await` on a
+// `SceneTreeTimer` after every action adds a fixed MoveDelaySeconds pause, so Random/Greedy
+// (whose Choose returns near-instantly) don't blur past faster than the board can animate.
+// `_aiTurnToken` is cancelled in _ExitTree so a search in flight when the scene is torn down
+// does not resume on the main thread afterward and touch freed nodes.
 public partial class GameRoot : Control
 {
     [Export] public NodePath BoardViewPath { get; set; } = "BoardView";
     [Export] public ulong Seed { get; set; }
 
+    // Doubled from the original 0.6s (still comfortably past BoardAnimator's longest cue,
+    // FloatSeconds at 0.55s) per explicit direction -- 0.6s read as too fast to actually follow
+    // an AI-v-AI game action by action.
+    private const double MoveDelaySeconds = 1.2;
+
     private GameSession? _session;
     private CardDatabase? _cards;
     private Dictionary<PlayerId, IAgent?> _agents = new();
+    private readonly CancellationTokenSource _aiTurnToken = new();
+
+    // Guards against RunAiTurns being entered twice concurrently -- Submit calls it after every
+    // human action, and a fast double-submit (or a human action landing while a prior RunAiTurns
+    // call is still mid-await) would otherwise start a second loop racing the first over the same
+    // GameSession, which owns no locking of its own (PLAN.md A2: GameSession is the one place
+    // allowed to touch GameState, not a place designed for concurrent callers).
+    private bool _aiTurnInProgress;
 
     private BoardView? _boardView;
+
+    public override void _ExitTree()
+    {
+        _aiTurnToken.Cancel();
+        _aiTurnToken.Dispose();
+    }
 
     public override void _Ready()
     {
@@ -118,22 +145,62 @@ public partial class GameRoot : Control
     // Called after every state-changing event (StartNewGame, Submit) so an AI-v-AI game runs to
     // completion without any UI input, and a human-v-AI game hands back to the human the moment
     // it's their turn.
-    private void RunAiTurns()
+    //
+    // async void, not async Task: this is an event-loop entry point (called from _Ready and from
+    // Submit, neither of which awaits it), the same shape Godot signal handlers already take.
+    // Each iteration awaits twice -- Task.Run for the search itself, then a SceneTreeTimer for
+    // the pacing delay -- so between any two AI actions control fully returns to Godot's own
+    // frame loop and BoardView actually redraws, instead of the whole game resolving inside one
+    // synchronous call as it did when this was a plain while loop (PLAN.md C1's cut).
+    private async void RunAiTurns()
     {
-        if (_session is null || _cards is null || _boardView is null)
+        if (_session is null || _cards is null || _boardView is null || _aiTurnInProgress)
         {
             return;
         }
 
-        while (!_session.State.IsOver && _agents.TryGetValue(_session.State.ActivePlayer, out var agent)
-               && agent is not null)
+        _aiTurnInProgress = true;
+        try
         {
-            var context = AgentContext.ForActivePlayer(_session.State, _cards);
-            var action = agent.Choose(context);
+            while (!_session.State.IsOver && _agents.TryGetValue(_session.State.ActivePlayer, out var agent)
+                   && agent is not null)
+            {
+                var context = AgentContext.ForActivePlayer(_session.State, _cards);
+                var token = _aiTurnToken.Token;
 
-            var diff = _session.Submit(action);
-            RefreshAll();
-            _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
+                // The search itself is the only unbounded-time part of a turn (Random/Greedy
+                // return instantly regardless) and the only part that benefits from a thread --
+                // it is a tight CPU loop with no I/O, so Task.Run's thread-pool hop is what
+                // actually keeps Godot's own thread free to render/accept input while it runs.
+                var action = await Task.Run(() => agent.Choose(context, token), token);
+
+                if (!IsInstanceValid(this) || token.IsCancellationRequested)
+                {
+                    // The scene was torn down (or a new game started) while the search ran --
+                    // _session/_boardView may already be disposed, so this action is simply
+                    // dropped rather than applied to state nothing here still owns.
+                    return;
+                }
+
+                var diff = _session.Submit(action);
+                RefreshAll();
+                _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
+
+                // Paces every agent uniformly, not just the fast ones -- an IS-MCTS search that
+                // already took visible time still gets the same beat before the next action, so
+                // the rhythm of watching a game doesn't change with which agent is playing.
+                var timer = GetTree().CreateTimer(MoveDelaySeconds);
+                await ToSignal(timer, SceneTreeTimer.SignalName.Timeout);
+
+                if (!IsInstanceValid(this))
+                {
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _aiTurnInProgress = false;
         }
     }
 

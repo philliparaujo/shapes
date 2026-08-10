@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 10 / 18    |
+| 5 — Godot client                         | 11 / 18    |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -937,12 +937,37 @@ backgrounded-app policy), not "AI opponent" as a whole.
   of C4 rather than bundled: the collection *view* needed no balance data to be useful, and
   pulling live numbers into the client raises its own question (bundled at build time, or read from
   disk) that the browser itself didn't need answered to ship.
-- [ ] **C5. AI opponent responsiveness: off the main thread, capped on mobile** — C1 shipped a
-  working AI seat that searches synchronously; this is specifically what's left. `Choose(AgentContext,
-  CancellationToken)` already takes the token, so the seam exists — **what's missing is the
-  policy**: what the player sees during a ~2s search, and what happens when the app is backgrounded
-  mid-search. Cancel-and-restart on resume is the safe default; decide it here rather than
-  discovering it on a device.
+- [x] **C5. AI opponent responsiveness: off the main thread, capped on mobile.** C1 shipped a
+  working AI seat that searched synchronously on the main thread — the exit bug this closes:
+  `RunAiTurns` was a plain `while` loop with no `await` in it anywhere, so an AI-v-AI game
+  resolved inside one synchronous call and the board only ever rendered its FINAL state — a human
+  watching it saw the game jump straight to the game-over screen, never the moves in between.
+  **`RunAiTurns` is now `async void`** (the correct shape for a Godot event-loop entry point
+  nothing awaits, the same category as a signal handler), and does two things the old loop
+  couldn't: `await Task.Run(() => agent.Choose(context, token), token)` moves the actual search to
+  the thread pool, so a multi-second IS-MCTS budget no longer blocks input/rendering while it
+  runs; and `await ToSignal(GetTree().CreateTimer(MoveDelaySeconds), ...)` (0.6s, long enough for
+  `BoardAnimator`'s longest cue to mostly finish) after every action returns control to Godot's
+  frame loop between moves, which is what actually makes the intermediate states visible — the
+  fixed delay paces Random/Greedy (whose `Choose` returns near-instantly) the same as a real
+  search, so the rhythm of watching a game doesn't depend on which agent is playing.
+  **Cancellation is minimal, not the full policy this step's own text once deferred.** A
+  `CancellationTokenSource` field is cancelled in `_ExitTree` and checked after the awaited search
+  returns, so a background search still in flight when the scene is torn down drops its result
+  instead of resuming on the main thread and touching freed nodes — but "what happens when the
+  app is backgrounded mid-search" (mobile-specific, untestable in this environment) and
+  cancel-and-restart-on-resume remain genuinely open, same as C6 already anticipates for
+  interrupted-game persistence generally. A `_aiTurnInProgress` guard prevents a second
+  `RunAiTurns` (fired by a fast human action landing mid-await) from racing the first over the one
+  `GameSession`, which owns no locking of its own.
+  **Editor-verified with real Godot runs, not just `dotnet build`/tests** — a locally available
+  Godot 4.5.1 binary drove two throwaway verification rigs (deleted after use, same pattern C4
+  established): one starting a Random-v-Random match and screenshotting it every ~1s, confirming
+  the board visibly progresses turn-by-turn (creature plays, a merge, card draws all visible
+  mid-game) rather than jumping to game-over; another with both seats on IS-MCTS at 1000
+  iterations (a real multi-second search, unlike Random/Greedy) confirming the process keeps
+  taking its own scheduled screenshots throughout — proof the main thread stayed live rather than
+  blocking on the search. All 987 tests still pass; `Shapes.Core`/`Shapes.Ai` untouched.
 - [ ] **C6. Interrupted-game persistence** — mobile is the platform that kills a backgrounded app
   mid-turn, so "resume game" is a different problem from "save deck" and is scheduled separately
   from it (C3). Two viable mechanisms: serialize `GameState` (needs RNG stream position,
