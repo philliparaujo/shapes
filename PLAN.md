@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 11 / 18    |
+| 5 — Godot client                         | 12 / 18    |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -968,12 +968,61 @@ backgrounded-app policy), not "AI opponent" as a whole.
   iterations (a real multi-second search, unlike Random/Greedy) confirming the process keeps
   taking its own scheduled screenshots throughout — proof the main thread stayed live rather than
   blocking on the search. All 987 tests still pass; `Shapes.Core`/`Shapes.Ai` untouched.
-- [ ] **C6. Interrupted-game persistence** — mobile is the platform that kills a backgrounded app
-  mid-turn, so "resume game" is a different problem from "save deck" and is scheduled separately
-  from it (C3). Two viable mechanisms: serialize `GameState` (needs RNG stream position,
-  `PendingDiscards`, `MergedFrom` chains, `TurnEvents` — all of it, correctly), or replay
-  seed-plus-action-log, which Phase 1's determinism guarantee already makes sound and is the
-  cheaper bet. Pick one deliberately; a half-serialized state that desyncs is worse than no resume.
+- [x] **C6. Interrupted-game persistence** — mobile is the platform that kills a backgrounded app
+  mid-turn, so "resume game" is a different problem from "save deck" (C3, not yet built).
+  **Picked seed-plus-action-log over serializing `GameState`**, the choice this step's own text
+  left open, for a concrete reason found on contact: `GameAction` (`Shapes.Core/Actions/
+  GameAction.cs`) is already a flat, five-case, fully-value-equal type — one DTO with nullable
+  fields covers it exactly. `GameState`/`CreatureInstance` are not: two fields
+  (`PendingOnNextDamageTaken`/`PendingOnNextRicochet`) are deliberately untyped `object?` (State
+  must not reference the `Effects` layer), with no JSON shape of their own — serializing them
+  would mean inventing one, exactly the half-serialized-state risk this step's text warned
+  against. Replay instead rides on Phase 1's determinism guarantee — the same property MCTS and
+  console/Godot seed parity already depend on — so reconstructing a game from its seed and action
+  log is not an approximation, it is the same game.
+  **`SavedMatch`/`SavedMatchDto`/`ActionDto`/`SeatDto` + `SavedMatchJsonContext`**
+  (`Shapes.Godot.Adapter/SavedMatch.cs`) mirror `CardJsonContext`'s existing source-generated
+  `System.Text.Json` pattern exactly (DTO classes + `[JsonSerializable]` + `partial ...Context :
+  JsonSerializerContext`) — required for the iOS AOT export path Phase 5's own principles commit
+  to, same reasoning as card/ruleset loading. Unlike card JSON, `UnmappedMemberHandling` is left
+  at its default (not `Disallow`): a save file is machine-written by this client, not hand-typed,
+  so an unrecognized key from a future app version should be ignored on load, not fail the whole
+  resume. `GameSession.Resume` (new static factory, `Shapes.Godot.Adapter/GameSession.cs`)
+  rebuilds a session by calling `Start` from the saved seed and resubmitting every logged action
+  in order — the actual mechanism replay depends on, not just the storage format.
+  **`GameRoot` saves after every action, not just on pause/quit** (`MatchSaveStore.Save`, called
+  from both `Submit` and `RunAiTurns` right after `_session.Submit`) — a mobile OS can kill this
+  process with no graceful-shutdown hook, so the only save that actually survives that is one
+  kept continuously current. Cleared once `_session.State.IsOver` (`RefreshAll`), since a
+  finished game has nothing left to resume and leaving the file behind would resurrect a dead
+  game on next launch. `MatchSaveStore` (`Shapes.Godot/Scripts`) is the thin Godot-specific half
+  — `user://` file I/O via `Godot.FileAccess`/`DirAccess`, the first use of `user://` anywhere in
+  this client — kept separate from the pure DTO/serialization layer in `Shapes.Godot.Adapter` so
+  the save FORMAT stays testable outside the editor even though writing it cannot be.
+  **Lobby gained a Resume button**, visible only when `MatchSaveStore.Exists()`, setting a new
+  `PendingMatch.ResumeRequested` flag (checked before `PendingMatch.Config` in `GameRoot._Ready`,
+  so a stale `Config` left over from a previous run can never silently outrank an explicit resume
+  request) rather than overloading `Config` with a sentinel value. One save slot, not a
+  save-per-match list — starting a fresh game while an old one is interrupted doesn't clear the
+  old save outright, but the new game's first action overwrites it, so the old game is only
+  actually lost once the new one is both started AND played, not merely started.
+  **`Godot.FileAccess` vs. `System.IO.FileAccess` needed `global::`-qualifying**, a real build
+  error, not a style choice: `Shapes.Godot.Scripts` nests under a namespace segment literally
+  named `Godot`, so an unqualified `Godot.FileAccess` resolved relative to that segment instead
+  of the top-level engine namespace.
+  **Editor-verified with real Godot runs, the same standard C4/C5 set** — 9 new
+  `Shapes.Tests/Godot/SavedMatchTests.cs` tests, the most load-bearing being
+  `Resume_reproduces_a_partial_game_mid_turn` (asserts board/hand/phase/legal-actions equality
+  between a live session and one resumed from its own mid-turn action log — the actual property a
+  real interrupted game needs, not just "the DTO round-trips"). Beyond unit tests, a throwaway
+  rig (deleted after use) drove the full save/kill/relaunch/resume cycle for real: started an
+  AI-v-AI match, let it play and save several actions, quit WITHOUT reaching game-over (simulating
+  a killed process), relaunched with `PendingMatch.ResumeRequested = true`, and confirmed the
+  resumed game continued from the exact saved position (board state, scores, and hand contents in
+  the screenshot matched the saved action log) and kept saving as it played on. A second rig
+  confirmed the game-over cleanup path directly: a Random-v-Random match run to completion left
+  `MatchSaveStore.Exists()` false afterward. All 996 tests pass (996 = 987 + 9 new);
+  `Shapes.Core`/`Shapes.Ai` untouched.
 - [ ] **C7. Tutorial / rules surfacing** — **the item the old plan omitted entirely, and the
   difference between playable and learnable.** Nothing about the ruleset is self-evident from a
   board: a rock-paper-scissors type cycle, merging that can *increase* vulnerability, scoring that

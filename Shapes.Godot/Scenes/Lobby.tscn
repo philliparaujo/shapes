@@ -60,6 +60,12 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
+[node name="ResumeButton" type="Button" parent="Layout"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(0, 52)
+text = "Resume Game"
+
 [node name="StartButton" type="Button" parent="Layout"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 52)

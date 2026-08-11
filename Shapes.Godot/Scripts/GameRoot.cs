@@ -42,6 +42,14 @@ namespace Shapes.Godot.Scripts;
 // (whose Choose returns near-instantly) don't blur past faster than the board can animate.
 // `_aiTurnToken` is cancelled in _ExitTree so a search in flight when the scene is torn down
 // does not resume on the main thread afterward and touch freed nodes.
+//
+// PLAN.md C6 (interrupted-game persistence): seed + action log, not a serialized GameState --
+// see SavedMatch's own header in Shapes.Godot.Adapter for why. `_actionLog` mirrors exactly
+// what every Submit call (human or AI) has applied so far, `_matchConfig`/`_seed` are what
+// GameSession.Resume needs to rebuild from scratch, and MatchSaveStore.Save is called after
+// EVERY action, not just on pause/quit -- a mobile OS can kill this process with no shutdown
+// hook, so the only save that survives that is one kept continuously up to date. Cleared on
+// game-over (RefreshAll), since a finished game has nothing left to resume.
 public partial class GameRoot : Control
 {
     [Export] public NodePath BoardViewPath { get; set; } = "BoardView";
@@ -64,6 +72,12 @@ public partial class GameRoot : Control
     // allowed to touch GameState, not a place designed for concurrent callers).
     private bool _aiTurnInProgress;
 
+    // PLAN.md C6: the two things GameSession.Resume needs alongside the action log, kept for
+    // the lifetime of the match so every Submit can append-and-save without re-deriving them.
+    private ulong _seed;
+    private MatchConfig? _matchConfig;
+    private readonly List<GameAction> _actionLog = [];
+
     private BoardView? _boardView;
 
     public override void _ExitTree()
@@ -83,6 +97,26 @@ public partial class GameRoot : Control
         _boardView.SpellDroppedOnSelfArea += OnSpellDroppedOnSelfArea;
         _boardView.EndTurnRequested += OnEndTurnRequested;
         _boardView.DiscardRequested += OnDiscardRequested;
+
+        // PLAN.md C6: Resume takes priority over a fresh MatchConfig -- Lobby only ever sets one
+        // of the two before changing scene (see Lobby.OnResumePressed/OnStartPressed), but
+        // checking Resume first means a stray Config left over from a previous run can never
+        // silently override an explicit resume request.
+        if (PendingMatch.ResumeRequested)
+        {
+            PendingMatch.ResumeRequested = false;
+            PendingMatch.Config = null;
+
+            var saved = MatchSaveStore.Load();
+            if (saved is not null)
+            {
+                ResumeGame(saved);
+                return;
+            }
+
+            // Load failed (corrupt/missing file racing the Lobby's own Exists check) -- fall
+            // through to a fresh two-human hotseat game rather than a blank, stuck screen.
+        }
 
         // Set by Lobby.cs immediately before ChangeSceneToFile; null only if GameRoot.tscn was
         // opened/run directly (e.g. mid-development in the editor) rather than reached through
@@ -105,21 +139,76 @@ public partial class GameRoot : Control
         _session = new GameSession(rules, _cards, random, PlayerId.One);
         _session.Start(rules.StartingHandSize);
 
-        // Derived per-seat streams, not one shared source -- two agents drawing from a single
-        // IRandomSource would interleave their draws, so changing one seat's agent would change
-        // the other's decisions too (same reasoning as Shapes.Console's BuildAgent call site).
+        _seed = seed;
+        _matchConfig = config;
+        _actionLog.Clear();
+
+        BuildAgents(seed, config);
+
+        RefreshAll();
+        RunAiTurns();
+    }
+
+    // PLAN.md C6: rebuilds via GameSession.Resume (seed replayed through Start + every logged
+    // action, in order) instead of GameSession's plain constructor -- see SavedMatch/
+    // GameSession.Resume's own headers for why replay reproduces the exact original state
+    // rather than an approximation of it.
+    private void ResumeGame(SavedMatch saved)
+    {
+        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
+        _cards = CardLoader.FromDirectory(cardsDir);
+
+        var rules = RuleSet.Default;
+        var random = new SeededRandom(saved.Seed);
+        _session = GameSession.Resume(
+            rules, _cards, random, PlayerId.One, rules.StartingHandSize, saved.Actions);
+
+        _seed = saved.Seed;
+        var config = new MatchConfig(saved.PlayerOne, saved.PlayerTwo, saved.Seed);
+        _matchConfig = config;
+        _actionLog.Clear();
+        _actionLog.AddRange(saved.Actions);
+
+        BuildAgents(saved.Seed, config);
+
+        RefreshAll();
+        RunAiTurns();
+    }
+
+    // Derived per-seat streams, not one shared source -- two agents drawing from a single
+    // IRandomSource would interleave their draws, so changing one seat's agent would change
+    // the other's decisions too (same reasoning as Shapes.Console's BuildAgent call site).
+    // Shared between StartNewGame and ResumeGame so the two paths cannot drift on how an
+    // agent's own RNG stream is derived from the match seed.
+    private void BuildAgents(ulong seed, MatchConfig? config)
+    {
         _agents = new Dictionary<PlayerId, IAgent?>
         {
             [PlayerId.One] = config is null
                 ? null
-                : AgentFactory.Build(config.PlayerOne, seed * 7919, _cards),
+                : AgentFactory.Build(config.PlayerOne, seed * 7919, _cards!),
             [PlayerId.Two] = config is null
                 ? null
-                : AgentFactory.Build(config.PlayerTwo, seed * 104729, _cards),
+                : AgentFactory.Build(config.PlayerTwo, seed * 104729, _cards!),
         };
+    }
 
-        RefreshAll();
-        RunAiTurns();
+    // PLAN.md C6: called after every action lands (Submit, RunAiTurns) so the on-disk save is
+    // never more than one action stale -- the only save that actually survives a mobile OS
+    // killing this process with no shutdown hook. A human-only or PlayerOne-null MatchConfig
+    // still saves fine: SeatConfig.Human round-trips through SavedMatch/ActionDto exactly like
+    // an AI seat, and Resume only needs it to rebuild the agent dictionary, not to decide
+    // whether to save at all.
+    private void SaveProgress()
+    {
+        if (_session is null || _session.State.IsOver)
+        {
+            return;
+        }
+
+        var config = _matchConfig ?? new MatchConfig(SeatConfig.Human, SeatConfig.Human, _seed);
+        var saved = new SavedMatch(_seed, config.PlayerOne, config.PlayerTwo, [.. _actionLog]);
+        MatchSaveStore.Save(saved);
     }
 
     private void RefreshAll()
@@ -135,6 +224,10 @@ public partial class GameRoot : Control
         if (_session.State.IsOver)
         {
             _boardView.ShowGameOver(_session.State.Winner);
+
+            // PLAN.md C6: a finished game has nothing left to resume -- leaving the save behind
+            // would resurrect a dead game the next time the app launches into the lobby.
+            MatchSaveStore.Clear();
         }
     }
 
@@ -183,6 +276,8 @@ public partial class GameRoot : Control
                 }
 
                 var diff = _session.Submit(action);
+                _actionLog.Add(action);
+                SaveProgress();
                 RefreshAll();
                 _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
 
@@ -402,6 +497,8 @@ public partial class GameRoot : Control
         // Captured BEFORE RefreshAll, because it describes the transition into the state that
         // RefreshAll is about to draw -- and played after, so the cues land over the new board.
         var diff = _session.Submit(action);
+        _actionLog.Add(action);
+        SaveProgress();
         _boardView!.ClearSelection();
         RefreshAll();
         _boardView.PlayAnimation(diff, _session.State.ActivePlayer);

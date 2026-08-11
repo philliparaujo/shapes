@@ -16,6 +16,7 @@ public partial class Lobby : Control
     [Export] public NodePath PlayerTwoKindPath { get; set; } = "Layout/PlayerTwo/KindPicker";
     [Export] public NodePath PlayerTwoDifficultyPath { get; set; } = "Layout/PlayerTwo/DifficultyPicker";
     [Export] public NodePath StartButtonPath { get; set; } = "Layout/StartButton";
+    [Export] public NodePath ResumeButtonPath { get; set; } = "Layout/ResumeButton";
     [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/CardBrowserButton";
     [Export] public string GameScenePath { get; set; } = "res://Scenes/GameRoot.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
@@ -31,6 +32,7 @@ public partial class Lobby : Control
     private OptionButton? _playerTwoKind;
     private OptionButton? _playerTwoDifficulty;
     private Button? _startButton;
+    private Button? _resumeButton;
     private Button? _cardBrowserButton;
 
     public override void _Ready()
@@ -40,6 +42,7 @@ public partial class Lobby : Control
         _playerTwoKind = GetNode<OptionButton>(PlayerTwoKindPath);
         _playerTwoDifficulty = GetNode<OptionButton>(PlayerTwoDifficultyPath);
         _startButton = GetNode<Button>(StartButtonPath);
+        _resumeButton = GetNode<Button>(ResumeButtonPath);
         _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
 
         PopulateKindPicker(_playerOneKind);
@@ -55,7 +58,14 @@ public partial class Lobby : Control
         _playerTwoKind.ItemSelected += _ => UpdateDifficultyVisibility();
         UpdateDifficultyVisibility();
 
+        // PLAN.md C6: only offered when a save actually exists -- re-checked every time the
+        // lobby is shown (not just once at process start) so returning here after a game ends
+        // normally (which clears the save) hides the button again rather than leaving a stale
+        // "Resume" that would fail to load.
+        _resumeButton.Visible = MatchSaveStore.Exists();
+
         _startButton.Pressed += OnStartPressed;
+        _resumeButton.Pressed += OnResumePressed;
         _cardBrowserButton.Pressed += () => GetTree().ChangeSceneToFile(CardBrowserScenePath);
     }
 
@@ -99,7 +109,21 @@ public partial class Lobby : Control
         var playerTwo = ReadSeat(_playerTwoKind!, _playerTwoDifficulty!);
         var seed = (ulong)DateTime.UtcNow.Ticks;
 
+        // Starting fresh instead of resuming doesn't clear the old save outright, but the first
+        // action of THIS game overwrites it (MatchSaveStore is a single slot, not a per-match
+        // list -- see its own header) -- an interrupted game is only actually lost once a new
+        // one is both started and played, not merely started.
         PendingMatch.Config = new MatchConfig(playerOne, playerTwo, seed);
+        GetTree().ChangeSceneToFile(GameScenePath);
+    }
+
+    // PLAN.md C6: hands GameRoot nothing but the "resume, not fresh" signal -- GameRoot itself
+    // owns loading MatchSaveStore and rebuilding via GameSession.Resume, the same "Lobby decides
+    // WHAT to play, GameRoot owns HOW" split OnStartPressed already follows for a new match.
+    private void OnResumePressed()
+    {
+        PendingMatch.Config = null;
+        PendingMatch.ResumeRequested = true;
         GetTree().ChangeSceneToFile(GameScenePath);
     }
 
