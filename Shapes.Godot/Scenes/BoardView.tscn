@@ -34,9 +34,10 @@ alignment = 1
 layout_mode = 2
 text = "Opponent — Score 0"
 
-[node name="OpponentResourceLabel" type="Label" parent="Layout/StatusBar/OpponentInfo"]
+[node name="OpponentResourceRow" type="HBoxContainer" parent="Layout/StatusBar/OpponentInfo"]
 layout_mode = 2
-text = "△0 ▢0 ◯0"
+alignment = 1
+theme_override_constants/separation = 4
 
 [node name="OpponentHandCountLabel" type="Label" parent="Layout/StatusBar/OpponentInfo"]
 layout_mode = 2
@@ -70,10 +71,10 @@ layout_mode = 2
 horizontal_alignment = 2
 text = "You — Score 0"
 
-[node name="SelfResourceLabel" type="Label" parent="Layout/StatusBar/SelfInfo"]
+[node name="SelfResourceRow" type="HBoxContainer" parent="Layout/StatusBar/SelfInfo"]
 layout_mode = 2
-horizontal_alignment = 2
-text = "△0 ▢0 ◯0"
+alignment = 2
+theme_override_constants/separation = 4
 
 [node name="OpponentPanel" parent="Layout" instance=ExtResource("2_playerpanel")]
 layout_mode = 2

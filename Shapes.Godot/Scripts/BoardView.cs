@@ -37,10 +37,10 @@ public partial class BoardView : Control
     [Export] public NodePath OpponentPanelPath { get; set; } = "Layout/OpponentPanel";
     [Export] public NodePath SelfPanelPath { get; set; } = "Layout/SelfPanel";
     [Export] public NodePath OpponentScoreLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentScoreLabel";
-    [Export] public NodePath OpponentResourceLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentResourceLabel";
+    [Export] public NodePath OpponentResourceRowPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentResourceRow";
     [Export] public NodePath OpponentHandCountLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentHandCountLabel";
     [Export] public NodePath SelfScoreLabelPath { get; set; } = "Layout/StatusBar/SelfInfo/SelfScoreLabel";
-    [Export] public NodePath SelfResourceLabelPath { get; set; } = "Layout/StatusBar/SelfInfo/SelfResourceLabel";
+    [Export] public NodePath SelfResourceRowPath { get; set; } = "Layout/StatusBar/SelfInfo/SelfResourceRow";
     [Export] public NodePath TurnLabelPath { get; set; } = "Layout/StatusBar/TurnLabel";
     [Export] public NodePath EndTurnButtonPath { get; set; } = "Layout/StatusBar/EndTurnButton";
     [Export] public NodePath CancelTargetingButtonPath { get; set; } = "Layout/StatusBar/CancelTargetingButton";
@@ -51,10 +51,10 @@ public partial class BoardView : Control
     private PlayerPanel? _opponentPanel;
     private PlayerPanel? _selfPanel;
     private Label? _opponentScoreLabel;
-    private Label? _opponentResourceLabel;
+    private HBoxContainer? _opponentResourceRow;
     private Label? _opponentHandCountLabel;
     private Label? _selfScoreLabel;
-    private Label? _selfResourceLabel;
+    private HBoxContainer? _selfResourceRow;
     private Label? _turnLabel;
     private Button? _endTurnButton;
     private Button? _cancelTargetingButton;
@@ -65,15 +65,22 @@ public partial class BoardView : Control
     private IReadOnlyList<GameAction>? _pendingTargetActions;
     private (StateDiff Diff, PlayerId SelfSeat)? _pendingAnimation;
 
+    // Last resource totals this view actually drew, per seat -- compared against on the next
+    // Render to tell "a resource count went up" (turn income, a card effect) from "nothing
+    // changed, this Render was for something else entirely" (a targeting-state refresh, a hover).
+    // Null until the first Render, so game start never reads as "every resource just increased."
+    private ResourcePool? _lastOpponentResources;
+    private ResourcePool? _lastSelfResources;
+
     public override void _Ready()
     {
         _opponentPanel = GetNode<PlayerPanel>(OpponentPanelPath);
         _selfPanel = GetNode<PlayerPanel>(SelfPanelPath);
         _opponentScoreLabel = GetNode<Label>(OpponentScoreLabelPath);
-        _opponentResourceLabel = GetNode<Label>(OpponentResourceLabelPath);
+        _opponentResourceRow = GetNode<HBoxContainer>(OpponentResourceRowPath);
         _opponentHandCountLabel = GetNode<Label>(OpponentHandCountLabelPath);
         _selfScoreLabel = GetNode<Label>(SelfScoreLabelPath);
-        _selfResourceLabel = GetNode<Label>(SelfResourceLabelPath);
+        _selfResourceRow = GetNode<HBoxContainer>(SelfResourceRowPath);
         _turnLabel = GetNode<Label>(TurnLabelPath);
         _endTurnButton = GetNode<Button>(EndTurnButtonPath);
         _cancelTargetingButton = GetNode<Button>(CancelTargetingButtonPath);
@@ -124,10 +131,12 @@ public partial class BoardView : Control
         var waitingState = state[waiting];
         var activeState = state[active];
         _opponentScoreLabel!.Text = $"Opponent — Score {waitingState.Score}";
-        _opponentResourceLabel!.Text = ResourceIcons.Describe(waitingState.Resources);
+        RenderResourceRow(_opponentResourceRow!, waitingState.Resources, _lastOpponentResources);
+        _lastOpponentResources = waitingState.Resources;
         _opponentHandCountLabel!.Text = $"{waitingState.Hand.Count} card(s)";
         _selfScoreLabel!.Text = $"You — Score {activeState.Score}";
-        _selfResourceLabel!.Text = ResourceIcons.Describe(activeState.Resources);
+        RenderResourceRow(_selfResourceRow!, activeState.Resources, _lastSelfResources);
+        _lastSelfResources = activeState.Resources;
 
         // RenderSlots rebuilds every SlotView from scratch, which would silently drop
         // targeting highlights applied by BeginTargeting -- reapply them here so a Render
@@ -149,6 +158,98 @@ public partial class BoardView : Control
         _gameOverPanel!.Visible = false;
 
         RefreshAnimatorLayout();
+    }
+
+    // Renders a player's resource totals as the same icon chips ResourceIconFactory already
+    // draws for card costs, creature types, and move costs (PLAN.md's "professional icons"
+    // request) -- replaces the old ResourceIcons.Describe text glyphs (e.g. "△2 ▢0 ◯1") in the
+    // status bar, so a resource count and a cost badge for the same type now look identical
+    // rather than one being a flat character and the other real geometry. Wheel/Anvil/Spike
+    // order matches ResourceIconFactory's own type-badge ordering elsewhere (SlotView). Rebuilt
+    // from scratch each Render rather than diffed -- same RemoveChild-before-QueueFree pattern
+    // PlayerPanel.RenderSlots/RenderHand already use, for the same reason: QueueFree alone would
+    // leave stale children in the row for the rest of this frame.
+    //
+    // previous is compared per-type against the new total (turn income landing here is the usual
+    // case, per the "getting resources at turn start" request) so a gain reads as a pulse + a
+    // floating "+N" rather than the number just silently switching, which is easy to miss --
+    // Render happens far more often than a resource actually changes (targeting refreshes, hover
+    // updates), so animating unconditionally on every Render would be near-constant motion for no
+    // reason; comparing against the last DRAWN total is what limits this to real changes only.
+    private void RenderResourceRow(HBoxContainer row, ResourcePool resources, ResourcePool? previous)
+    {
+        foreach (var child in row.GetChildren())
+        {
+            row.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        AddResourceIcon(row, ResourceType.Wheel, resources.Wheel, previous?.Wheel);
+        AddResourceIcon(row, ResourceType.Anvil, resources.Anvil, previous?.Anvil);
+        AddResourceIcon(row, ResourceType.Spike, resources.Spike, previous?.Spike);
+    }
+
+    private void AddResourceIcon(HBoxContainer row, ResourceType type, int count, int? previousCount)
+    {
+        var icon = ResourceIconFactory.Create(type, ResourceIconFactory.IconSize.Medium, count);
+        row.AddChild(icon);
+
+        if (previousCount is { } prev && count > prev)
+        {
+            // Deferred one frame: the icon just joined the tree this call, and GlobalPosition/Size
+            // aren't settled until Godot's layout pass runs -- reading them synchronously here
+            // yields a pre-layout (0,0) rect, the same trap RefreshAnimatorLayout's own note
+            // documents for SlotView.
+            var gain = count - prev;
+            CallDeferred(nameof(PulseResourceIcon), icon, gain);
+        }
+    }
+
+    private const float ResourcePulseSeconds = 0.32f;
+    private const float ResourceFloatSeconds = 0.6f;
+    private const float ResourceFloatRisePixels = 22f;
+    private static readonly Color ResourceGainColor = new("8affa0");
+
+    // Small scale-bounce on the icon itself plus a floating "+N" above it -- same recipe
+    // BoardAnimator.FloatText uses for damage/heal/score numbers (rise + fade in parallel,
+    // self-freeing), reimplemented locally rather than routed through BoardAnimator: the
+    // resource row has no StateDiff cue of its own (it's a status-bar total, not a board-slot
+    // effect), and this view already owns the icon's rect directly, so there's nothing gained by
+    // detouring through the overlay's cue pipeline for one node it can position itself.
+    private void PulseResourceIcon(Control icon, int gain)
+    {
+        if (!IsInstanceValid(icon))
+        {
+            return;
+        }
+
+        icon.PivotOffset = icon.Size / 2f;
+        var pulse = CreateTween();
+        pulse.TweenProperty(icon, "scale", new Vector2(1.35f, 1.35f), ResourcePulseSeconds * 0.4f)
+            .SetEase(Tween.EaseType.Out);
+        pulse.TweenProperty(icon, "scale", Vector2.One, ResourcePulseSeconds * 0.6f)
+            .SetEase(Tween.EaseType.In);
+
+        var label = new Label
+        {
+            Text = $"+{gain}",
+            MouseFilter = MouseFilterEnum.Ignore,
+            ZIndex = 1,
+        };
+        label.AddThemeColorOverride("font_color", ResourceGainColor);
+        label.AddThemeFontSizeOverride("font_size", 14);
+        label.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.85f));
+        label.AddThemeConstantOverride("outline_size", 4);
+
+        AddChild(label);
+        var iconCenter = icon.GlobalPosition - GlobalPosition + icon.Size / 2f;
+        label.Position = iconCenter - label.Size / 2f + new Vector2(0f, -icon.Size.Y * 0.6f);
+
+        var floatTween = CreateTween().SetParallel();
+        floatTween.TweenProperty(label, "position:y", label.Position.Y - ResourceFloatRisePixels, ResourceFloatSeconds)
+            .SetEase(Tween.EaseType.Out);
+        floatTween.TweenProperty(label, "modulate:a", 0f, ResourceFloatSeconds).SetEase(Tween.EaseType.In);
+        floatTween.Chain().TweenCallback(Callable.From(label.QueueFree));
     }
 
     // Slot rects for BoardAnimator (PLAN.md B1d). Deferred by one frame on purpose: RenderSlots
