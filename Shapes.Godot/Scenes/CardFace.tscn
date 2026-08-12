@@ -1,43 +1,92 @@
-[gd_scene load_steps=2 format=3 uid="uid://dv6q0cardface001"]
+[gd_scene load_steps=3 format=3 uid="uid://dv6q0cardface001"]
 
 [ext_resource type="Script" path="res://Scripts/CardFace.cs" id="1_cardface"]
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cardpanel"]
+
 [node name="CardFace" type="Button"]
-custom_minimum_size = Vector2(140, 120)
+custom_minimum_size = Vector2(170, 243)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
 script = ExtResource("1_cardface")
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="Body" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-clip_contents = true
-theme_override_constants/separation = 0
+theme_override_styles/panel = SubResource("StyleBoxEmpty_cardpanel")
 
-[node name="NameLabel" type="Label" parent="Layout"]
-custom_minimum_size = Vector2(0, 28)
+[node name="BodyMargin" type="MarginContainer" parent="Body"]
 layout_mode = 2
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 3
-text = "Card"
-theme_override_font_sizes/font_size = 10
+mouse_filter = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
 
-[node name="ArtHolder" type="MarginContainer" parent="Layout"]
-custom_minimum_size = Vector2(0, 100)
+[node name="Layout" type="VBoxContainer" parent="Body/BodyMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 3
+
+[node name="TitleRow" type="HBoxContainer" parent="Body/BodyMargin/Layout"]
+custom_minimum_size = Vector2(0, 26)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 5
+
+[node name="CostBadge" type="MarginContainer" parent="Body/BodyMargin/Layout/TitleRow"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="NameLabel" type="Label" parent="Body/BodyMargin/Layout/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+clip_text = true
+horizontal_alignment = 0
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 11
+text = "Card"
+
+[node name="ArtHolder" type="MarginContainer" parent="Body/BodyMargin/Layout"]
+custom_minimum_size = Vector2(0, 112)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+clip_contents = true
+
+[node name="EffectsLabel" type="Label" parent="Body/BodyMargin/Layout"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+clip_contents = true
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 2
+max_lines_visible = 2
+text = ""
+
+[node name="MoveList" type="VBoxContainer" parent="Body/BodyMargin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 clip_contents = true
+theme_override_constants/separation = 2
 
-[node name="CostBadge" type="MarginContainer" parent="."]
-layout_mode = 1
-offset_left = -8.0
-offset_top = -8.0
-offset_right = 24.0
-offset_bottom = 24.0
+[node name="StatLabel" type="Label" parent="Body/BodyMargin/Layout"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
 mouse_filter = 2
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 11
+text = ""

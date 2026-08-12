@@ -36,6 +36,7 @@ public partial class HoverDetailPanel : Control
     [Export] public NodePath StatLabelPath { get; set; } = "Panel/PanelMargin/Layout/StatLabel";
     [Export] public NodePath EffectsLabelPath { get; set; } = "Panel/PanelMargin/Layout/EffectsLabel";
     [Export] public NodePath MoveListPath { get; set; } = "Panel/PanelMargin/Layout/MoveList";
+    [Export] public NodePath PanelPath { get; set; } = "Panel";
 
     private Label? _nameLabel;
     private Control? _costBadge;
@@ -52,6 +53,12 @@ public partial class HoverDetailPanel : Control
         _statLabel = GetNode<Label>(StatLabelPath);
         _effectsLabel = GetNode<Label>(EffectsLabelPath);
         _moveList = GetNode<VBoxContainer>(MoveListPath);
+
+        // The tooltip IS a card, so it takes the same stock/edge/radius as one in hand or in play
+        // (CardStyle) instead of Godot's default panel -- which was square-cornered and a
+        // different grey, so the same card looked like two different objects depending on
+        // whether you were holding it or hovering it.
+        CardStyle.ApplyToPanel(GetNode<Control>(PanelPath));
 
         // Never itself the target of a mouse-enter/exit -- see the class header on why a
         // hoverable tooltip would fight the gesture it's describing.

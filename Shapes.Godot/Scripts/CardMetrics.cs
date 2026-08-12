@@ -19,8 +19,12 @@ namespace Shapes.Godot.Scripts;
 public static class CardMetrics
 {
     // --- In hand -----------------------------------------------------------------------------
-    public const float HandWidth = 140f;
-    public const float HandHeight = HandWidth * 6f / 7f;          // 7:6
+    // A hand card is now a FULL card face -- cost badge, name, art, effects, moves and a stat
+    // line -- rather than the cropped art thumbnail it used to be (PLAN.md 5.C-UI). That needs
+    // the tooltip's taller 7:10 proportion, not the old 7:6: at 7:6 the move rows had nowhere to
+    // go and were clipped away, which is exactly the "cropped card" this replaced.
+    public const float HandWidth = 170f;
+    public const float HandHeight = HandWidth * 10f / 7f;         // 7:10, as the tooltip
     public const float HandTitleHeight = HandWidth / 5f;          // 5:1
     public const float HandArtHeight = HandWidth * 5f / 7f;       // 7:5
     public const float HandCostBadge = HandWidth * 2f / 7f / 2f;  // 2:1 pip, half-width so it

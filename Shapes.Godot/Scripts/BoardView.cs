@@ -34,8 +34,8 @@ public partial class BoardView : Control
     public event Action<SlotIndex, SlotIndex>? CreatureDroppedOnSlot;
     public event Action<string>? SpellDroppedOnSelfArea;
 
-    [Export] public NodePath OpponentPanelPath { get; set; } = "Layout/OpponentPanel";
-    [Export] public NodePath SelfPanelPath { get; set; } = "Layout/SelfPanel";
+    [Export] public NodePath OpponentPanelPath { get; set; } = "Layout/BoardArea/Rows/OpponentPanel";
+    [Export] public NodePath SelfPanelPath { get; set; } = "Layout/BoardArea/Rows/SelfPanel";
     [Export] public NodePath OpponentScoreLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentScoreLabel";
     [Export] public NodePath OpponentResourceRowPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentResourceRow";
     [Export] public NodePath OpponentHandCountLabelPath { get; set; } = "Layout/StatusBar/OpponentInfo/OpponentHandCountLabel";
@@ -47,6 +47,7 @@ public partial class BoardView : Control
     [Export] public NodePath GameOverPanelPath { get; set; } = "GameOverPanel";
     [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
     [Export] public NodePath BoardAnimatorPath { get; set; } = "BoardAnimator";
+    [Export] public NodePath HandPath { get; set; } = "Hand";
 
     private PlayerPanel? _opponentPanel;
     private PlayerPanel? _selfPanel;
@@ -61,6 +62,11 @@ public partial class BoardView : Control
     private GameOverPanel? _gameOverPanel;
     private HoverDetailPanel? _hoverDetailPanel;
     private BoardAnimator? _boardAnimator;
+
+    // Lives here rather than inside a PlayerPanel because the board frame (PLAN.md 5.C-UI) wraps
+    // the six slots only, so the fanned hand has to sit outside it. Handed to whichever panel is
+    // the active seat each Render -- which seat that is swaps every turn.
+    private HandFan? _hand;
 
     private IReadOnlyList<GameAction>? _pendingTargetActions;
     private (StateDiff Diff, PlayerId SelfSeat)? _pendingAnimation;
@@ -87,6 +93,7 @@ public partial class BoardView : Control
         _gameOverPanel = GetNode<GameOverPanel>(GameOverPanelPath);
         _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
         _boardAnimator = GetNode<BoardAnimator>(BoardAnimatorPath);
+        _hand = GetNode<HandFan>(HandPath);
 
         foreach (var panel in new[] { _opponentPanel!, _selfPanel! })
         {
@@ -123,8 +130,14 @@ public partial class BoardView : Control
         var active = state.ActivePlayer;
         var waiting = active.Opponent();
 
-        _opponentPanel!.Render(state, cards, waiting, isActiveHand: false, legalActions);
-        _selfPanel!.Render(state, cards, active, isActiveHand: true, legalActions);
+        // Only the self panel ever draws a hand, so it is the only one given the shared fan --
+        // the opponent panel must not hold a reference to it, or its own (hidden-hand) render
+        // would clear the cards the self panel just laid out.
+        _opponentPanel!.AttachHand(null);
+        _selfPanel!.AttachHand(_hand!);
+
+        _opponentPanel.Render(state, cards, waiting, isActiveHand: false, legalActions);
+        _selfPanel.Render(state, cards, active, isActiveHand: true, legalActions);
 
         // Score/resources live in the consolidated status bar now (grouping request), not in
         // each PlayerPanel -- read directly off GameState the same way PlayerPanel used to.

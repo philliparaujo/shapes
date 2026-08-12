@@ -57,6 +57,7 @@ public partial class SlotView : Button
     [Export] public NodePath MoveListPath { get; set; } = "Layout/CardBody/CardMargin/CardLayout/MoveList";
     [Export] public NodePath HealthLabelPath { get; set; } = "Layout/StatusBar/StatusMargin/StatusRow/HealthLabel";
     [Export] public NodePath StatusBadgesPath { get; set; } = "Layout/StatusBar/StatusMargin/StatusRow/StatusBadges";
+    [Export] public NodePath StatusBarPath { get; set; } = "Layout/StatusBar";
 
     // "+N atk" reads as a stat, not a status icon -- amber and bold sets it apart from both the
     // plain-white health number and the dimmer glyph badges around it, so a glance distinguishes
@@ -64,12 +65,16 @@ public partial class SlotView : Button
     private static readonly Color AttackBuffColor = new(1f, 0.82f, 0.35f);
     private static readonly Color ExpiringBadgeColor = new(1f, 1f, 1f, 0.55f);
 
+    private static readonly Color EmptySlotGlyphColor = new("7d6845");
+    private static readonly Color CardNameColor = Colors.White;
+
     private Label? _nameLabel;
     private Control? _typeBadge;
     private Control? _artHolder;
     private Label? _healthLabel;
     private Container? _statusBadges;
     private Container? _moveList;
+    private Control? _statusBar;
 
     private SlotIndex _slot;
     private bool _hasFriendlyDraggableCreature;
@@ -90,6 +95,7 @@ public partial class SlotView : Button
         _healthLabel = GetNode<Label>(HealthLabelPath);
         _statusBadges = GetNode<Container>(StatusBadgesPath);
         _moveList = GetNode<Container>(MoveListPath);
+        _statusBar = GetNode<Control>(StatusBarPath);
         ToggleMode = false;
         Pressed += () => Tapped?.Invoke();
         MouseEntered += () => RaiseHover();
@@ -137,6 +143,14 @@ public partial class SlotView : Button
         HoverStarted?.Invoke(cards[index], line);
     }
 
+    // An OCCUPIED slot is a card, so it takes the same stock/edge/radius CardFace and the tooltip
+    // use (CardStyle). An EMPTY one is not a card but a recess cut into the board's tan surface,
+    // so it keeps the lighter inset treatment -- same shape, different palette.
+    private void ApplySlotStyle(bool isEmpty) => CardStyle.ApplyToButton(
+        this,
+        isEmpty ? CardStyle.EmptySlotFill : CardStyle.StockColor,
+        isEmpty ? CardStyle.EmptySlotBorder : CardStyle.EdgeColor);
+
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,
         IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves,
@@ -165,9 +179,20 @@ public partial class SlotView : Button
             child.QueueFree();
         }
 
+        ApplySlotStyle(isEmpty: creature is null);
+
+        // Reset every render, not only in the empty branch: a slot that went empty -> occupied
+        // would otherwise keep the dark-on-tan glyph colour over its dark card body.
+        _nameLabel!.AddThemeColorOverride(
+            "font_color", creature is null ? EmptySlotGlyphColor : CardNameColor);
+
+        // The status strip belongs to a card, not to a hole in the board -- shown only when one
+        // is actually there, or an empty slot renders a dark bar across its foot.
+        _statusBar!.Visible = creature is not null;
+
         if (creature is null)
         {
-            _nameLabel!.Text = "—";
+            _nameLabel.Text = "—";
             _healthLabel!.Text = string.Empty;
             Disabled = false; // empty slots stay tappable for merge/placement targeting
             TooltipText = string.Empty;

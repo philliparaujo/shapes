@@ -36,12 +36,17 @@ public partial class PlayerPanel : Control
     public event Action? HoverEnded;
 
     [Export] public NodePath SlotContainerPath { get; set; } = "Slots";
-    [Export] public NodePath SpacerPath { get; set; } = "Spacer";
-    [Export] public NodePath HandContainerPath { get; set; } = "HandScroll/HandMargin/Hand";
 
     private HBoxContainer? _slotContainer;
-    private Control? _spacer;
-    private HBoxContainer? _handContainer;
+
+    // The hand is NOT a child of this panel any more (PLAN.md 5.C-UI): the board frame wraps the
+    // six slots only, so the active player's fanned hand has to live outside it, below the frame.
+    // BoardView owns that node and hands it over here, which keeps every hand-rendering decision
+    // (what's playable, what's discardable, hover wiring) in the one place that already made them.
+    private HandFan? _handContainer;
+
+    // Null for the waiting seat, which renders no hand at all -- see BoardView.Render.
+    public void AttachHand(HandFan? hand) => _handContainer = hand;
     private readonly Dictionary<SlotIndex, SlotView> _slotViews = new();
 
     // Set each Render, read by _CanDropData/_DropData for the self-area spell drop -- null
@@ -53,8 +58,6 @@ public partial class PlayerPanel : Control
     public override void _Ready()
     {
         _slotContainer = GetNode<HBoxContainer>(SlotContainerPath);
-        _spacer = GetNode<Control>(SpacerPath);
-        _handContainer = GetNode<HBoxContainer>(HandContainerPath);
     }
 
     public void Render(
@@ -66,12 +69,12 @@ public partial class PlayerPanel : Control
         _acceptsSpellDrop = isActiveHand && legalActions.OfType<PlayCardAction>()
             .Any(a => a.TargetSlot is null && a.ChosenTarget is null);
 
-        // The spacer between Slots and HandScroll only earns its keep when there's a real hand
-        // row to push toward the bottom of the panel's share -- the opponent's collapsed
-        // "N card(s)" line has nothing to gain from that and everything to lose, since an
-        // always-expanding spacer here just floats the label in the middle of a big empty gap
-        // instead of it sitting right under their slots.
-        _spacer!.SizeFlagsVertical = isActiveHand ? SizeFlags.ExpandFill : SizeFlags.Fill;
+        // Neither panel expands any more (PLAN.md 5.C-UI): each is exactly as tall as its slot
+        // row, and the BoardArea wrapping the pair shrink-centres them. That is what closes the
+        // gap the two rows used to have between them -- the self row now sits directly under the
+        // frame's centre divider instead of being pushed to the bottom of a half-screen share.
+        // The old Spacer went with it: as an expanding child it was the slack that made the
+        // frame taller than the slots it wraps.
 
         RenderSlots(state, cards, player, legalActions);
         RenderHand(state, cards, player, isActiveHand, legalActions);
@@ -151,9 +154,23 @@ public partial class PlayerPanel : Control
         GameState state, CardDatabase cards, PlayerId player, bool isActiveHand,
         IReadOnlyList<GameAction> legalActions)
     {
+        // Waiting seat's hand renders as nothing here -- PLAN.md's console precedent (step 2.5)
+        // carried over: hiding is done by suppressing what this view shows, not by handing it a
+        // narrowed ObservedState, so --reveal-style debugging stays possible later without
+        // restructuring this method. The card count itself lives in BoardView's status bar now,
+        // next to the opponent's score/resources, not in the hand row.
+        //
+        // Checked before touching _handContainer: the waiting seat is given no fan at all now
+        // that the hand lives outside the panels (see AttachHand), and clearing it here would
+        // wipe the cards the self panel had just laid out into the shared node.
+        if (!isActiveHand || _handContainer is null)
+        {
+            return;
+        }
+
         // RemoveChild before QueueFree -- see RenderSlots' note on why a bare QueueFree leaves
         // stale children in the container for the rest of this frame.
-        foreach (var child in _handContainer!.GetChildren())
+        foreach (var child in _handContainer.GetChildren())
         {
             _handContainer.RemoveChild(child);
             child.QueueFree();
@@ -161,24 +178,13 @@ public partial class PlayerPanel : Control
 
         var hand = state[player].Hand;
 
-        // Waiting seat's hand renders as nothing here -- PLAN.md's console precedent (step 2.5)
-        // carried over: hiding is done by suppressing what this view shows, not by handing it a
-        // narrowed ObservedState, so --reveal-style debugging stays possible later without
-        // restructuring this method. The card count itself lives in BoardView's status bar now,
-        // next to the opponent's score/resources, not in the hand row.
-        if (!isActiveHand)
-        {
-            return;
-        }
-
         var playableIds = legalActions.OfType<PlayCardAction>().Select(a => a.CardId).ToHashSet();
         var discardableIds = legalActions.OfType<DiscardAction>().Select(a => a.CardId).ToHashSet();
 
-        // Left padding so the first card or two doesn't render underneath HoverDetailPanel's
-        // fixed bottom-left box (PLAN.md B1a2) -- the tooltip is mouse-transparent so it never
-        // blocks a click/drag, but it can still visually sit in front of a card there.
-        _handContainer.AddChild(new Control { CustomMinimumSize = new Vector2(HoverPanelClearanceWidth, 0) });
-
+        // No clearance spacer here any more (it used to push the first cards clear of
+        // HoverDetailPanel's fixed bottom-left box): HandFan lays out every child as a card, so a
+        // spacer child would be dealt a slot in the arc. The fan is centred and width-capped
+        // instead, which keeps it off the tooltip's corner on its own.
         foreach (var cardId in hand)
         {
             var face = CardFaceScene.Instantiate<CardFace>();
@@ -206,6 +212,10 @@ public partial class PlayerPanel : Control
             face.HoverStarted += text => HandCardHoverStarted?.Invoke(text);
             face.HoverEnded += () => HoverEnded?.Invoke();
         }
+
+        // HandFan is a Control, not a Container, so adding children raises no sort notification
+        // -- without this the cards would all stack at (0,0) until the next resize.
+        _handContainer.Relayout();
     }
 
     // Where each slot currently sits in global coordinates, for BoardAnimator's overlay
@@ -242,11 +252,6 @@ public partial class PlayerPanel : Control
             SpellDroppedOnSelfArea?.Invoke(cardId);
         }
     }
-
-    // Matches (with a little breathing room past) HoverDetailPanel's fixed bottom-left box width
-    // -- see RenderHand's own note on why the hand row needs to clear it. Derived from the same
-    // CardMetrics constant the panel itself is sized from, so the two can't drift apart.
-    private const float HoverPanelClearanceWidth = CardMetrics.TooltipWidth + 32f;
 
     private static readonly PackedScene SlotViewScene = GD.Load<PackedScene>("res://Scenes/SlotView.tscn");
     private static readonly PackedScene CardFaceScene = GD.Load<PackedScene>("res://Scenes/CardFace.tscn");

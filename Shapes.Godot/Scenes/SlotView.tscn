@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://dv6q0slotview001"]
+[gd_scene load_steps=3 format=3 uid="uid://dv6q0slotview001"]
 
 [ext_resource type="Script" path="res://Scripts/SlotView.cs" id="1_slotview"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_slotpanel"]
 
 [node name="SlotView" type="Button"]
 custom_minimum_size = Vector2(330, 297)
@@ -23,6 +25,7 @@ theme_override_constants/separation = 2
 custom_minimum_size = Vector2(0, 264)
 layout_mode = 2
 mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_slotpanel")
 
 [node name="CardMargin" type="MarginContainer" parent="Layout/CardBody"]
 layout_mode = 2
