@@ -65,6 +65,11 @@ public static class CardArt
     // True when this card has real art -- lets a caller vary layout for art vs placeholder.
     public static bool Has(string cardId) => Load(cardId) is not null;
 
+    // The raw texture, for callers that composite art themselves rather than parenting a
+    // TextureRect -- MergedArt draws two of these into one band with a blended seam, which no
+    // arrangement of TextureRects can express.
+    public static Texture2D? TextureFor(string cardId) => Load(cardId);
+
     private static Texture2D? Load(string cardId)
     {
         if (Cache.TryGetValue(cardId, out var cached))

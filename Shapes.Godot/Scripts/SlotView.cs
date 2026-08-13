@@ -177,6 +177,74 @@ public partial class SlotView : Button
         }
     }
 
+    // Which merged-art treatment to use. Static so one switch changes every slot and the card
+    // browser at once -- it exists to compare the three candidates side by side (PLAN.md 5.C-UI),
+    // and should collapse to whichever wins.
+    public static MergedArtStyle MergedStyle { get; set; } = MergedArtStyle.AngledSoft;
+
+    // A single creature gets its art straight from CardArt; a merged one gets both source arts
+    // composited by MergedArt.
+    //
+    // The two source arts used to be two TextureRects side by side in the HBox, which is what
+    // produced the hard central seam this replaces -- see MergedArt's header.
+    private void RenderArt(CreatureInstance creature, CardDatabase cards)
+    {
+        var sources = new List<(string Id, ResourceType Type)>();
+        foreach (var sourceId in creature.MergedFrom)
+        {
+            if (!cards.TryGet(sourceId, out var sourceCard) || sourceCard is null)
+            {
+                continue;
+            }
+
+            if (CardText.SinglePipType(sourceCard.Cost) is { } t)
+            {
+                sources.Add((sourceId, t));
+            }
+        }
+
+        // Unmerged, or a merge whose second card could not be resolved: one pane, as before.
+        if (sources.Count < 2)
+        {
+            if (sources.Count == 1)
+            {
+                var pane = CardArt.For(sources[0].Id, sources[0].Type);
+                pane.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                pane.SizeFlagsVertical = SizeFlags.ExpandFill;
+                _artHolder!.AddChild(pane);
+            }
+
+            return;
+        }
+
+        var primary = CardArt.TextureFor(sources[0].Id);
+        var secondary = CardArt.TextureFor(sources[1].Id);
+
+        // Both arts missing means both are placeholders, which MergedArt cannot composite (it
+        // draws textures, not the geometric shapes ResourceIconFactory builds) -- fall back to
+        // the old side-by-side panes so a merge without art still shows both types.
+        if (primary is null && secondary is null)
+        {
+            foreach (var (id, type) in sources)
+            {
+                var pane = CardArt.For(id, type);
+                pane.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                pane.SizeFlagsVertical = SizeFlags.ExpandFill;
+                _artHolder!.AddChild(pane);
+            }
+
+            return;
+        }
+
+        var merged = new MergedArt
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        _artHolder!.AddChild(merged);
+        merged.SetArt(primary, secondary, MergedStyle);
+    }
+
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,
         IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves,
@@ -267,27 +335,7 @@ public partial class SlotView : Button
         // derivation, re-applied per source id) rather than the union in creature.Types, so a
         // Spike+Anvil merge shows one triangle pane and one square pane instead of picking just
         // one to show.
-        foreach (var sourceId in creature.MergedFrom)
-        {
-            if (!cards.TryGet(sourceId, out var sourceCard) || sourceCard is null)
-            {
-                continue;
-            }
-
-            var sourceType = CardText.SinglePipType(sourceCard.Cost);
-            if (sourceType is not { } t)
-            {
-                continue;
-            }
-
-            // Real art per source card where it exists, placeholder otherwise (CardArt) -- keyed
-            // on sourceId so a merge shows each contributing card's own art, the same
-            // per-source-card rule the type-shape panes already followed.
-            var pane = CardArt.For(sourceId, t);
-            pane.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            pane.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-            _artHolder.AddChild(pane);
-        }
+        RenderArt(creature, cards);
 
         var badges = StatusIcons.Describe(creature);
         foreach (var badge in badges)
