@@ -29,6 +29,8 @@ public partial class BoardView : Control
     public event Action<SlotIndex>? SlotTapped;
     public event Action<SlotIndex, int>? MoveChosen;
     public event Action? EndTurnRequested;
+    public event Action? BackToLobbyRequested;
+    public event Action? ExitRequested;
     public event Action<string>? DiscardRequested;
     public event Action<string, SlotIndex>? CardDroppedOnSlot;
     public event Action<SlotIndex, SlotIndex>? CreatureDroppedOnSlot;
@@ -40,7 +42,7 @@ public partial class BoardView : Control
     [Export] public NodePath SelfSidePath { get; set; } = "SideRail/SelfSide";
     [Export] public NodePath EndTurnButtonPath { get; set; } = "SideRail/MiddleColumn/EndTurnButton";
     [Export] public NodePath CancelTargetingButtonPath { get; set; } = "SideRail/MiddleColumn/CancelTargetingButton";
-    [Export] public NodePath GameOverPanelPath { get; set; } = "GameOverPanel";
+    [Export] public NodePath MenuPanelPath { get; set; } = "MenuPanel";
     [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
     [Export] public NodePath BoardAnimatorPath { get; set; } = "BoardAnimator";
     [Export] public NodePath HandPath { get; set; } = "Hand";
@@ -51,7 +53,7 @@ public partial class BoardView : Control
     private SidePanel? _selfSide;
     private Button? _endTurnButton;
     private Button? _cancelTargetingButton;
-    private GameOverPanel? _gameOverPanel;
+    private MenuPanel? _menuPanel;
     private HoverDetailPanel? _hoverDetailPanel;
     private BoardAnimator? _boardAnimator;
 
@@ -78,7 +80,7 @@ public partial class BoardView : Control
 
         _endTurnButton = GetNode<Button>(EndTurnButtonPath);
         _cancelTargetingButton = GetNode<Button>(CancelTargetingButtonPath);
-        _gameOverPanel = GetNode<GameOverPanel>(GameOverPanelPath);
+        _menuPanel = GetNode<MenuPanel>(MenuPanelPath);
         _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
         _boardAnimator = GetNode<BoardAnimator>(BoardAnimatorPath);
         _hand = GetNode<HandFan>(HandPath);
@@ -110,8 +112,22 @@ public partial class BoardView : Control
         _endTurnButton.Pressed += () => EndTurnRequested?.Invoke();
         _cancelTargetingButton.Pressed += ClearSelection;
 
-        _gameOverPanel.Visible = false;
+        // Forwarded rather than handled here: leaving a match means deciding what happens to the
+        // save file, which is GameRoot's business (PLAN.md C6), not this view's.
+        _menuPanel.BackToLobbyRequested += () => BackToLobbyRequested?.Invoke();
+        _menuPanel.ExitRequested += () => ExitRequested?.Invoke();
+        _menuPanel.ResumeRequested += () => _menuPanel.Close();
+
+        _menuPanel.Visible = false;
     }
+
+    // True while the pause/game-over overlay is up. GameRoot checks this so ESC cannot reopen a
+    // menu that is already showing, and so a finished game's menu cannot be dismissed.
+    public bool IsMenuOpen => _menuPanel?.Visible ?? false;
+
+    // PLAN.md 5.C-UI: ESC opens the same panel the game-over screen uses, minus the finality --
+    // a paused game keeps its Resume button, a finished one does not.
+    public void OpenPauseMenu() => _menuPanel!.Open("Paused", canResume: true);
 
     public void Render(GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions)
     {
@@ -161,8 +177,11 @@ public partial class BoardView : Control
                 : $"End Turn {state.TurnNumber}";
 
         _endTurnButton.Disabled = !legalActions.OfType<EndTurnAction>().Any();
-        _gameOverPanel!.Visible = false;
 
+        // The menu is NOT hidden here. It used to be -- the old game-over panel was re-hidden on
+        // every Render and re-shown by GameRoot afterwards -- but the pause menu can be open over
+        // a live game, and an AI turn resolving behind it triggers a Render that would dismiss it
+        // mid-look. Closing is now driven only by Resume, or by leaving the scene entirely.
         RefreshAnimatorLayout();
     }
 
@@ -220,9 +239,12 @@ public partial class BoardView : Control
         _boardAnimator?.Play(diff, selfSeat);
     }
 
+    // No Resume button: the game is over, so there is nothing to go back to -- the only ways out
+    // are the lobby or quitting.
     public void ShowGameOver(PlayerId? winner)
     {
-        _gameOverPanel!.Show(winner);
+        var title = winner is { } player ? $"Player {player.ToIndex() + 1} wins!" : "Game over.";
+        _menuPanel!.Open(title, canResume: false);
     }
 
     // A move or spell needing a chosen target (single-target rule, PLAN.md A5) highlights the

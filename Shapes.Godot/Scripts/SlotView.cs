@@ -65,8 +65,6 @@ public partial class SlotView : Button
     private static readonly Color AttackBuffColor = new(1f, 0.82f, 0.35f);
     private static readonly Color ExpiringBadgeColor = new(1f, 1f, 1f, 0.55f);
 
-    // Light-on-dark now that an empty slot is a recess in dark felt rather than a tan tile.
-    private static readonly Color EmptySlotGlyphColor = new("6f8a79");
     private static readonly Color CardNameColor = Colors.White;
 
     private Label? _nameLabel;
@@ -209,10 +207,7 @@ public partial class SlotView : Button
 
         ApplySlotStyle(isEmpty: creature is null);
 
-        // Reset every render, not only in the empty branch: a slot that went empty -> occupied
-        // would otherwise keep the dark-on-tan glyph colour over its dark card body.
-        _nameLabel!.AddThemeColorOverride(
-            "font_color", creature is null ? EmptySlotGlyphColor : CardNameColor);
+        _nameLabel!.AddThemeColorOverride("font_color", CardNameColor);
 
         // The status strip belongs to a card, not to a hole in the board -- shown only when one
         // is actually there, or an empty slot renders a dark bar across its foot.
@@ -220,7 +215,9 @@ public partial class SlotView : Button
 
         if (creature is null)
         {
-            _nameLabel.Text = "—";
+            // No placeholder glyph: an empty slot is already legible as a recess in the felt, and
+            // the dash just added a mark in the corner with nothing to say.
+            _nameLabel.Text = string.Empty;
             _healthLabel!.Text = string.Empty;
             Disabled = false; // empty slots stay tappable for merge/placement targeting
             TooltipText = string.Empty;

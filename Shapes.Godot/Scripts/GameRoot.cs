@@ -97,6 +97,8 @@ public partial class GameRoot : Control
         _boardView.SpellDroppedOnSelfArea += OnSpellDroppedOnSelfArea;
         _boardView.EndTurnRequested += OnEndTurnRequested;
         _boardView.DiscardRequested += OnDiscardRequested;
+        _boardView.BackToLobbyRequested += OnBackToLobbyRequested;
+        _boardView.ExitRequested += OnExitRequested;
 
         // PLAN.md C6: Resume takes priority over a fresh MatchConfig -- Lobby only ever sets one
         // of the two before changing scene (see Lobby.OnResumePressed/OnStartPressed), but
@@ -199,6 +201,47 @@ public partial class GameRoot : Control
     // still saves fine: SeatConfig.Human round-trips through SavedMatch/ActionDto exactly like
     // an AI seat, and Resume only needs it to rebuild the agent dictionary, not to decide
     // whether to save at all.
+    [Export] public string LobbyScenePath { get; set; } = "res://Scenes/Lobby.tscn";
+
+    // ESC opens the pause menu (PLAN.md 5.C-UI). Handled here rather than in BoardView because
+    // this node owns the match and the save; BoardView only owns the panel that displays it.
+    //
+    // _UnhandledInput, not _Input: a control with focus (the End Turn button, a card) gets first
+    // refusal, so ESC cannot steal a key another widget is legitimately using.
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            return;
+        }
+
+        // Never over a finished game: its menu has no Resume, so re-opening would be a no-op that
+        // still swallowed the keypress.
+        if (_session is null || _session.State.IsOver || _boardView!.IsMenuOpen)
+        {
+            return;
+        }
+
+        _boardView.OpenPauseMenu();
+        GetViewport().SetInputAsHandled();
+    }
+
+    // PLAN.md C6: the save is deliberately LEFT behind. Walking away mid-match is exactly the
+    // interruption the action log exists to survive, so the Lobby's Resume button picks this game
+    // back up. Only game-over clears it (see RefreshAll), because a finished game has nothing to
+    // return to.
+    private void OnBackToLobbyRequested()
+    {
+        _aiTurnToken.Cancel();
+        GetTree().ChangeSceneToFile(LobbyScenePath);
+    }
+
+    private void OnExitRequested()
+    {
+        _aiTurnToken.Cancel();
+        GetTree().Quit();
+    }
+
     private void SaveProgress()
     {
         if (_session is null || _session.State.IsOver)

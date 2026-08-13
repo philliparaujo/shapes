@@ -58,6 +58,7 @@ public class CardArtTests
             unmatched.Count == 0,
             $"Card art must be named for a card ID, not a card's JSON filename or display name. "
             + $"No card has these IDs: {string.Join(", ", unmatched)}. "
-            + $"Note IDs and filenames can differ -- safeguard.json carries the ID 'patch_up'.");
+            + $"Note a card's ID and its JSON filename are allowed to differ, so check the id "
+            + $"field rather than the filename before renaming the art.");
     }
 }

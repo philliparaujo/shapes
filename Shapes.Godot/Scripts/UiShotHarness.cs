@@ -17,6 +17,7 @@ public partial class UiShotHarness : Control
     private int _turnsEnded;
     private bool _openingShotTaken;
     private int _scoreShotFrame = -1;
+    private int _menuShotFrame = -1;
     private Button? _endTurnButton;
 
     public override void _Ready()
@@ -73,6 +74,17 @@ public partial class UiShotHarness : Control
         if (_turnsEnded >= TurnsToEnd && _frame % FramesPerTurn == 20)
         {
             Shoot("ui-shot-full.png");
+
+            // Open the pause menu via the real ESC path, then shoot it next frame.
+            var esc = new InputEventKey { Keycode = Key.Escape, Pressed = true };
+            Input.ParseInputEvent(esc);
+            _menuShotFrame = _frame + 4;
+            return;
+        }
+
+        if (_menuShotFrame == _frame)
+        {
+            Shoot("ui-shot-menu.png");
             GetTree().Quit();
         }
     }

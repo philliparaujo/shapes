@@ -5,12 +5,12 @@ namespace Shapes.Godot.Scripts;
 
 // Real card art, keyed on the stable card id (PLAN.md B1c).
 //
-// res://art/cards/{cardId}.png -- the CARD ID, never the JSON filename. Those two agree for 35
-// of 36 cards today and the exception is the whole reason for the rule: Shapes.Content/cards/
-// safeguard.json still carries id "patch_up" (renamed during v1.7; the id stayed put because
-// balance/ history keys off it). Art keyed to filenames detaches silently the next time a card
-// is renamed for readability -- and silently is the operative word, since a missing texture just
-// renders as the placeholder rather than erroring.
+// res://art/cards/{cardId}.png -- the CARD ID, never the JSON filename. Every card's id and
+// filename agree today (safeguard.json carried id "patch_up" until its art silently fell back to
+// the placeholder, at which point the id was renamed to match), but the rule still holds: art
+// keyed to filenames detaches the next time a card is renamed for readability, and it detaches
+// SILENTLY -- a missing texture renders as the placeholder rather than erroring, which is exactly
+// how the safeguard mismatch survived unnoticed.
 //
 // Falls back to ResourceIconFactory's geometric placeholder whenever a card has no art file yet,
 // so the set can be filled in one card at a time instead of needing all 36 before anything shows.

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
-[ext_resource type="PackedScene" path="res://Scenes/GameOverPanel.tscn" id="4_gameover"]
+[ext_resource type="PackedScene" path="res://Scenes/MenuPanel.tscn" id="4_menupanel"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="5_hoverdetail"]
 [ext_resource type="Script" path="res://Scripts/BoardAnimator.cs" id="6_boardanimator"]
 [ext_resource type="Script" path="res://Scripts/BoardFrame.cs" id="7_boardframe"]
@@ -136,6 +136,6 @@ anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("6_boardanimator")
 
-[node name="GameOverPanel" parent="." instance=ExtResource("4_gameover")]
+[node name="MenuPanel" parent="." instance=ExtResource("4_menupanel")]
 
 [node name="HoverDetailPanel" parent="." instance=ExtResource("5_hoverdetail")]

@@ -1,0 +1,73 @@
+[gd_scene load_steps=4 format=3 uid="uid://5j6lml5t6dxg"]
+
+[ext_resource type="Script" path="res://Scripts/MenuPanel.cs" id="1_menupanel"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dim"]
+bg_color = Color(0, 0, 0, 0.62)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.169, 0.192, 0.22, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.067, 0.082, 0.102, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="MenuPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_menupanel")
+
+[node name="Backdrop" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_dim")
+
+[node name="Panel" type="PanelContainer" parent="Backdrop"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Backdrop/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Backdrop/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="TitleLabel" type="Label" parent="Backdrop/Panel/Margin/Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 24
+text = "Paused"
+
+[node name="ResumeButton" type="Button" parent="Backdrop/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Resume"
+
+[node name="LobbyButton" type="Button" parent="Backdrop/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Back to Lobby"
+
+[node name="ExitButton" type="Button" parent="Backdrop/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Exit Game"
