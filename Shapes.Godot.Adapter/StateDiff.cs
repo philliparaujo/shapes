@@ -15,7 +15,8 @@ public sealed record StateDiff(
     PlayerId ActivePlayerBefore,
     PlayerId ActivePlayerAfter,
     bool GameEnded,
-    PlayerId? Winner)
+    PlayerId? Winner,
+    IReadOnlyList<SlotIndex> ScoringSlots)
 {
     public static StateDiff Between(GameState before, GameState after)
     {
@@ -43,7 +44,36 @@ public sealed record StateDiff(
             before.ActivePlayer,
             after.ActivePlayer,
             after.IsOver,
-            after.Winner);
+            after.Winner,
+            ScoringSlotsOf(before, playerChanges));
+    }
+
+    // WHICH creatures earned the points, so the animator can cue each one rather than only
+    // flashing a total (PLAN.md 5.C-UI). A PlayerDiff says a score went up but not from where;
+    // scoring is per unopposed creature, so the slots are recoverable -- but only from the BEFORE
+    // board, since scoring resolves at turn start and the after-board may already differ.
+    //
+    // Empty under ScoreByCreatureDelta: that mode scores on a board-presence count with no
+    // per-slot attribution, so there is no honest set of slots to point at.
+    private static IReadOnlyList<SlotIndex> ScoringSlotsOf(
+        GameState before, IReadOnlyList<PlayerDiff> playerChanges)
+    {
+        if (before.Rules.ScoreByCreatureDelta)
+        {
+            return [];
+        }
+
+        var scored = playerChanges
+            .Where(p => p.ScoreAfter > p.ScoreBefore)
+            .Select(p => p.Player)
+            .ToHashSet();
+
+        return
+        [
+            .. scored
+                .SelectMany(SlotIndex.AllFor)
+                .Where(before.Board.IsUnopposed)
+        ];
     }
 
     private static IEnumerable<SlotIndex> AllSlots()

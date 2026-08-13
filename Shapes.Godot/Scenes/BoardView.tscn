@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://dv6q0boardview001"]
+[gd_scene load_steps=11 format=3 uid="uid://dv6q0boardview001"]
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
@@ -7,6 +7,9 @@
 [ext_resource type="Script" path="res://Scripts/BoardAnimator.cs" id="6_boardanimator"]
 [ext_resource type="Script" path="res://Scripts/BoardFrame.cs" id="7_boardframe"]
 [ext_resource type="Script" path="res://Scripts/HandFan.cs" id="8_handfan"]
+[ext_resource type="Script" path="res://Scripts/SidePanel.cs" id="9_sidepanel"]
+[ext_resource type="Script" path="res://Scripts/SideRail.cs" id="10_siderail"]
+[ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="11_backdrop"]
 
 [node name="BoardView" type="Control"]
 layout_mode = 3
@@ -15,94 +18,103 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_boardview")
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="TableBackdrop" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/separation = 4
+mouse_filter = 2
+script = ExtResource("11_backdrop")
 
-[node name="StatusBar" type="HBoxContainer" parent="Layout"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-theme_override_constants/separation = 16
-
-[node name="OpponentInfo" type="VBoxContainer" parent="Layout/StatusBar"]
-layout_mode = 2
-size_flags_horizontal = 3
-alignment = 1
-
-[node name="OpponentScoreLabel" type="Label" parent="Layout/StatusBar/OpponentInfo"]
-layout_mode = 2
-text = "Opponent — Score 0"
-
-[node name="OpponentResourceRow" type="HBoxContainer" parent="Layout/StatusBar/OpponentInfo"]
-layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 4
-
-[node name="OpponentHandCountLabel" type="Label" parent="Layout/StatusBar/OpponentInfo"]
-layout_mode = 2
-text = "0 card(s)"
-
-[node name="TurnLabel" type="Label" parent="Layout/StatusBar"]
-layout_mode = 2
-size_flags_horizontal = 3
-horizontal_alignment = 1
-vertical_alignment = 1
-text = "Turn 1 — Player 1 to act"
-
-[node name="CancelTargetingButton" type="Button" parent="Layout/StatusBar"]
-visible = false
-layout_mode = 2
-custom_minimum_size = Vector2(120, 44)
-text = "Cancel Targeting"
-
-[node name="EndTurnButton" type="Button" parent="Layout/StatusBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(120, 44)
-text = "End Turn"
-
-[node name="SelfInfo" type="VBoxContainer" parent="Layout/StatusBar"]
-layout_mode = 2
-size_flags_horizontal = 3
-alignment = 1
-
-[node name="SelfScoreLabel" type="Label" parent="Layout/StatusBar/SelfInfo"]
-layout_mode = 2
-horizontal_alignment = 2
-text = "You — Score 0"
-
-[node name="SelfResourceRow" type="HBoxContainer" parent="Layout/StatusBar/SelfInfo"]
-layout_mode = 2
-alignment = 2
-theme_override_constants/separation = 4
+[node name="Layout" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_top = 96
+theme_override_constants/margin_bottom = 18
 
 [node name="BoardArea" type="MarginContainer" parent="Layout"]
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
-theme_override_constants/margin_left = 28
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 28
-theme_override_constants/margin_bottom = 10
+size_flags_vertical = 0
 
 [node name="BoardFrame" type="Control" parent="Layout/BoardArea"]
 layout_mode = 2
 mouse_filter = 2
 script = ExtResource("7_boardframe")
 
-[node name="Rows" type="VBoxContainer" parent="Layout/BoardArea"]
+[node name="RowsMargin" type="MarginContainer" parent="Layout/BoardArea"]
 layout_mode = 2
-theme_override_constants/separation = 22
+theme_override_constants/margin_left = 26
+theme_override_constants/margin_top = 26
+theme_override_constants/margin_right = 26
+theme_override_constants/margin_bottom = 26
 
-[node name="OpponentPanel" parent="Layout/BoardArea/Rows" instance=ExtResource("2_playerpanel")]
+[node name="Rows" type="VBoxContainer" parent="Layout/BoardArea/RowsMargin"]
+layout_mode = 2
+theme_override_constants/separation = 40
+
+[node name="OpponentPanel" parent="Layout/BoardArea/RowsMargin/Rows" instance=ExtResource("2_playerpanel")]
 layout_mode = 2
 size_flags_vertical = 0
 
-[node name="SelfPanel" parent="Layout/BoardArea/Rows" instance=ExtResource("2_playerpanel")]
+[node name="SelfPanel" parent="Layout/BoardArea/RowsMargin/Rows" instance=ExtResource("2_playerpanel")]
 layout_mode = 2
 size_flags_vertical = 0
+
+[node name="SideRail" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(208, 0)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 0.0
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -224.0
+offset_right = -16.0
+grow_horizontal = 0
+grow_vertical = 1
+alignment = 1
+theme_override_constants/separation = 44
+script = ExtResource("10_siderail")
+
+[node name="OpponentSide" type="Control" parent="SideRail"]
+custom_minimum_size = Vector2(208, 0)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("9_sidepanel")
+
+[node name="MiddleColumn" type="Control" parent="SideRail"]
+custom_minimum_size = Vector2(208, 48)
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="EndTurnButton" type="Button" parent="SideRail/MiddleColumn"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "End Turn"
+
+[node name="CancelTargetingButton" type="Button" parent="SideRail/MiddleColumn"]
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 6.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "Cancel Targeting"
+
+[node name="SelfSide" type="Control" parent="SideRail"]
+custom_minimum_size = Vector2(208, 0)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("9_sidepanel")
 
 [node name="Hand" type="Control" parent="."]
 layout_mode = 1

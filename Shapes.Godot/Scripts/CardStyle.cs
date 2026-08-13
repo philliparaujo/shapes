@@ -19,9 +19,45 @@ public static class CardStyle
     public static readonly Color StockColor = new("2b3138");
     public static readonly Color EdgeColor = new("11151a");
 
-    // A recess cut into the board's surface rather than a card lying on it.
-    public static readonly Color EmptySlotFill = new("c3ab8a");
-    public static readonly Color EmptySlotBorder = new("9c8259");
+    // A recess cut into the board's surface rather than a card lying on it. Darker than the felt
+    // it sits in, so an empty slot reads as a hole rather than as a lighter tile placed on top.
+    public static readonly Color EmptySlotFill = new("26382d");
+    public static readonly Color EmptySlotBorder = new("1b2a21");
+
+    // Drop shadow beneath a card. Cards used to sit flush on the board, which made them look
+    // printed onto it; a shadow is what puts them physically above the surface.
+    //
+    // Faked as nested rounded outlines at decreasing alpha rather than a real blur -- Godot's
+    // immediate-mode drawing has no blur primitive, and StyleBoxFlat's shadow_size draws a hard
+    // edge. Same layered-band trick BoardFrame's inner shadow and CardBackVignette use.
+    public static readonly Color ShadowColor = new(0f, 0f, 0f, 0.45f);
+    public const int ShadowBands = 6;
+    public const float ShadowSpread = 7f;
+    public const float ShadowDropY = 4f;
+
+    // Draws the shadow for a rect of `size` at the local origin of `canvas`. Callers draw this
+    // BEFORE their own body so the shadow lands underneath it.
+    public static void DrawCardShadow(CanvasItem canvas, Vector2 size)
+    {
+        for (var i = ShadowBands; i >= 1; i--)
+        {
+            var t = i / (float)ShadowBands;
+            var grow = ShadowSpread * t;
+
+            var box = new StyleBoxFlat
+            {
+                BgColor = new Color(
+                    ShadowColor.R,
+                    ShadowColor.G,
+                    ShadowColor.B,
+                    ShadowColor.A / ShadowBands * (1f - t + 0.35f)),
+            };
+            box.SetCornerRadiusAll(CornerRadius + (int)grow);
+
+            var rect = new Rect2(new Vector2(0f, ShadowDropY), size).Grow(grow);
+            canvas.DrawStyleBox(box, rect);
+        }
+    }
 
     public const int BorderWidth = 2;
     public const int CornerRadius = 8;

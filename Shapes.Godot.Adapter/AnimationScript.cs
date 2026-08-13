@@ -13,6 +13,7 @@ public enum AnimationCue
     Heal,     // health went up (or MaxHealth grew, which reads the same on the board)
     Destroy,  // a creature left a slot and did not arrive anywhere
     Score,    // a player's score went up
+    Scoring,  // this particular creature is one of the ones that earned that score
 }
 
 // One thing to draw, at one place. Slot is null for a cue that isn't about a board position
@@ -49,8 +50,12 @@ public static class AnimationScript
         AnimationCue.Damage => 2,
         AnimationCue.Heal => 3,
         AnimationCue.Destroy => 4,
-        AnimationCue.Score => 5,
-        _ => 6,
+
+        // The creatures light up FIRST, then the total lands on the avatar -- the eye should see
+        // where the points came from before it sees the number arrive.
+        AnimationCue.Scoring => 5,
+        AnimationCue.Score => 6,
+        _ => 7,
     };
 
     public static IReadOnlyList<AnimationStep> From(StateDiff diff)
@@ -141,6 +146,12 @@ public static class AnimationScript
                 steps.Add(new AnimationStep(
                     AnimationCue.Heal, change.Slot, change.Slot.Owner, after.Health - before.Health));
             }
+        }
+
+        // One cue per creature that earned a point, before the totals below -- see Rank.
+        foreach (var slot in diff.ScoringSlots)
+        {
+            steps.Add(new AnimationStep(AnimationCue.Scoring, slot, slot.Owner));
         }
 
         foreach (var player in diff.PlayerChanges)

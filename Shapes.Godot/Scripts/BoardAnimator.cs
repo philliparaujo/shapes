@@ -50,7 +50,11 @@ public partial class BoardAnimator : Control
     private static readonly Color PlayColor = new("cfd8ff");
     private static readonly Color MergeColor = new("ffc94a");
     private static readonly Color DestroyColor = new("ff3b3b");
+    // Score now reads as the opponent LOSING health, so it shares the damage red rather than
+    // keeping its own yellow (PLAN.md 5.C-UI). ScoreColor survives as the highlight on the
+    // creature that earned it -- that one really is a gain, and gold reads as such.
     private static readonly Color ScoreColor = new("ffd479");
+    private static readonly Color HealthLossColor = new("ff5a5a");
 
     // Supplied by BoardView each render: where each slot currently is on screen. Rects rather
     // than nodes on purpose -- a SlotView reference would dangle the moment the next render
@@ -98,8 +102,12 @@ public partial class BoardAnimator : Control
     {
         if (step.Cue == AnimationCue.Score)
         {
-            var scoreRect = step.Player == selfSeat ? _selfScoreRect : _opponentScoreRect;
-            FloatText($"+{step.Amount}", scoreRect, ScoreColor);
+            // Shown as the OPPONENT losing health rather than the scorer gaining points: health
+            // is ScoreToWin minus the other side's score (see BoardView.Render), so a point
+            // scored IS a point of health off the other player. The number therefore lands on
+            // the player who lost it, in damage red with a minus, not on the scorer in yellow.
+            var victim = step.Player == selfSeat ? _opponentScoreRect : _selfScoreRect;
+            FloatText($"-{step.Amount}", victim, HealthLossColor);
             return;
         }
 
@@ -138,7 +146,48 @@ public partial class BoardAnimator : Control
             case AnimationCue.Destroy:
                 Ghost(rect, DestroyColor, fadeIn: false);
                 break;
+
+            case AnimationCue.Scoring:
+                ScorePulse(rect);
+                break;
         }
+    }
+
+    private const float ScorePulseSeconds = 0.75f;
+
+    // Marks a creature that just earned a point. Deliberately NOT the plain Flash used for
+    // damage/merge: those are instant hits, while scoring is the payoff at the top of a turn and
+    // wants to read as a swell rather than a blink. A gold border that brightens and fades, plus
+    // a soft inner wash, held roughly twice as long as a flash so the eye can find every scoring
+    // creature before the total lands on the avatar.
+    private void ScorePulse(Rect2 rect)
+    {
+        var style = new StyleBoxFlat
+        {
+            BgColor = new Color(ScoreColor, 0.16f),
+            BorderColor = ScoreColor,
+        };
+        style.SetBorderWidthAll(4);
+        style.SetCornerRadiusAll(CardStyle.CornerRadius);
+
+        var glow = new Panel
+        {
+            Size = rect.Size,
+            MouseFilter = MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0f),
+        };
+        glow.AddThemeStyleboxOverride("panel", style);
+
+        AddChild(glow);
+        Place(glow, rect.Position);
+
+        // Swell in, hold, fade -- three legs on one sequential tween so the hold is explicit
+        // rather than being an artifact of easing.
+        var tween = CreateTween();
+        tween.TweenProperty(glow, "modulate:a", 1f, ScorePulseSeconds * 0.25f).SetEase(Tween.EaseType.Out);
+        tween.TweenInterval(ScorePulseSeconds * 0.35f);
+        tween.TweenProperty(glow, "modulate:a", 0f, ScorePulseSeconds * 0.4f).SetEase(Tween.EaseType.In);
+        tween.TweenCallback(Callable.From(glow.QueueFree));
     }
 
     // Applies any scale, then positions a spawned effect.
@@ -200,7 +249,13 @@ public partial class BoardAnimator : Control
         label.AddThemeConstantOverride("outline_size", 5);
 
         AddChild(label);
-        Place(label, rect.Position + new Vector2(rect.Size.X * 0.5f, rect.Size.Y * 0.35f));
+
+        // Centred on the rect rather than offset from its top-left corner. Place positions a
+        // node's TOP-LEFT, so the old "+50% width" put the label's left edge at the midpoint --
+        // visibly right-of-centre, and badly off on the narrow avatar cue rect that health-loss
+        // numbers now use. Measured after AddChild so the label has a real size to halve.
+        var textSize = label.GetCombinedMinimumSize();
+        Place(label, rect.Position + (rect.Size - textSize) / 2f);
 
         // Parallel so the rise and the fade run together rather than one after the other. The
         // rise target is read from Position AFTER placement -- tweening "position:y" animates the

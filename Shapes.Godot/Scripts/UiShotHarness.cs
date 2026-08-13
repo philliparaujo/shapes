@@ -16,6 +16,7 @@ public partial class UiShotHarness : Control
     private int _frame;
     private int _turnsEnded;
     private bool _openingShotTaken;
+    private int _scoreShotFrame = -1;
     private Button? _endTurnButton;
 
     public override void _Ready()
@@ -47,8 +48,17 @@ public partial class UiShotHarness : Control
             {
                 _endTurnButton.EmitSignal(BaseButton.SignalName.Pressed);
                 _turnsEnded++;
+                _scoreShotFrame = _frame + ScoreShotDelay;
             }
 
+            return;
+        }
+
+        // Catches the scoring cues mid-flight: the glow on each scoring creature and the
+        // health-loss number beside the avatar are both transient.
+        if (_scoreShotFrame == _frame)
+        {
+            Shoot("ui-shot-score.png");
             return;
         }
 
@@ -100,6 +110,10 @@ public partial class UiShotHarness : Control
 
         return null;
     }
+
+    // Fires a few frames after an End Turn press, which is when scoring resolves -- the window
+    // where the ScorePulse glow and the health-loss number are both on screen.
+    private const int ScoreShotDelay = 12;
 
     private void Shoot(string fileName)
     {

@@ -65,6 +65,11 @@ public partial class CardFace : Button
     // fit the card instead of the card fitting the content.
     public override Vector2 _GetMinimumSize() => CardMetrics.HandCardSize;
 
+    // Godot draws a Button's StyleBox after _Draw, so this lands UNDER the card body -- which is
+    // where a drop shadow belongs. Gives the fanned hand depth against the backdrop and against
+    // the cards it overlaps.
+    public override void _Draw() => CardStyle.DrawCardShadow(this, Size);
+
     public override void _Ready()
     {
         // Opaque card stock on every Button state -- without it the CardFace draws Godot's

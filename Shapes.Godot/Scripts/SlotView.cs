@@ -65,7 +65,8 @@ public partial class SlotView : Button
     private static readonly Color AttackBuffColor = new(1f, 0.82f, 0.35f);
     private static readonly Color ExpiringBadgeColor = new(1f, 1f, 1f, 0.55f);
 
-    private static readonly Color EmptySlotGlyphColor = new("7d6845");
+    // Light-on-dark now that an empty slot is a recess in dark felt rather than a tan tile.
+    private static readonly Color EmptySlotGlyphColor = new("6f8a79");
     private static readonly Color CardNameColor = Colors.White;
 
     private Label? _nameLabel;
@@ -144,12 +145,39 @@ public partial class SlotView : Button
     }
 
     // An OCCUPIED slot is a card, so it takes the same stock/edge/radius CardFace and the tooltip
-    // use (CardStyle). An EMPTY one is not a card but a recess cut into the board's tan surface,
-    // so it keeps the lighter inset treatment -- same shape, different palette.
-    private void ApplySlotStyle(bool isEmpty) => CardStyle.ApplyToButton(
-        this,
-        isEmpty ? CardStyle.EmptySlotFill : CardStyle.StockColor,
-        isEmpty ? CardStyle.EmptySlotBorder : CardStyle.EdgeColor);
+    // use (CardStyle). An EMPTY one is not a card but a recess cut into the board's felt, so it
+    // keeps the inset treatment -- same shape, darker palette.
+    private void ApplySlotStyle(bool isEmpty)
+    {
+        CardStyle.ApplyToButton(
+            this,
+            isEmpty ? CardStyle.EmptySlotFill : CardStyle.StockColor,
+            isEmpty ? CardStyle.EmptySlotBorder : CardStyle.EdgeColor);
+
+        if (_castsShadow == !isEmpty)
+        {
+            return;
+        }
+
+        _castsShadow = !isEmpty;
+        QueueRedraw();
+    }
+
+    // Only an occupied slot casts one: an empty slot is a hole in the felt, and a hole does not
+    // float above the surface it is cut into.
+    private bool _castsShadow;
+
+    // Godot draws a Button's own StyleBox after _Draw, so anything drawn here lands UNDER the
+    // card body -- which is exactly where a drop shadow belongs. Drawing it as a child Control
+    // instead would put it on top, and drawing it in the parent would mean the parent tracking
+    // every slot's rect.
+    public override void _Draw()
+    {
+        if (_castsShadow)
+        {
+            CardStyle.DrawCardShadow(this, Size);
+        }
+    }
 
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,

@@ -42,6 +42,55 @@ public class AnimationScriptTests
         Assert.Equal(P1Slot0, step.Slot);
     }
 
+    // PLAN.md 5.C-UI: scoring cues each CREATURE that earned a point, not just the total. The
+    // slots are not in the diff's slot changes at all -- scoring moves no creature -- so they are
+    // recovered from the before-board's unopposed slots (StateDiff.ScoringSlotsOf).
+    [Fact]
+    public void Each_unopposed_creature_gets_its_own_scoring_cue()
+    {
+        // Two unopposed P1 creatures; the third slot faces an enemy, so it does not score.
+        var before = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Spike).Slot(1, "b", TypeMask.Spike).Slot(2, "c", TypeMask.Spike))
+            .P2(p => p.Slot(2, "d", TypeMask.Anvil))
+            .Build();
+
+        var after = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Spike).Slot(1, "b", TypeMask.Spike).Slot(2, "c", TypeMask.Spike).Score(2))
+            .P2(p => p.Slot(2, "d", TypeMask.Anvil))
+            .Build();
+
+        var steps = AnimationScript.From(StateDiff.Between(before, after));
+
+        var scoring = steps.Where(s => s.Cue == AnimationCue.Scoring).ToList();
+        Assert.Equal(2, scoring.Count);
+        Assert.Contains(scoring, s => s.Slot == P1Slot0);
+        Assert.Contains(scoring, s => s.Slot == P1Slot1);
+        Assert.DoesNotContain(scoring, s => s.Slot == P1Slot2);
+    }
+
+    // Ordering matters for readability: the creatures light up before the total lands on the
+    // avatar, so the eye sees where the points came from first.
+    [Fact]
+    public void Scoring_cues_come_before_the_score_total()
+    {
+        var before = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Spike))
+            .Build();
+
+        var after = new StateBuilder()
+            .P1(p => p.Slot(0, "a", TypeMask.Spike).Score(1))
+            .Build();
+
+        var steps = AnimationScript.From(StateDiff.Between(before, after));
+
+        var scoringAt = steps.ToList().FindIndex(s => s.Cue == AnimationCue.Scoring);
+        var totalAt = steps.ToList().FindIndex(s => s.Cue == AnimationCue.Score);
+
+        Assert.True(scoringAt >= 0, "expected a per-creature scoring cue");
+        Assert.True(totalAt >= 0, "expected a score total cue");
+        Assert.True(scoringAt < totalAt, $"scoring ({scoringAt}) should precede total ({totalAt})");
+    }
+
     [Fact]
     public void A_creature_leaving_with_no_arrival_is_a_destroy()
     {
