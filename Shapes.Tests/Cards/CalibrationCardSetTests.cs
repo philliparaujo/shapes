@@ -110,6 +110,6 @@ public class CalibrationCardSetTests
             Assert.False(realCards.Contains(id), $"Calibration card '{id}' must not also be in the real card set.");
         }
 
-        Assert.Equal(36, realCards.Count);
+        Assert.Equal(48, realCards.Count);
     }
 }

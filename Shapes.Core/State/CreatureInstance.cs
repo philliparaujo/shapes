@@ -76,9 +76,10 @@ public sealed class CreatureInstance
     public ResourcePool PlayCost { get; private set; }
 
     // True when this creature's Taunt keyword was granted with an expiry ("taunt until next
-    // turn," e.g. Columns) rather than permanently. Cleared, along with the Taunt bit itself,
-    // by ResetMovesForNewTurn -- the same turn-boundary reset stun already uses. A future card
-    // granting permanent taunt would simply not set this flag.
+    // turn," e.g. Columns) rather than permanently. Cleared, along with the Taunt bit itself, at
+    // the controller's next turn START (OnControllerTurnStart) -- NOT alongside stun's end-of-turn
+    // reset, which fires a full turn too early for a self-granted keyword. A future card granting
+    // permanent taunt would simply not set this flag.
     //
     // Exposed read-only (TauntExpiresNextTurn) so a UI can distinguish persistent taunt from
     // expiring taunt without duplicating the rule that decides it -- PLAN.md B1b's status icons
@@ -87,6 +88,18 @@ public sealed class CreatureInstance
     private bool _tauntExpiresNextTurn;
 
     public bool TauntExpiresNextTurn => _tauntExpiresNextTurn;
+
+    // True when this creature will heal to full at the start of its controller's next turn
+    // (Titan's Reforge). Consumed by ResetMovesForNewTurn, the same turn-boundary hook
+    // taunt expiry and stun already use -- a delayed heal is a clock effect, not a reactive
+    // trigger, so it belongs there rather than with the on_next_* pending effects.
+    //
+    // A bool rather than a queued effect: the one card that needs this heals to full, and a
+    // general "run this effect next turn" mechanism would need State to hold an Effects type,
+    // which the layering forbids (see PendingOnNextDamageTaken's note).
+    private bool _healsToFullNextTurn;
+
+    public bool HealsToFullNextTurn => _healsToFullNextTurn;
 
     // A pending effect to run the next time this creature takes damage from a creature-sourced
     // attack, or the next time an attack against it ricochets, respectively. Each fires once
@@ -146,8 +159,9 @@ public sealed class CreatureInstance
         RicochetDirection ricochetDirection, bool isStunned, int nextAttackBonus,
         int nextDamageTakenBonus, int attackBuff, ResourcePool playCost,
         bool tauntExpiresNextTurn, object? pendingOnNextDamageTaken,
-        object? pendingOnNextRicochet, bool isToken)
+        object? pendingOnNextRicochet, bool isToken, bool healsToFullNextTurn)
     {
+        _healsToFullNextTurn = healsToFullNextTurn;
         IsToken = isToken;
         CardId = cardId;
         Health = health;
@@ -251,11 +265,39 @@ public sealed class CreatureInstance
         _movesUsedThisTurn |= 1u << moveIndex;
     }
 
+    // Fires as this creature's controller's turn ENDS (GameState.EndTurn resets the departing
+    // player's creatures), despite the name.
+    //
+    // Stun clears here and that is correct: a stun is applied to the OPPONENT's creatures, so
+    // "no moves on your opponent's next turn" means it must survive the grantor's end-of-turn,
+    // sit through the victim's whole turn, and clear as the victim's turn ends -- which is
+    // exactly this hook, for the victim. Taunt granted `until_next_turn` is the mirror case: it
+    // is granted to the creature's OWN controller, so clearing it here would kill it the instant
+    // the grantor ended their turn, before the opponent ever attacked into it. That one expires
+    // at the controller's turn START instead -- see OnControllerTurnStart.
     public void ResetMovesForNewTurn()
     {
         _movesUsedThisTurn = 0;
         IsStunned = false;
+    }
 
+    // Runs at the START of this creature's controller's turn, unlike ResetMovesForNewTurn, which
+    // despite its name fires as that player's turn ENDS (GameState.EndTurn resets the departing
+    // player's creatures). A scheduled heal must not resolve on the turn it was scheduled, so it
+    // needs the genuine turn-start hook -- see GameState.ApplyIncome.
+    public void OnControllerTurnStart()
+    {
+        if (_healsToFullNextTurn)
+        {
+            HealToFull();
+            _healsToFullNextTurn = false;
+        }
+
+        // "Taunt until your next turn" (Circle Thorn's Hunker, Columns' Renovate, Shieldbearer's
+        // Shield Bash) means it protects THROUGH the opponent's turn and lapses when your own next
+        // turn begins. Expiring it in ResetMovesForNewTurn instead -- as this did -- cleared it the
+        // moment the granting player ended their turn, so the taunt was never live during the only
+        // turn it was meant to matter, making every "until your next turn" taunt a no-op.
         if (_tauntExpiresNextTurn)
         {
             Keywords &= ~KeywordFlags.Taunt;
@@ -263,10 +305,13 @@ public sealed class CreatureInstance
         }
     }
 
-    // `untilNextTurn: true` clears the keyword again at this creature's controller's next turn
-    // (see ResetMovesForNewTurn) -- Columns' "taunt until next turn" needs an expiry that
-    // permanent taunt grants do not. Only meaningful for Taunt; reflect and ricochet expire on
-    // use rather than on a clock, so a timed form of either would need its own flag.
+    public void ScheduleHealToFullNextTurn() => _healsToFullNextTurn = true;
+
+    // `untilNextTurn: true` clears the keyword at the START of this creature's controller's next
+    // turn (see OnControllerTurnStart) -- Columns' "taunt until next turn" needs an expiry that
+    // permanent taunt grants do not, and it has to outlast the opponent's turn in between. Only
+    // meaningful for Taunt; reflect and ricochet expire on use rather than on a clock, so a timed
+    // form of either would need its own flag.
     public void GrantKeyword(KeywordFlags keyword, bool untilNextTurn = false)
     {
         Keywords |= keyword;
@@ -278,10 +323,15 @@ public sealed class CreatureInstance
     }
 
     // Ricochet needs a side; the other keywords ignore the argument entirely.
+    //
+    // Sides ACCUMULATE rather than replace: Snowball's Carom grants left and right in
+    // one move, and two grants that overwrote each other would silently leave only the last.
+    // Consuming the keyword clears every side at once (see ConsumeRicochet) -- one redirect
+    // spends the whole charge, not one side of it.
     public void GrantRicochet(RicochetDirection direction)
     {
         Keywords |= KeywordFlags.Ricochet;
-        RicochetDirection = direction;
+        RicochetDirection |= direction;
     }
 
     public bool HasKeyword(KeywordFlags keyword) => (Keywords & keyword) == keyword;
@@ -300,18 +350,30 @@ public sealed class CreatureInstance
         return true;
     }
 
-    // Ricochet fires once then clears, exactly as reflect does. Note the caller only invokes
-    // this once the redirect is known to be happening: a grant whose target side has no friendly
-    // neighbor stays armed (see CombatResolver.ApplyToTarget), so the keyword is spent on a
-    // redirect that actually occurred rather than on any attack that merely arrived.
-    public bool ConsumeRicochet()
+    // Spends ONE SIDE of ricochet, clearing the keyword only once no side is left armed.
+    //
+    // Each armed side is its own charge: a creature granted both (Snowball's Carom)
+    // deflects twice, once per side, rather than losing the unused side to the first redirect.
+    // That is what makes granting both worth more than granting either alone.
+    //
+    // Note the caller only invokes this once the redirect is known to be happening: a grant whose
+    // target side has no friendly neighbor stays armed (see CombatResolver.ApplyToTarget), so a
+    // side is spent on a redirect that actually occurred rather than on any attack that merely
+    // arrived.
+    public bool ConsumeRicochet(RicochetDirection side)
     {
-        if (!HasKeyword(KeywordFlags.Ricochet))
+        if (!HasKeyword(KeywordFlags.Ricochet) || !RicochetDirection.HasFlag(side))
         {
             return false;
         }
 
-        Keywords &= ~KeywordFlags.Ricochet;
+        RicochetDirection &= ~side;
+
+        if (RicochetDirection == RicochetDirection.None)
+        {
+            Keywords &= ~KeywordFlags.Ricochet;
+        }
+
         return true;
     }
 
@@ -399,13 +461,14 @@ public sealed class CreatureInstance
         _mergedFrom.AddRange(other._mergedFrom);
         _movesUsedThisTurn |= other._movesUsedThisTurn << shift;
 
-        if (other.Keywords.HasFlag(KeywordFlags.Ricochet) && !Keywords.HasFlag(KeywordFlags.Ricochet))
-        {
-            RicochetDirection = other.RicochetDirection;
-        }
+        // Sides union, matching the keyword union just below: a merged stack that inherited
+        // ricochet from either half is armed on every side either half was armed on. Previously
+        // this had to pick one direction and dropped the other half's.
+        RicochetDirection |= other.RicochetDirection;
 
         Keywords |= other.Keywords;
         _tauntExpiresNextTurn = _tauntExpiresNextTurn || other._tauntExpiresNextTurn;
+        _healsToFullNextTurn = _healsToFullNextTurn || other._healsToFullNextTurn;
         IsStunned = IsStunned || other.IsStunned;
         AttackBuff += other.AttackBuff;
         NextAttackBonus += other.NextAttackBonus;
@@ -430,7 +493,7 @@ public sealed class CreatureInstance
         new(CardId, Health, MaxHealth, Types, [.. _mergedFrom], _movesUsedThisTurn, Keywords,
             RicochetDirection, IsStunned, NextAttackBonus, NextDamageTakenBonus, AttackBuff,
             PlayCost, _tauntExpiresNextTurn, PendingOnNextDamageTaken, PendingOnNextRicochet,
-            IsToken);
+            IsToken, _healsToFullNextTurn);
 
     public override string ToString() =>
         $"{CardId} [{Types}] {Health}/{MaxHealth}{(IsMerged ? $" (merged x{MergeDepth})" : string.Empty)}";

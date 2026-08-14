@@ -1,0 +1,24 @@
+{
+  "id": "sentry",
+  "name": "Sentry",
+  "kind": "creature",
+  "cost": { "anvil": 3 },
+  "health": 4,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Clamp",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "stun", "target": "opposing" }
+      ]
+    },
+    {
+      "name": "Rap",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 }
+      ]
+    }
+  ]
+}

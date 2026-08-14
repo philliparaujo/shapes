@@ -56,6 +56,25 @@ internal sealed class HealToFullOp : EffectOp
     }
 }
 
+// { "op": "heal_to_full_next_turn", "target": "self" }
+//
+// Schedules the heal for the start of the target's controller's next turn rather than applying it
+// now (Titan's Reforge). Deliberately NOT expressed as an on_next_* pending effect: those
+// are reactive triggers waiting on damage or a ricochet, while this is a clock effect that fires
+// unconditionally at a turn boundary -- see CreatureInstance.OnControllerTurnStart.
+internal sealed class HealToFullNextTurnOp : EffectOp
+{
+    public override string Name => "heal_to_full_next_turn";
+
+    public override void Apply(EffectContext ctx, EffectArgs args)
+    {
+        foreach (var slot in TargetResolver.Resolve(ctx, args.Target()))
+        {
+            ctx.State.Board[slot]?.ScheduleHealToFullNextTurn();
+        }
+    }
+}
+
 // { "op": "set_health", "target": "self", "amount": 1 }
 //
 // Sets current health directly, clamped to [1, MaxHealth] via Heal/TakeDamage rather than a

@@ -45,9 +45,14 @@ public readonly struct EffectContext
     // `gain_resource_scaled`'s hand_composition scale (Rally).
     public ResourcePool HandComposition { get; }
 
+    // How much a `spend_all` op just consumed, for the effects nested underneath it -- read by
+    // the "spent" scale. Zero outside such a nest, so a card using "spent" anywhere else scales
+    // to nothing rather than silently reading some unrelated number.
+    public int SpentAmount { get; }
+
     public EffectContext(
         GameState state, PlayerId controllingPlayer, SlotIndex? sourceSlot, SlotIndex? chosenTarget,
-        ResourceType? moveType = null, ResourcePool handComposition = default)
+        ResourceType? moveType = null, ResourcePool handComposition = default, int spentAmount = 0)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -57,6 +62,7 @@ public readonly struct EffectContext
         ChosenTarget = chosenTarget;
         MoveType = moveType;
         HandComposition = handComposition;
+        SpentAmount = spentAmount;
     }
 
     public CreatureInstance? SourceCreature => SourceSlot is { } slot ? State.Board[slot] : null;
@@ -66,7 +72,11 @@ public readonly struct EffectContext
     public bool HasCreatureSource => SourceSlot is not null;
 
     public EffectContext WithChosenTarget(SlotIndex? target) =>
-        new(State, ControllingPlayer, SourceSlot, target, MoveType, HandComposition);
+        new(State, ControllingPlayer, SourceSlot, target, MoveType, HandComposition, SpentAmount);
+
+    // Scopes an amount consumed by `spend_all` to the effects nested under it.
+    public EffectContext WithSpentAmount(int spent) =>
+        new(State, ControllingPlayer, SourceSlot, ChosenTarget, MoveType, HandComposition, spent);
 
     // Rebinds "self" to a different slot -- used by for_each so nested effects targeting
     // "self" apply to the creature currently being iterated, not the original move's source.
@@ -76,7 +86,8 @@ public readonly struct EffectContext
     // player (friendly/enemy/all from their perspective), so an effect like self_damage or
     // gain_resource inside the loop is still that player's own action.
     public EffectContext WithSelf(SlotIndex slot) =>
-        new(State, ControllingPlayer, slot, ChosenTarget, handComposition: HandComposition);
+        new(State, ControllingPlayer, slot, ChosenTarget, handComposition: HandComposition,
+            spentAmount: SpentAmount);
 
     // As WithSelf, but also reassigns ControllingPlayer to whoever owns `slot`. Used by
     // CombatResolver to fire a reactive trigger (on_next_damage_taken / on_next_ricochet): the
@@ -84,5 +95,6 @@ public readonly struct EffectContext
     // "gain_resource" or "draw" inside it must credit the DEFENDER's controller, not the
     // acting player who dealt the damage.
     public EffectContext WithSelfAsController(SlotIndex slot) =>
-        new(State, slot.Owner, slot, ChosenTarget, handComposition: HandComposition);
+        new(State, slot.Owner, slot, ChosenTarget, handComposition: HandComposition,
+            spentAmount: SpentAmount);
 }

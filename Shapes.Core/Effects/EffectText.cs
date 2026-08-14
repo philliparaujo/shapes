@@ -55,7 +55,7 @@ public static class EffectText
         ArgumentNullException.ThrowIfNull(effects);
         return effects.Count == 0
             ? string.Empty
-            : Join(effects.Select(node => DescribeNode(node, format, pronoun)));
+            : Join(effects.Select((node, i) => DescribeNode(node, format, pronoun, isFirst: i == 0)));
     }
 
     // A move's gate plus its effects. A move-level `condition` decides whether the move can be
@@ -90,8 +90,9 @@ public static class EffectText
     // period so a trailing gate can be appended to the last one (see DescribeMove).
     //
     // A clause starting with "and " continues the previous sentence instead of opening a new one
-    // -- "Deal 3 and stun", not "Deal 3. And stun." Stun is the only op that produces one today
-    // (see DescribeStun), and it is always authored as a rider on the damage that delivers it.
+    // -- "Deal 3 and stun", not "Deal 3. And stun." Stun is the only op that produces one today,
+    // and only when something precedes it -- DescribeStun spells itself out in full when it opens
+    // the list, so the guard below never has to salvage a leading "and".
     private static string Join(IEnumerable<string> clauses)
     {
         var text = string.Empty;
@@ -126,13 +127,13 @@ public static class EffectText
     private static TargetSelector? _pronoun;
 
     private static string DescribeNode(
-        EffectNode node, Func<ResourceType, string> fmt, TargetSelector? pronoun)
+        EffectNode node, Func<ResourceType, string> fmt, TargetSelector? pronoun, bool isFirst = false)
     {
         var previous = _pronoun;
         _pronoun = pronoun;
         try
         {
-            return DescribeNode(node, fmt);
+            return DescribeNode(node, fmt, isFirst);
         }
         finally
         {
@@ -140,7 +141,11 @@ public static class EffectText
         }
     }
 
-    private static string DescribeNode(EffectNode node, Func<ResourceType, string> fmt)
+    // `isFirst` is whether this node opens its effect list -- only DescribeStun needs it, to
+    // choose between the rider form ("and stun") and the standalone one. Defaults to false so
+    // the nested single-effect call sites (on_next_damage_taken and friends), which are riders
+    // by construction, keep their existing wording.
+    private static string DescribeNode(EffectNode node, Func<ResourceType, string> fmt, bool isFirst = false)
     {
         var args = node.Args;
         return node.Op switch
@@ -156,6 +161,8 @@ public static class EffectText
 
             "heal" => $"heal {args.Int("amount")}{To(args, TargetSelector.Self)}",
             "heal_to_full" => $"heal{To(args, TargetSelector.Self)} to full",
+            "heal_to_full_next_turn" =>
+                $"heal{To(args, TargetSelector.Self)} to full at the start of your next turn",
             "heal_scaled" => $"heal {Scale(args, fmt)}{To(args, TargetSelector.Self)}",
             "set_health" => $"set {Possessive(args)} health to {args.Int("amount")}",
 
@@ -170,7 +177,12 @@ public static class EffectText
                 Gains(args, $"+{args.Int("amount")} to the next damage it takes"),
 
             "draw" => $"draw {args.Int("amount")}",
-            "draw_scaled" => $"draw {Multiplied(args, "1")} for each creature destroyed this turn",
+            // Reads the scale rather than assuming it: draw_scaled once had a one-entry
+            // vocabulary, and the old wording silently mislabeled anything else as
+            // "destroyed this turn".
+            "draw_scaled" => args.String("scale") == "destroyed_this_turn"
+                ? $"draw {Multiplied(args, "1")} for each creature destroyed this turn"
+                : $"draw cards {Scale(args, fmt)}",
             "discard" => $"discard {args.Int("amount")}",
             "draw_up_to" => $"draw up to {args.Int("amount")} cards",
 
@@ -178,6 +190,7 @@ public static class EffectText
             "gain_resource_scaled" => $"gain {Resource(args, fmt)} {Scale(args, fmt)}",
             "gain_next_turn" =>
                 $"gain {args.Int("amount")} {Resource(args, fmt)} next turn",
+            "free_moves" => $"this turn, all {Resource(args, fmt)} moves are free",
 
             "destroy" => $"destroy {Target(args, TargetSelector.Self)}",
             "destroy_refund_cost" =>
@@ -186,7 +199,7 @@ public static class EffectText
                 $"summon a {args.Int("health")}-health {args.String("types")} token{To(args, TargetSelector.Self)}",
 
             "grant_keyword" => DescribeGrantKeyword(args),
-            "stun" => DescribeStun(args),
+            "stun" => DescribeStun(args, isFirst),
             "on_next_damage_taken" =>
                 $"{DescribeNode(args.Node("effect"), fmt)} next time {Subject(args)} takes damage",
             "on_next_ricochet" =>
@@ -194,18 +207,20 @@ public static class EffectText
 
             "conditional" => DescribeConditional(args, fmt),
             "for_each" => DescribeForEach(args, fmt),
+            "spend_all" => DescribeSpendAll(args, fmt),
 
             _ => node.Op,
         };
     }
 
-    // Stun rides along on the attack that delivers it ("Deal 3 and stun"), which is how every
-    // stun in the set is authored -- as the second effect of a damage move against the same
-    // target. Written standalone when it targets anything else, so an unattached stun still says
-    // who it hits.
-    private static string DescribeStun(EffectArgs args) =>
+    // Stun usually rides along on the attack that delivers it ("Deal 3 and stun") -- the shape
+    // Guardian's Smash is authored in, as the second effect of a damage move against the same
+    // target. The trailing form only works when something precedes it, though: Sentry's Clamp is
+    // a bare stun and would read as "And stun." So the "and" form is chosen by POSITION, not just
+    // by target, and the caller passes whether anything came before.
+    private static string DescribeStun(EffectArgs args, bool isFirst) =>
         Sel(args, TargetSelector.Opposing) == TargetSelector.Opposing
-            ? "and stun"
+            ? (isFirst ? "stun the opposing creature" : "and stun")
             : $"stun {Target(args, TargetSelector.Opposing)}";
 
     private static string DescribeGrantKeyword(EffectArgs args)
@@ -273,6 +288,8 @@ public static class EffectText
                 $"{subject} has at most {check["health_at_most:".Length..]} health",
             _ when check.StartsWith("health_at_least:", StringComparison.Ordinal) =>
                 $"{subject} has at least {check["health_at_least:".Length..]} health",
+            _ when check.StartsWith("has_keyword:", StringComparison.Ordinal) =>
+                $"{subject} has {check["has_keyword:".Length..]}",
             _ => $"{subject} {check}",
         };
     }
@@ -289,6 +306,16 @@ public static class EffectText
             : $"{filter.Replace('_', ' ')} {Singularize(collection)}";
         var effects = TrimEnd(Lower(Describe(args.Nodes("effects"), fmt)));
         return $"{effects} for each {noun}";
+    }
+
+    // "Spend all your [spike]. Deal damage equal to the amount spent. Draw cards equal to the
+    // amount spent." The nested effects follow as their own sentences rather than folding into
+    // the spend clause -- they are separate rules steps, and the "amount spent" phrase in each
+    // is what ties them back.
+    private static string DescribeSpendAll(EffectArgs args, Func<ResourceType, string> fmt)
+    {
+        var effects = TrimEnd(Describe(args.Nodes("effects"), fmt));
+        return $"spend all your {Resource(args, fmt)}. {effects}";
     }
 
     private static string Singularize(string collection) => collection switch
@@ -335,6 +362,8 @@ public static class EffectText
             "missing_health" => "missing health",
             "selector_missing_health" => $"{Possessive(args, "health_source")} missing health",
             "destroyed_this_turn" => "creatures destroyed this turn",
+            "damaged_creatures" => "damaged creatures",
+            "spent" => "the amount spent",
             _ => scale,
         };
 

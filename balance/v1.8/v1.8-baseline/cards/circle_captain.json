@@ -1,0 +1,25 @@
+{
+  "id": "circle_captain",
+  "name": "Circle Captain",
+  "kind": "creature",
+  "cost": { "wheel": 5 },
+  "health": 5,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Rally Charge",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "count", "multiplier": 2 }
+      ]
+    },
+    {
+      "name": "Wardance",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "grant_keyword", "target": "self", "keyword": "ricochet", "direction": "left" },
+        { "op": "grant_keyword", "target": "left_friendly", "keyword": "reflect" }
+      ]
+    }
+  ]
+}

@@ -32,7 +32,7 @@ public static class MoveRowFactory
         if (text.PrimaryType is { } type)
         {
             var icon = ResourceIconFactory.Create(
-                type, ResourceIconFactory.IconSize.Medium, text.CostAmount);
+                type, ResourceIconFactory.IconSize.Medium, text.CostAmount, text.IsDiscounted);
             icon.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin;
             row.AddChild(icon);
         }

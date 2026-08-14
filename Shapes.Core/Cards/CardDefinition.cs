@@ -89,27 +89,10 @@ public sealed class CardDefinition
     // The one type present in a single-type cost, or null for a zero cost / mixed cost.
     // Shared with MoveDefinition.AttackType's identical derivation below -- both read a
     // ResourcePool and answer "the single attacking type, if there is exactly one."
-    internal static ResourceType? SingleCostType(ResourcePool cost)
-    {
-        ResourceType? found = null;
-
-        foreach (var type in ResourceTypes.All)
-        {
-            if (cost[type] <= 0)
-            {
-                continue;
-            }
-
-            if (found is not null)
-            {
-                return null;
-            }
-
-            found = type;
-        }
-
-        return found;
-    }
+    //
+    // Delegates to ResourcePool.SingleType, where the derivation moved once GameState's
+    // free-moves discount needed the same answer and could not reference this layer.
+    internal static ResourceType? SingleCostType(ResourcePool cost) => cost.SingleType();
 
     public bool IsCreature => Kind == CardKind.Creature;
 

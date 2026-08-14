@@ -114,7 +114,13 @@ public partial class PlayerPanel : Control
             if (creature is not null)
             {
                 var moveDefs = cards.MovesOf(creature.MergedFrom);
-                var boardMoves = moveDefs.Select(MoveText.Of).ToList();
+
+                // Costed against the creature's OWNER, not the active player: an opponent's moves
+                // render too (see the note above), and their costs are theirs -- a free-moves
+                // spell the active player cast must not appear to discount enemy moves.
+                var boardMoves = moveDefs
+                    .Select(move => MoveText.Of(move, state.CostOfMove(slot.Owner, move.Cost)))
+                    .ToList();
 
                 var isOwnCreature = slot.Owner == state.ActivePlayer;
                 for (var i = 0; i < moveDefs.Count; i++)

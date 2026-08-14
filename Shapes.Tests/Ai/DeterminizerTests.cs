@@ -555,6 +555,74 @@ public class DeterminizerTests
     // Plays `actions` random actions from a fresh game and returns the position, observed from
     // player one. Real positions rather than hand-built ones: the accounting under test only gets
     // interesting once cards have moved between zones.
+    // -- The deck actually in play, when it is not the symmetric decklist ------------------------
+
+    [Fact]
+    public void A_game_dealt_from_the_default_deck_determinizes_when_given_that_deck()
+    {
+        // The Godot game deals from DeckBuilder.Default (ONE of every card), not from the
+        // ruleset's symmetric decklist (CopiesPerCard = 2, so twice the size). Every other test
+        // here deals symmetrically, which is exactly why this gap survived: the determinizer's
+        // no-deck fallback rebuilds the SYMMETRIC list, so against a Default-dealt game it thinks
+        // twice as many cards are unaccounted for and RestoreOpponent throws.
+        //
+        // Passing the real deck is the fix, and this pins that it works.
+        var deck = DeckBuilder.Default(Cards);
+        var (observed, _) = ObserveWithDeck(seed: 21, deck, actions: 120);
+
+        var sampled = new Determinizer(Cards, deck).Determinize(observed, new SeededRandom(1));
+
+        var opponent = sampled[observed.Observer.Opponent()];
+        Assert.Equal(observed.Opponent.HandSize, opponent.Hand.Count);
+        Assert.Equal(observed.Opponent.DeckSize, opponent.Deck.Count);
+    }
+
+    [Fact]
+    public void A_game_dealt_from_the_default_deck_fails_loudly_without_that_deck()
+    {
+        // The bug's own signature, pinned so the fallback can never quietly start "working" by
+        // guessing: without the real decklist the accounting cannot be done, and throwing is the
+        // designed behaviour (see RestoreOpponent). In Godot this surfaced as the AI silently
+        // never moving, because RunAiTurns is `async void`.
+        var deck = DeckBuilder.Default(Cards);
+        var (observed, _) = ObserveWithDeck(seed: 21, deck, actions: 120);
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => new Determinizer(Cards).Determinize(observed, new SeededRandom(1)));
+
+        Assert.Contains("card-conservation invariant", ex.Message, StringComparison.Ordinal);
+    }
+
+    private static (ObservedState Observed, GameState Real) ObserveWithDeck(
+        ulong seed, Deck deck, int actions)
+    {
+        var random = new SeededRandom(seed);
+        var state = new GameState(Rules, random, PlayerId.One);
+
+        foreach (var playerId in PlayerIds.All)
+        {
+            var player = state[playerId];
+            player.SetDeck(deck.Cards);
+            player.ShuffleDeck(random);
+            player.Draw(Rules.StartingHandSize);
+        }
+
+        state.AdvanceToActions();
+
+        for (var i = 0; i < actions && !state.IsOver; i++)
+        {
+            var legal = ActionGenerator.Generate(state, Cards);
+            if (legal.Count == 0)
+            {
+                break;
+            }
+
+            ActionExecutor.Apply(state, Cards, legal[random.Next(legal.Count)]);
+        }
+
+        return (new ObservedState(state, PlayerId.One), state);
+    }
+
     private static (ObservedState Observed, GameState Real) Observe(ulong seed, int actions = 100)
     {
         var random = new SeededRandom(seed);

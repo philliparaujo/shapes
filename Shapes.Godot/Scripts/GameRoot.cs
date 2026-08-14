@@ -185,14 +185,25 @@ public partial class GameRoot : Control
     // agent's own RNG stream is derived from the match seed.
     private void BuildAgents(ulong seed, MatchConfig? config)
     {
+        // The deck each agent's OPPONENT is playing. Both seats are dealt from the one deck
+        // GameSession.Start built (one of every card), so both get the same list -- but it must be
+        // passed, because an IS-MCTS agent without it determinizes against the ruleset's SYMMETRIC
+        // decklist instead, which is CopiesPerCard (2) of every card and therefore twice the size
+        // of the deck actually in play. See AgentFactory.Build's note: the size disagreement makes
+        // Determinizer.RestoreOpponent throw, and RunAiTurns being `async void` turns that into
+        // "the AI silently stops taking turns" rather than a visible error.
+        //
+        // Called after _session is assigned in both StartNewGame and ResumeGame, so Deck is set.
+        var deck = _session?.Deck;
+
         _agents = new Dictionary<PlayerId, IAgent?>
         {
             [PlayerId.One] = config is null
                 ? null
-                : AgentFactory.Build(config.PlayerOne, seed * 7919, _cards!),
+                : AgentFactory.Build(config.PlayerOne, seed * 7919, _cards!, deck),
             [PlayerId.Two] = config is null
                 ? null
-                : AgentFactory.Build(config.PlayerTwo, seed * 104729, _cards!),
+                : AgentFactory.Build(config.PlayerTwo, seed * 104729, _cards!, deck),
         };
     }
 
@@ -336,6 +347,20 @@ public partial class GameRoot : Control
                     return;
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // A new game (or a teardown) cancelled the search mid-flight -- expected, not a fault.
+        }
+        catch (Exception ex)
+        {
+            // `async void` has no caller to observe a fault, so without this an agent throwing
+            // (a determinizer mismatch, a bad action, anything) just ends this loop and the AI
+            // silently never moves again -- the game looks frozen with no error anywhere. Godot's
+            // own handler does print the exception, but only because the framework catches it at
+            // the synchronization-context boundary; logging it HERE keeps the message attached to
+            // the thing that actually broke, and the loop stays exited either way.
+            GD.PushError($"AI turn failed, agent seats will stop acting: {ex}");
         }
         finally
         {

@@ -79,6 +79,20 @@ public static class ConditionEvaluator
         // creature buffed above its threshold still qualifies and a damaged one stops.
         _ when check.StartsWith("health_at_least:", StringComparison.Ordinal) =>
             creature.Health >= int.Parse(check["health_at_least:".Length..]),
+        // Gates a move on a keyword the creature currently holds (Bastion: "if this has
+        // reflect, deal 4"). Reads the live flags, so a reflect already consumed by an incoming
+        // hit no longer qualifies -- which is the point: the payoff move must be spent while the
+        // shield is still up.
+        _ when check.StartsWith("has_keyword:", StringComparison.Ordinal) =>
+            creature.HasKeyword(ParseKeyword(check["has_keyword:".Length..])),
         _ => throw new ArgumentException($"Unknown creature_state check '{check}'."),
+    };
+
+    private static KeywordFlags ParseKeyword(string raw) => raw switch
+    {
+        "taunt" => KeywordFlags.Taunt,
+        "reflect" => KeywordFlags.Reflect,
+        "ricochet" => KeywordFlags.Ricochet,
+        _ => throw new ArgumentException($"Unknown keyword '{raw}' in creature_state check."),
     };
 }

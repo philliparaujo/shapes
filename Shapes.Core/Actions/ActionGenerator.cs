@@ -207,7 +207,7 @@ public static class ActionGenerator
             return;
         }
 
-        if (!state[player].CanAfford(move.Cost))
+        if (!state[player].CanAfford(state.CostOfMove(player, move.Cost)))
         {
             return;
         }

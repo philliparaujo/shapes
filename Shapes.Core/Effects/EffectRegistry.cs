@@ -20,6 +20,7 @@ public static class EffectRegistry
 
         new HealOp(),
         new HealToFullOp(),
+        new HealToFullNextTurnOp(),
         new HealScaledOp(),
         new SetHealthOp(),
         new BuffMaxHealthOp(),
@@ -34,6 +35,8 @@ public static class EffectRegistry
         new GainResourceOp(),
         new GainResourceScaledOp(),
         new GainNextTurnOp(),
+        new SpendAllOp(),
+        new FreeMovesOp(),
 
         new DestroyOp(),
         new DestroyRefundCostOp(),

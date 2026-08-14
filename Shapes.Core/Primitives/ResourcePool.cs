@@ -42,6 +42,35 @@ public readonly struct ResourcePool : IEquatable<ResourcePool>
 
     public bool IsEmpty => Spike == 0 && Anvil == 0 && Wheel == 0;
 
+    // The one type present in a single-type pool, or null for an empty or mixed one.
+    //
+    // This is what "a move paid for with spikes attacks as Spike" reads (CardDefinition/
+    // MoveDefinition.AttackType), and what the free-moves discount matches a move's type against
+    // (GameState.CostOfMove). Lives here rather than on CardDefinition because it asks nothing
+    // about cards -- it is a pure question about a pool -- and State, which cannot reference the
+    // Cards layer, needs the same answer.
+    public ResourceType? SingleType()
+    {
+        ResourceType? found = null;
+
+        foreach (var type in ResourceTypes.All)
+        {
+            if (this[type] <= 0)
+            {
+                continue;
+            }
+
+            if (found is not null)
+            {
+                return null; // mixed
+            }
+
+            found = type;
+        }
+
+        return found;
+    }
+
     public static ResourcePool Of(ResourceType type, int amount) => type switch
     {
         ResourceType.Spike => new ResourcePool(amount, 0, 0),

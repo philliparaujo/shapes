@@ -22,6 +22,24 @@ public sealed class PlayerState
 
     public int Score { get; private set; }
 
+    // Move types this player may activate at no cost for the REST OF THIS TURN, set by the
+    // free-moves spells (T Party and friends) and cleared by GameState.EndTurn.
+    //
+    // A TypeMask rather than a bool per type, and stored per player rather than per creature: the
+    // spells read "all [type] moves are free", which is a property of whose turn it is, not of
+    // any one body -- a creature played after the spell resolves is still covered.
+    //
+    // This is the ONLY cost discount in the engine, and both places that enforce cost must agree
+    // on it: ActionGenerator's affordability filter (which decides what is legal) and
+    // ActionExecutor's Pay (which charges for it). See GameState.CostOfMove, the single answer
+    // both of them ask.
+    public TypeMask FreeMoveTypes { get; private set; }
+
+    public void GrantFreeMoves(ResourceType type) =>
+        FreeMoveTypes = FreeMoveTypes.Union(TypeMask.Of(type));
+
+    public void ClearFreeMoves() => FreeMoveTypes = TypeMask.None;
+
     // Deck order matters and is hidden: index 0 is the next card drawn.
     public IReadOnlyList<string> Deck => _deck;
 
@@ -40,7 +58,8 @@ public sealed class PlayerState
 
     private PlayerState(
         PlayerId id, List<string> deck, List<string> hand, List<string> discard,
-        ResourcePool resources, int score, ResourcePool pendingNextTurnResources)
+        ResourcePool resources, int score, ResourcePool pendingNextTurnResources,
+        TypeMask freeMoveTypes)
     {
         Id = id;
         _deck = deck;
@@ -49,6 +68,7 @@ public sealed class PlayerState
         Resources = resources;
         Score = score;
         PendingNextTurnResources = pendingNextTurnResources;
+        FreeMoveTypes = freeMoveTypes;
     }
 
     public bool DeckIsEmpty => _deck.Count == 0;
@@ -178,7 +198,8 @@ public sealed class PlayerState
     }
 
     public PlayerState Clone() =>
-        new(Id, [.. _deck], [.. _hand], [.. _discard], Resources, Score, PendingNextTurnResources);
+        new(Id, [.. _deck], [.. _hand], [.. _discard], Resources, Score, PendingNextTurnResources,
+            FreeMoveTypes);
 
     public override string ToString() =>
         $"P{Id.ToIndex() + 1} score={Score} res={Resources} hand={_hand.Count} deck={_deck.Count}";

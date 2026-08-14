@@ -1,0 +1,24 @@
+{
+  "id": "titan",
+  "name": "Titan",
+  "kind": "creature",
+  "cost": { "anvil": 4 },
+  "health": 6,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Avalanche",
+      "cost": { "anvil": 2 },
+      "effects": [
+        { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 1 }
+      ]
+    },
+    {
+      "name": "Reforge",
+      "cost": { "anvil": 1 },
+      "effects": [
+        { "op": "heal_to_full_next_turn", "target": "self" }
+      ]
+    }
+  ]
+}

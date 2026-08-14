@@ -1,0 +1,10 @@
+{
+  "id": "anchor",
+  "name": "Anchor",
+  "kind": "spell",
+  "cost": { "anvil": 3 },
+  "effects": [
+    { "op": "draw", "amount": 1 },
+    { "op": "buff_max_health_scaled", "target": "chosen_friendly", "scale": "hand_size", "multiplier": 1 }
+  ]
+}

@@ -72,14 +72,16 @@ public class ContentCardSetTests
     }
 
     [Fact]
-    public void All_36_reference_cards_are_present()
+    public void All_48_reference_cards_are_present()
     {
         // Pins the count so a card accidentally left out of the working tree (as happened once
         // before, per step 1.8's notes) fails loudly here rather than only showing up as a
         // slightly-smaller-than-expected deck.
+        //
+        // 36 reference cards plus the 12 added from references/cards4.jpg.
         var db = Load();
 
-        Assert.Equal(36, db.Count);
+        Assert.Equal(48, db.Count);
     }
 
     [Fact]

@@ -55,29 +55,26 @@ internal static class CombatResolver
     {
         if (ctx.HasCreatureSource && target.HasKeyword(KeywordFlags.Ricochet))
         {
-            var side = target.RicochetDirection == RicochetDirection.Left ? -1 : 1;
-            var neighborSlot = targetSlot.Slot + side;
-
-            if (neighborSlot >= 0 && neighborSlot < SlotIndex.SlotsPerPlayer)
+            // Left before right when both sides are armed (Snowball's Carom). A fixed
+            // order rather than a choice: the defender does not pick where their own creature
+            // deflects to, and a player-facing decision here would be a new prompt in the middle
+            // of someone else's attack.
+            if (TryFindRicochetNeighbor(ctx, targetSlot, target, out var neighbor, out var side))
             {
-                var neighbor = ctx.State.Board[new SlotIndex(targetSlot.Owner, neighborSlot)];
-                if (neighbor is not null)
-                {
-                    // Spent the moment the redirect actually happens, mirroring reflect: a second
-                    // attack this turn (or any later turn) is not redirected until the keyword is
-                    // granted again. Only reached once a neighbor is known to exist, so a grant
-                    // that cannot redirect stays armed rather than being wasted.
-                    target.ConsumeRicochet();
+                // Only the side that actually redirected is spent, mirroring reflect one charge at
+                // a time: a creature armed on both sides deflects twice, once per side, and a
+                // grant that cannot redirect (no neighbor there) stays armed rather than being
+                // wasted. The keyword itself clears once no side is left.
+                target.ConsumeRicochet(side);
 
-                    // The ricochet trigger fires on the REDIRECTING creature (target), not the
-                    // neighbor who actually takes the damage -- Circle Bender is rewarded for
-                    // its own attack being deflected, regardless of what that damage then hits.
-                    FirePendingOnNextRicochet(ctx, targetSlot, target);
-                    neighbor.TakeDamage(amount);
-                    return;
-                }
+                // The ricochet trigger fires on the REDIRECTING creature (target), not the
+                // neighbor who actually takes the damage -- Circle Bender is rewarded for
+                // its own attack being deflected, regardless of what that damage then hits.
+                FirePendingOnNextRicochet(ctx, targetSlot, target);
+                neighbor.TakeDamage(amount);
+                return;
             }
-            // No friendly neighbor on that side: ricochet does not trigger, target takes it.
+            // No friendly neighbor on any armed side: ricochet does not trigger, target takes it.
         }
 
         // Reflect negates the hit outright: the defender takes nothing and the attacker takes
@@ -104,6 +101,43 @@ internal static class CombatResolver
             EffectInterpreter.Apply(pending, ctx.WithSelfAsController(targetSlot));
         }
     }
+
+    // The first friendly neighbor on an armed ricochet side, left before right, along with WHICH
+    // side that was -- the caller spends exactly that side, so an unused one survives for a later
+    // attack. Returns false when no armed side has a neighbor, and the caller then lets the hit
+    // land normally, leaving every side armed for an attack that can actually be deflected.
+    private static bool TryFindRicochetNeighbor(
+        EffectContext ctx, SlotIndex targetSlot, CreatureInstance target,
+        out CreatureInstance neighbor, out RicochetDirection side)
+    {
+        foreach (var (candidate, offset) in RicochetSides)
+        {
+            if (!target.RicochetDirection.HasFlag(candidate))
+            {
+                continue;
+            }
+
+            var neighborSlot = targetSlot.Slot + offset;
+            if (neighborSlot < 0 || neighborSlot >= SlotIndex.SlotsPerPlayer)
+            {
+                continue;
+            }
+
+            if (ctx.State.Board[new SlotIndex(targetSlot.Owner, neighborSlot)] is { } found)
+            {
+                neighbor = found;
+                side = candidate;
+                return true;
+            }
+        }
+
+        neighbor = null!;
+        side = RicochetDirection.None;
+        return false;
+    }
+
+    private static readonly (RicochetDirection Side, int Offset)[] RicochetSides =
+        [(RicochetDirection.Left, -1), (RicochetDirection.Right, 1)];
 
     private static void FirePendingOnNextRicochet(EffectContext ctx, SlotIndex targetSlot, CreatureInstance target)
     {

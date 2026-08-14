@@ -1,0 +1,9 @@
+{
+  "id": "t_party",
+  "name": "T Party",
+  "kind": "spell",
+  "cost": { "spike": 1 },
+  "effects": [
+    { "op": "free_moves", "type": "spike" }
+  ]
+}

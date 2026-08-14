@@ -1,0 +1,32 @@
+{
+  "name": "default",
+
+  "startingHandSize": 4,
+  "cardsDrawnPerTurn": 1,
+  "handLimit": "unlimited",
+
+  "baseIncome": { "spike": 2, "anvil": 2, "wheel": 2 },
+  "incomePerCreatureType": 0,
+
+  "pointsPerUnopposedCreature": 1,
+  "scoreByCreatureDelta": false,
+  "scoreToWin": 7,
+  "fatigueScorePerTurn": 1,
+
+  "secondSeatStartingResources": { "spike": 1, "anvil": 1, "wheel": 1 },
+  "secondSeatStartingCards": 1,
+  "secondSeatStartingScore": 0,
+
+  "mergeEnabled": true,
+  "mergeRequiresAdjacent": true,
+  "mergeCostsAction": false,
+  "maxMergeDepth": 2,
+
+  "deckMode": "symmetric",
+  "copiesPerCard": 2,
+
+  "typeChart": {
+    "weaknessMultiplier": 2.0,
+    "cycle": { "spike": "wheel", "wheel": "anvil", "anvil": "spike" }
+  }
+}

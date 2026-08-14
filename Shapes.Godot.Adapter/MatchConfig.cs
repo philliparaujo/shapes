@@ -45,7 +45,22 @@ public sealed record MatchConfig(SeatConfig PlayerOne, SeatConfig PlayerTwo, ulo
 // exact "agent is null -> wait for UI" branch.
 public static class AgentFactory
 {
-    public static IAgent? Build(SeatConfig seat, ulong seed, CardDatabase cards)
+    // `opponentDeck` is the decklist the OTHER seat is playing -- what an IS-MCTS agent's
+    // determinizer subtracts from to work out which cards the opponent could still be holding.
+    //
+    // It must be passed whenever the game is dealt from anything other than the ruleset's
+    // symmetric decklist, and the Godot game always is: GameSession.Start deals from
+    // DeckBuilder.Default (ONE of every card), while the determinizer's no-deck fallback rebuilds
+    // CardDatabase.BuildSymmetricDeck (CopiesPerCard, currently TWO of every card). Determinizing
+    // against a decklist twice the real size makes the "unseen cards" count disagree with the
+    // opponent's observed hand+deck size, and Determinizer.RestoreOpponent throws on that
+    // mismatch by design rather than papering over it -- which surfaced as the AI simply never
+    // moving, since GameRoot.RunAiTurns is `async void` and swallows the exception.
+    //
+    // Optional (rather than required) only so the human-vs-human and Random/Greedy paths, which
+    // never determinize, keep working without a deck on hand. See Shapes.Sim's own AgentFactory,
+    // which has always threaded the opposing deck through for the same reason.
+    public static IAgent? Build(SeatConfig seat, ulong seed, CardDatabase cards, Deck? opponentDeck = null)
     {
         ArgumentNullException.ThrowIfNull(seat);
         ArgumentNullException.ThrowIfNull(cards);
@@ -57,10 +72,12 @@ public static class AgentFactory
             AgentKind.Random => new RandomAgent(random),
             AgentKind.Greedy => new GreedyAgent(random),
             AgentKind.IsMcts => new IsMctsAgent(
-                cards, random, SearchBudget.OfIterations(seat.Iterations)),
+                cards, random, SearchBudget.OfIterations(seat.Iterations),
+                opponentDeck: opponentDeck),
             AgentKind.IsMctsHeuristic => new IsMctsAgent(
                 cards, random, SearchBudget.OfIterations(seat.Iterations),
-                playoutPolicy: HeuristicPlayoutPolicy.Instance),
+                playoutPolicy: HeuristicPlayoutPolicy.Instance,
+                opponentDeck: opponentDeck),
             _ => throw new ArgumentOutOfRangeException(nameof(seat), seat.Kind, "Unknown agent kind."),
         };
     }

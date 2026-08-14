@@ -107,4 +107,55 @@ public class ResourceOpTests
         Assert.Throws<ArgumentException>(() => EffectInterpreter.Apply(
             Eff.Node("gain_resource_scaled", ("type", "spike"), ("scale", "selector_health")), ctx));
     }
+
+    [Fact]
+    public void Free_moves_discounts_only_the_named_type()
+    {
+        var (state, ctx) = Setup();
+
+        EffectInterpreter.Apply(Eff.Node("free_moves", ("type", "spike")), ctx);
+
+        Assert.Equal(
+            ResourcePool.Empty,
+            state.CostOfMove(PlayerId.One, ResourcePool.Of(ResourceType.Spike, 3)));
+
+        // Other types still cost full price...
+        var anvilCost = ResourcePool.Of(ResourceType.Anvil, 2);
+        Assert.Equal(anvilCost, state.CostOfMove(PlayerId.One, anvilCost));
+
+        // ...and so does the opponent, whose own moves were never discounted.
+        var spikeCost = ResourcePool.Of(ResourceType.Spike, 3);
+        Assert.Equal(spikeCost, state.CostOfMove(PlayerId.Two, spikeCost));
+    }
+
+    [Fact]
+    public void Free_moves_expires_at_end_of_turn()
+    {
+        var (state, ctx) = Setup();
+        var cost = ResourcePool.Of(ResourceType.Spike, 3);
+
+        EffectInterpreter.Apply(Eff.Node("free_moves", ("type", "spike")), ctx);
+        Assert.Equal(ResourcePool.Empty, state.CostOfMove(PlayerId.One, cost));
+
+        state.EndTurn();
+
+        Assert.Equal(cost, state.CostOfMove(PlayerId.One, cost));
+    }
+
+    [Fact]
+    public void Free_moves_stack_across_types()
+    {
+        // Two of the three spells in one turn: both types are discounted, not just the later one.
+        var (state, ctx) = Setup();
+
+        EffectInterpreter.Apply(Eff.Node("free_moves", ("type", "spike")), ctx);
+        EffectInterpreter.Apply(Eff.Node("free_moves", ("type", "wheel")), ctx);
+
+        Assert.Equal(
+            ResourcePool.Empty,
+            state.CostOfMove(PlayerId.One, ResourcePool.Of(ResourceType.Spike, 2)));
+        Assert.Equal(
+            ResourcePool.Empty,
+            state.CostOfMove(PlayerId.One, ResourcePool.Of(ResourceType.Wheel, 4)));
+    }
 }

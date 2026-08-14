@@ -1,0 +1,26 @@
+{
+  "id": "bastion",
+  "name": "Bastion",
+  "kind": "creature",
+  "cost": { "anvil": 3 },
+  "health": 5,
+  "types": ["anvil"],
+  "moves": [
+    {
+      "name": "Entrench",
+      "cost": { "anvil": 2 },
+      "effects": [
+        { "op": "grant_keyword", "target": "self", "keyword": "reflect" },
+        { "op": "grant_keyword", "target": "self", "keyword": "taunt", "until_next_turn": true }
+      ]
+    },
+    {
+      "name": "Counterblow",
+      "cost": { "anvil": 1 },
+      "condition": { "op": "creature_state", "target": "self", "check": "has_keyword:reflect" },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 4 }
+      ]
+    }
+  ]
+}

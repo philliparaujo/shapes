@@ -23,14 +23,35 @@ public static class CardTextFormat
 // badge (PLAN.md B1c) needs a ResourceType to pick a shape/color, not just the pre-formatted
 // glyph string ResourceIcons.DescribeCost already gives it; CostAmount is that type's pip count,
 // for the badge's number overlay (0 / meaningless when PrimaryType is null).
-public sealed record MoveText(string Name, string Cost, string Effects, ResourceType? PrimaryType, int CostAmount)
+//
+// CostAmount is the EFFECTIVE cost, not necessarily the printed one: a free-moves spell zeroes
+// every move of its type for the turn, and a badge still showing the printed pips while the move
+// costs nothing is the one thing a player cannot discover from the board. IsDiscounted says the
+// zero is that temporary state rather than a move that simply prints no cost, which is what lets
+// the badge tint it (see ResourceIconFactory.Create) -- the two look identical otherwise.
+public sealed record MoveText(
+    string Name, string Cost, string Effects, ResourceType? PrimaryType, int CostAmount,
+    bool IsDiscounted = false)
 {
-    public static MoveText Of(MoveDefinition move) => new(
-        move.Name,
-        ResourceIcons.DescribeCost(move.Cost),
-        EffectText.DescribeMove(move.Condition, move.Effects, CardTextFormat.Resource),
-        move.AttackType,
-        move.AttackType is { } t ? move.Cost[t] : 0);
+    // The card-data-only form: no game in progress (the card browser, a deck list), so nothing
+    // can be discounted and the printed cost IS the effective cost.
+    public static MoveText Of(MoveDefinition move) => Of(move, move.Cost);
+
+    // `effectiveCost` is what the move costs right now -- GameState.CostOfMove, which is the same
+    // answer ActionGenerator used to decide the move was legal and ActionExecutor will charge.
+    // Passed in rather than computed here so this assembly stays free of GameState, and so there
+    // is still exactly one implementation of the discount rule.
+    public static MoveText Of(MoveDefinition move, ResourcePool effectiveCost)
+    {
+        var type = move.AttackType;
+        return new MoveText(
+            move.Name,
+            ResourceIcons.DescribeCost(effectiveCost),
+            EffectText.DescribeMove(move.Condition, move.Effects, CardTextFormat.Resource),
+            type,
+            type is { } t ? effectiveCost[t] : 0,
+            IsDiscounted: effectiveCost != move.Cost);
+    }
 }
 
 // Full text for one card face: everything A4 (card rendering via EffectText) needs, gathered

@@ -294,6 +294,23 @@ public sealed class GameState
         return income;
     }
 
+    // What `move` actually costs `player` right now: its printed cost, or nothing when a
+    // free-moves spell has discounted that move's type this turn.
+    //
+    // THE one place the discount is applied. ActionGenerator asks this to decide whether a move is
+    // affordable and ActionExecutor asks it to charge -- two implementations of "what does this
+    // cost" is exactly how a UI and an AI come to disagree about the rules, the same reasoning
+    // that keeps legality in one place (see ActionExecutor's contract note).
+    //
+    // A move's type comes from its cost (MoveDefinition.AttackType), so a zero-cost move has no
+    // type and is unaffected -- it was already free.
+    public ResourcePool CostOfMove(PlayerId player, ResourcePool printedCost)
+    {
+        return printedCost.SingleType() is { } t && this[player].FreeMoveTypes.Has(t)
+            ? ResourcePool.Empty
+            : printedCost;
+    }
+
     // True when the active player's empty deck is about to hand their opponent fatigue score.
     // Pure, so a caller can preview it the same way PendingScore/PendingIncome allow.
     public bool IsFatigued(PlayerId player) =>
@@ -324,6 +341,15 @@ public sealed class GameState
     {
         Active.GainResources(PendingIncome(ActivePlayer));
         Active.GainResources(Active.ConsumePendingNextTurnResources());
+
+        // Turn-start creature effects (Titan's scheduled heal) land here, alongside the
+        // resource counterpart just above -- this is the first phase of the receiving player's
+        // own turn, whereas ResetMovesForNewTurn ran as their PREVIOUS turn ended.
+        foreach (var (_, creature) in Board.CreaturesOf(ActivePlayer))
+        {
+            creature.OnControllerTurnStart();
+        }
+
         Phase = TurnPhase.Draw;
     }
 
@@ -434,6 +460,12 @@ public sealed class GameState
         {
             creature.ResetMovesForNewTurn();
         }
+
+        // "This turn, all [type] moves are free" expires with the turn that bought it. Cleared
+        // here, alongside the per-turn creature reset, rather than at the next turn's start: this
+        // is the same boundary, and clearing on the way out keeps a discount from ever being
+        // visible to the opponent's turn in between.
+        Active.ClearFreeMoves();
 
         ActivePlayer = ActivePlayer.Opponent();
 

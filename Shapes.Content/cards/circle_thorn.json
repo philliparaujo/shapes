@@ -1,0 +1,26 @@
+{
+  "id": "circle_thorn",
+  "name": "Circle Thorn",
+  "kind": "creature",
+  "cost": { "wheel": 4 },
+  "health": 5,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Backlash",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "on_next_damage_taken", "target": "self",
+          "effect": { "op": "damage", "target": "all_enemies", "amount": 3 } }
+      ]
+    },
+    {
+      "name": "Hunker",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "buff_max_health", "target": "self", "amount": 2 },
+        { "op": "grant_keyword", "target": "self", "keyword": "taunt", "until_next_turn": true }
+      ]
+    }
+  ]
+}

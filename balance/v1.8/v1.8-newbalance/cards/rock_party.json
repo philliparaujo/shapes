@@ -1,0 +1,9 @@
+{
+  "id": "rock_party",
+  "name": "Rock Party",
+  "kind": "spell",
+  "cost": { "anvil": 1 },
+  "effects": [
+    { "op": "free_moves", "type": "anvil" }
+  ]
+}

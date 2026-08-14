@@ -1,0 +1,9 @@
+{
+  "id": "siphon",
+  "name": "Siphon",
+  "kind": "spell",
+  "cost": { "wheel": 1 },
+  "effects": [
+    { "op": "damage", "target": "chosen_enemy", "amount": 2 }
+  ]
+}

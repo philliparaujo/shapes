@@ -1,0 +1,25 @@
+{
+  "id": "t_berserker",
+  "name": "T Berserker",
+  "kind": "creature",
+  "cost": { "spike": 2 },
+  "health": 3,
+  "types": ["spike"],
+  "moves": [
+    {
+      "name": "Bloodlust",
+      "cost": { "spike": 1 },
+      "effects": [
+        { "op": "attack_buff_scaled", "target": "self", "scale": "damaged_creatures", "multiplier": 1 }
+      ]
+    },
+    {
+      "name": "Double Jab",
+      "cost": { "spike": 2 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 },
+        { "op": "damage", "target": "opposing", "amount": 1 }
+      ]
+    }
+  ]
+}

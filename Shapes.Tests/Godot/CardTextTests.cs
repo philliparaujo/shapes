@@ -1,4 +1,5 @@
 using Shapes.Core.Cards;
+using Shapes.Core.Primitives;
 using Shapes.Godot.Adapter;
 using Shapes.Tests.Fixtures;
 
@@ -60,5 +61,44 @@ public class CardTextTests
 
         var move = Assert.Single(text.Moves);
         Assert.Equal("free", move.Cost);
+    }
+
+    [Fact]
+    public void A_discounted_move_reports_a_zero_badge_flagged_as_discounted()
+    {
+        // Striker's move costs 1 wheel; a free-moves spell has zeroed wheel moves this turn.
+        var move = Cards.Get(TestCards.Striker).Moves[0];
+
+        var text = MoveText.Of(move, ResourcePool.Empty);
+
+        Assert.Equal(0, text.CostAmount);
+        Assert.True(text.IsDiscounted);
+
+        // The SHAPE still says which resource the move is paid in -- only the amount owed
+        // changed, not what it is owed in.
+        Assert.Equal(ResourceType.Wheel, text.PrimaryType);
+    }
+
+    [Fact]
+    public void An_undiscounted_move_is_not_flagged()
+    {
+        var move = Cards.Get(TestCards.Striker).Moves[0];
+
+        var text = MoveText.Of(move, move.Cost);
+
+        Assert.Equal(1, text.CostAmount);
+        Assert.False(text.IsDiscounted);
+    }
+
+    [Fact]
+    public void A_printed_free_move_is_not_flagged_as_discounted()
+    {
+        // The distinction the flag exists for: a move that always costs nothing must NOT tint,
+        // or "free right now" and "free always" would look identical on the badge.
+        var move = Cards.Get(TestCards.FreeMove).Moves[0];
+
+        var text = MoveText.Of(move, move.Cost);
+
+        Assert.False(text.IsDiscounted);
     }
 }

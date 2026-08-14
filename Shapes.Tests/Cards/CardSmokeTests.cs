@@ -65,9 +65,15 @@ public class CardSmokeTests
             // of its own. A third case covers a threshold ABOVE the card's printed health
             // (Basic Square's Jab needs health >= 4 on a 3-health body, deliberately: it must
             // Fortify itself first), which neither of the other two can ever satisfy.
+            // A fourth case covers a move gated on a KEYWORD the creature grants itself with its
+            // other move (Bastion's Counterblow needs the reflect its Entrench grants,
+            // deliberately: the payoff is only available behind the setup). Health alone can never
+            // satisfy that, so the state is seeded with the keyword the condition asks for.
             var action = TryFindMoveAction(card, moveIndex, atFullHealth: true, out var state)
                 ?? TryFindMoveAction(card, moveIndex, atFullHealth: false, out state)
-                ?? TryFindMoveAction(card, moveIndex, atFullHealth: true, out state, healthBonus: 3);
+                ?? TryFindMoveAction(card, moveIndex, atFullHealth: true, out state, healthBonus: 3)
+                ?? TryFindMoveAction(card, moveIndex, atFullHealth: true, out state,
+                       grantKeyword: RequiredKeyword(move));
 
             Assert.True(
                 action is not null,
@@ -85,17 +91,59 @@ public class CardSmokeTests
     // buffed itself past its printed value (Fortify, Brace, Grow) -- the only way a move gated
     // above base health is ever legal.
     private static UseMoveAction? TryFindMoveAction(
-        CardDefinition card, int moveIndex, bool atFullHealth, out GameState? state, int healthBonus = 0)
+        CardDefinition card, int moveIndex, bool atFullHealth, out GameState? state, int healthBonus = 0,
+        KeywordFlags? grantKeyword = null)
     {
         state = BuildSuitableState(card);
         var maxHealth = card.Health + healthBonus;
         var health = atFullHealth ? maxHealth : Math.Max(1, maxHealth - 1);
-        state.Board.Place(
-            new SlotIndex(PlayerId.One, 0), new CreatureInstance(card.Id, maxHealth, card.Types, health));
+        var creature = new CreatureInstance(card.Id, maxHealth, card.Types, health);
+
+        if (grantKeyword is { } keyword)
+        {
+            // Ricochet carries a side; the others ignore it. GrantRicochet is the only entry
+            // point that sets one, so it is used rather than the generic grant.
+            if (keyword == KeywordFlags.Ricochet)
+            {
+                creature.GrantRicochet(RicochetDirection.Left);
+            }
+            else
+            {
+                creature.GrantKeyword(keyword);
+            }
+        }
+
+        state.Board.Place(new SlotIndex(PlayerId.One, 0), creature);
 
         return ActionGenerator.Generate(state, Cards)
             .OfType<UseMoveAction>()
             .FirstOrDefault(a => a.SourceSlot == new SlotIndex(PlayerId.One, 0) && a.MoveIndex == moveIndex);
+    }
+
+    // The keyword a move's condition gates on ("has_keyword:reflect"), or null when it gates on
+    // something else or nothing at all. Read from the card's own condition rather than hardcoded
+    // per card id, so a future keyword-gated move needs no edit here.
+    private static KeywordFlags? RequiredKeyword(MoveDefinition move)
+    {
+        if (move.Condition is not { } condition || !condition.Args.Has("check"))
+        {
+            return null;
+        }
+
+        var check = condition.Args.String("check");
+        const string prefix = "has_keyword:";
+        if (!check.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return check[prefix.Length..] switch
+        {
+            "taunt" => KeywordFlags.Taunt,
+            "reflect" => KeywordFlags.Reflect,
+            "ricochet" => KeywordFlags.Ricochet,
+            _ => null,
+        };
     }
 
     // A board generous enough that every move's targeting selector and every condition in the

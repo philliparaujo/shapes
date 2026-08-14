@@ -48,12 +48,22 @@ public static class StatusIcons
             badges.Add(new StatusBadge(ReflectGlyph, "Reflect"));
         }
 
+        // ONE BADGE PER ARMED SIDE. RicochetDirection is a flags value and a creature can hold
+        // both at once (Snowball's Carom grants left and right), so this tests each
+        // side independently -- an `== Left ? left : right` comparison reads a both-sides value
+        // as "not exactly Left" and silently renders it as a lone right arrow, hiding half the
+        // state the player is deciding on.
         if (creature.HasKeyword(KeywordFlags.Ricochet))
         {
-            var (glyph, side) = creature.RicochetDirection == RicochetDirection.Left
-                ? (RicochetLeftGlyph, "left")
-                : (RicochetRightGlyph, "right");
-            badges.Add(new StatusBadge(glyph, $"Ricochet ({side})"));
+            if (creature.RicochetDirection.HasFlag(RicochetDirection.Left))
+            {
+                badges.Add(new StatusBadge(RicochetLeftGlyph, "Ricochet (left)"));
+            }
+
+            if (creature.RicochetDirection.HasFlag(RicochetDirection.Right))
+            {
+                badges.Add(new StatusBadge(RicochetRightGlyph, "Ricochet (right)"));
+            }
         }
 
         if (creature.IsStunned)

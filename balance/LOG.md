@@ -771,3 +771,76 @@ Reworks
 - (z -0.44 -> -0.56) **Rally**: cost 2->1
   - gain spike (cards in hand x2) -> +attack (chosen friendly's missing health) to chosen
     friendly (persistent)
+
+# card balance 3.0
+Changes: Reflect no longer does damage
+
+## v1.8-baseline
+
+## v1.8-newcards
+**Changed:** 
+
+Nerfs
+- Basic Square
+  - Jab: Deal 2 if this has at least 4->5 health
+- Columns: health 5->4
+  - Renovate: Gain +2->3 max health. Gain taunt until your next turn
+- Bubbles
+  - Burst: Deal 6->5 to this. Deal 6->5 to all enemies.
+
+Buffs
+- Enrage: cost 3->2
+- Safeguard: cost 4->2
+- Execute: Deal 4->6 to it if an enemy is damaged. Otherwise deal 2->3 to it
+- Def. Stance: Each friendly gains +2->3 max health
+- T Body: 
+  - Overclock: Deal 3->2 to this. Gain 3 spike
+- Relic: 
+  - Unearth: Deal 3->2 to this. Gain 3 anvil
+
+12 new cards added from `references/cards4.jpg`, bringing the set from 36 to 48.
+
+| Card | Cost | Health | Moves |
+| --- | --- | --- | --- |
+| Circle Warden | 2 wheel | 3 | Vertigo (3): stun all enemies · Roll Through (2): deal 2 |
+| Sentry | 3 anvil | 4 | Clamp (1): stun opposing · Rap (1): deal 1 |
+| T Berserker | 2 spike | 3 | Bloodlust (1): +attack per damaged creature · Double Jab (2): deal 1, deal 1 |
+| Circle Thorn | 4 wheel | 5 | Backlash (1): next damage taken deals 3 to all enemies · Hunker (1): taunt until next turn |
+| Bastion | 3 anvil | 5 | Entrench (2): gain reflect + taunt until next turn · Counterblow (1): deal 4 if this has reflect |
+| Snowball | 3 wheel | 3 | Carom (1): gain ricochet left and right · Snowballing (1): deal 1, +2 attack |
+| Titan | 4 anvil | 6 | Avalanche (2): deal damage equal to health · Reforge (1): heal to full at the start of your next turn |
+| T Reaver | 3 spike | 4 | Cleave (1): deal 4 if damaged · Skirmish (2): deal 1, draw 1 |
+| T Nova | 4 spike | 3 | Nova Burst (1): spend all spike, deal that much, draw that many · Overheat (2): gain 2 spike |
+| T Party | 2 spike | spell | This turn, all [spike] moves are free |
+| Rock Party | 2 anvil | spell | This turn, all [anvil] moves are free |
+| Circle Party | 2 wheel | spell | This turn, all [wheel] moves are free |
+
+Engine additions needed by these cards:
+- `spend_all` op
+- `damaged_creatures` scale
+- `draw_scaled` widened from its private one-entry vocabulary to the shared scale enum.
+- `has_keyword:<k>` creature_state check
+- `heal_to_full_next_turn` op + `CreatureInstance.OnControllerTurnStart`, fired from
+  `GameState.ApplyIncome`
+- `RicochetDirection` became `[Flags]`
+- `free_moves` op + `PlayerState.FreeMoveTypes` + `GameState.CostOfMove`
+- `ResourcePool.SingleType()`
+
+## v1.8-newbalance
+**Changed:**
+
+Fixed a bug where taunt did not affect non-opposing enemy creature attacks.
+
+Buffs
+- Circle Party: cost 2->1
+- Rock Party: cost 2->1
+- T Party: cost 2->1
+- Safeguard: A friendly gains reflect -> A friendly gains reflect, +1 health, and +1 attack
+- Champion T:
+  - Swagger: cost 3->2
+- Shieldbearer:
+  - Brace: Draw 1->2 next time this takes damage
+- T Nova:
+  - Overheat: (cost 2) Gain 2 spike -> Accrete: (cost 2) Gain health equal to hand size
+- Circle Thorn:
+  - Hunker: Gain taunt until your next turn -> Gain +2 max health. Gain taunt until your next turn

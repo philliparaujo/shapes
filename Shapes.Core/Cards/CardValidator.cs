@@ -158,7 +158,8 @@ public static class CardValidator
     // Checks carrying a ":<n>" argument, so they are prefix-matched rather than compared whole.
     // Kept as a list beside the exact-match set so adding one is a single edit here and in
     // ConditionEvaluator.MatchesCheck, rather than another `||` grown onto the condition below.
-    private static readonly string[] ParameterisedChecks = ["health_at_most:", "health_at_least:"];
+    private static readonly string[] ParameterisedChecks =
+        ["health_at_most:", "health_at_least:", "has_keyword:"];
 
     private static void ValidateCondition(EffectNode condition, string at)
     {

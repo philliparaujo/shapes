@@ -64,6 +64,23 @@ public class StatusIconsTests
     }
 
     [Fact]
+    public void Ricochet_on_both_sides_reports_a_badge_for_each()
+    {
+        // Snowball's Carom. The regression this pins: RicochetDirection is a flags
+        // value, and an `== Left ? left : right` read treats a both-sides value as "not exactly
+        // Left" and renders a single RIGHT arrow -- the creature really is armed on both sides,
+        // but the player sees half its state and cannot tell why a hit deflected left.
+        var creature = Cadet();
+        creature.GrantRicochet(RicochetDirection.Left);
+        creature.GrantRicochet(RicochetDirection.Right);
+
+        var badges = StatusIcons.Describe(creature);
+
+        Assert.Contains(badges, b => b.Glyph == StatusIcons.RicochetLeftGlyph);
+        Assert.Contains(badges, b => b.Glyph == StatusIcons.RicochetRightGlyph);
+    }
+
+    [Fact]
     public void Stun_reports_its_own_badge()
     {
         var creature = Cadet();

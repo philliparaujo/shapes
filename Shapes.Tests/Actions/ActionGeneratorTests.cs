@@ -131,6 +131,43 @@ public class ActionGeneratorTests
     }
 
     [Fact]
+    public void A_move_whose_type_is_free_this_turn_is_legal_and_charges_nothing_with_no_resources()
+    {
+        // The whole point of the free-moves spells, and the soundness invariant under a discount:
+        // the generator must offer a move the player cannot otherwise pay for, and the executor
+        // must then charge zero rather than throwing in Pay. Two places read the cost; this fails
+        // if either one skips GameState.CostOfMove.
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, TestCards.Striker, TypeMask.Wheel).Resources(wheel: 0))
+            .Build();
+
+        // Striker's move costs 1 wheel and the player has none.
+        Assert.DoesNotContain(Generate(state), a => a.Kind == ActionKind.UseMove);
+
+        state[PlayerId.One].GrantFreeMoves(ResourceType.Wheel);
+
+        var move = Generate(state).OfType<UseMoveAction>().FirstOrDefault();
+        Assert.NotNull(move);
+
+        ActionExecutor.Apply(state, TestCards.Database, move!);
+
+        Assert.Equal(0, state[PlayerId.One].Resources.Wheel);
+    }
+
+    [Fact]
+    public void A_free_move_type_does_not_discount_a_card_played_from_hand()
+    {
+        // The spells say "all [type] MOVES are free", not "everything is free". Playing a card
+        // from hand still costs full price.
+        var state = new StateBuilder()
+            .P1(p => p.Hand(TestCards.Striker).Resources(wheel: 0))
+            .Build();
+        state[PlayerId.One].GrantFreeMoves(ResourceType.Wheel);
+
+        Assert.DoesNotContain(Generate(state), a => a.Kind == ActionKind.PlayCard);
+    }
+
+    [Fact]
     public void A_card_affordable_to_the_exact_pip_is_legal()
     {
         // The boundary: Covers must be >=, not >. An off-by-one here would make every

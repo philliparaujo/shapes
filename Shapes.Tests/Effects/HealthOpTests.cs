@@ -175,4 +175,55 @@ public class HealthOpTests
         Assert.Equal(6, creature.Health);
         Assert.Equal(6, creature.MaxHealth);
     }
+
+    [Fact]
+    public void Heal_to_full_next_turn_does_not_heal_on_the_turn_it_is_scheduled()
+    {
+        // Titan's Reforge. The trap this pins: ResetMovesForNewTurn (where taunt expiry and
+        // stun clear) runs as the scheduling player's own turn ENDS, so hanging the heal there
+        // would resolve it a full turn early and make Reforge a plain "heal to full".
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "titan", TypeMask.Anvil, maxHealth: 6, health: 2))
+            .ActivePlayer(PlayerId.One)
+            .Build();
+        var titan = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+
+        var ctx = new EffectContext(state, PlayerId.One, new SlotIndex(PlayerId.One, 0), null);
+        EffectInterpreter.Apply(Eff.Node("heal_to_full_next_turn", ("target", "self")), ctx);
+
+        Assert.Equal(2, titan.Health); // not yet
+
+        state.EndTurn();
+        state.AdvanceToActions();
+        Assert.Equal(2, titan.Health); // opponent's turn: still not yet
+
+        state.EndTurn();
+        state.AdvanceToActions();
+        Assert.Equal(6, titan.Health); // start of the controller's next turn
+    }
+
+    [Fact]
+    public void Heal_to_full_next_turn_fires_only_once()
+    {
+        var state = new StateBuilder()
+            .P1(p => p.Slot(0, "titan", TypeMask.Anvil, maxHealth: 6, health: 2))
+            .ActivePlayer(PlayerId.One)
+            .Build();
+        var titan = state.Board[new SlotIndex(PlayerId.One, 0)]!;
+        titan.ScheduleHealToFullNextTurn();
+
+        state.EndTurn();
+        state.AdvanceToActions();
+        state.EndTurn();
+        state.AdvanceToActions();
+        Assert.Equal(6, titan.Health);
+
+        // Damaged again, then a full turn cycle: the schedule was consumed, so no second heal.
+        titan.TakeDamage(4);
+        state.EndTurn();
+        state.AdvanceToActions();
+        state.EndTurn();
+        state.AdvanceToActions();
+        Assert.Equal(2, titan.Health);
+    }
 }

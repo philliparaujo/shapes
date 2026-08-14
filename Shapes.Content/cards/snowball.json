@@ -1,0 +1,26 @@
+{
+  "id": "snowball",
+  "name": "Snowball",
+  "kind": "creature",
+  "cost": { "wheel": 3 },
+  "health": 3,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Carom",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "grant_keyword", "target": "self", "keyword": "ricochet", "direction": "left" },
+        { "op": "grant_keyword", "target": "self", "keyword": "ricochet", "direction": "right" }
+      ]
+    },
+    {
+      "name": "Snowballing",
+      "cost": { "wheel": 1 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 1 },
+        { "op": "attack_buff", "target": "self", "amount": 2 }
+      ]
+    }
+  ]
+}

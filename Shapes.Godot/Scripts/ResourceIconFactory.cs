@@ -44,10 +44,22 @@ public static class ResourceIconFactory
         _ => 32f,
     };
 
+    // The number's tint when a free-moves spell has discounted this move's type for the turn --
+    // a light yellow against the usual white, so a 0 that is temporary reads as different from a
+    // move that simply prints no cost. Chosen light rather than saturated because it sits on top
+    // of three different shape fills (red/green/blue) and has to stay legible on all of them.
+    private static readonly Color DiscountedNumberColor = new(0.9f, 0.85f, 0.35f);
+
     // number is null for the no-number small glyph case (move description text); a badge with a
     // number renders it as a bold overlay in the shape's bottom-right corner, high-contrast
     // against the shape's fill so it reads at Medium size, not just Big.
-    public static Control Create(ResourceType type, IconSize size, int? number = null)
+    //
+    // `discounted` recolors that number without changing anything else about the badge: the SHAPE
+    // still shows which resource the move is paid in (that never changes), only the amount owed
+    // right now does. Callers pass the already-effective number -- this does not compute the
+    // discount, it only styles it. See MoveText.Of.
+    public static Control Create(
+        ResourceType type, IconSize size, int? number = null, bool discounted = false)
     {
         var diameter = DiameterOf(size);
 
@@ -77,7 +89,8 @@ public static class ResourceIconFactory
                 VerticalAlignment = VerticalAlignment.Center,
                 MouseFilter = Control.MouseFilterEnum.Ignore,
             };
-            label.AddThemeColorOverride("font_color", Colors.White);
+            label.AddThemeColorOverride(
+                "font_color", discounted ? DiscountedNumberColor : Colors.White);
             label.AddThemeConstantOverride("outline_size", (int)(diameter * 0.14f));
             label.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
             label.AddThemeFontSizeOverride("font_size", (int)(diameter * 0.5f));

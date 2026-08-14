@@ -1,0 +1,10 @@
+{
+  "id": "rally",
+  "name": "Rally",
+  "kind": "spell",
+  "cost": { "spike": 1 },
+  "effects": [
+    { "op": "attack_buff_scaled", "target": "chosen_friendly", "scale": "selector_missing_health",
+      "health_source": "chosen_friendly" }
+  ]
+}

@@ -104,7 +104,10 @@ public static class ActionExecutor
 
         var move = moves[action.MoveIndex];
 
-        state[action.Player].Pay(move.Cost);
+        // Not move.Cost directly: a free-moves spell may have discounted this move's type for the
+        // turn. GameState.CostOfMove is the same answer ActionGenerator used to decide this action
+        // was affordable in the first place.
+        state[action.Player].Pay(state.CostOfMove(action.Player, move.Cost));
 
         // Marked used BEFORE the effects resolve. An effect that kills this creature would
         // otherwise leave the flag unset, and while a dead creature cannot act again anyway,

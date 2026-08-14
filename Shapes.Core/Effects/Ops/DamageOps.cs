@@ -31,6 +31,8 @@ internal enum DamageScale
     MissingHealth,
     SelectorMissingHealth,
     DestroyedThisTurn,
+    DamagedCreatures,
+    Spent,
 }
 
 // { "op": "damage_scaled", "target": "opposing", "scale": "health", "multiplier": 1,
@@ -106,6 +108,16 @@ internal sealed class DamageScaledOp : EffectOp
         // Reap now buffs max health per kill instead of drawing per kill.
         DamageScale.DestroyedThisTurn =>
             ctx.State.TurnEvents.Count(e => e.Kind == TurnEventKind.CreatureDestroyed),
+        // Damaged creatures currently on the board, either side -- the board-state counterpart
+        // of DestroyedThisTurn. Enrage already expresses "for each damaged creature" via
+        // for_each + draw, but for_each rebinds "self" to each iterated creature, so an effect
+        // that must land on the SOURCE (T Berserker: "+1 attack for each damaged creature")
+        // cannot be written that way and needs this as a scale instead.
+        DamageScale.DamagedCreatures =>
+            ctx.State.Board.AllCreatures().Count(c => c.Creature.IsDamaged),
+        // How much the enclosing `spend_all` just consumed. Zero outside one -- see
+        // EffectContext.SpentAmount.
+        DamageScale.Spent => ctx.SpentAmount,
         _ => throw new ArgumentOutOfRangeException(nameof(scale), scale, "Unknown damage scale."),
     };
 
@@ -148,6 +160,8 @@ internal sealed class DamageScaledOp : EffectOp
         "missing_health" => DamageScale.MissingHealth,
         "selector_missing_health" => DamageScale.SelectorMissingHealth,
         "destroyed_this_turn" => DamageScale.DestroyedThisTurn,
+        "damaged_creatures" => DamageScale.DamagedCreatures,
+        "spent" => DamageScale.Spent,
         _ => throw new ArgumentException($"Unknown scale '{raw}'."),
     };
 }

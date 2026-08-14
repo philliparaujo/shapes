@@ -1,0 +1,24 @@
+{
+  "id": "circle_warden",
+  "name": "Circle Warden",
+  "kind": "creature",
+  "cost": { "wheel": 2 },
+  "health": 3,
+  "types": ["wheel"],
+  "moves": [
+    {
+      "name": "Vertigo",
+      "cost": { "wheel": 3 },
+      "effects": [
+        { "op": "stun", "target": "all_enemies" }
+      ]
+    },
+    {
+      "name": "Roll Through",
+      "cost": { "wheel": 2 },
+      "effects": [
+        { "op": "damage", "target": "opposing", "amount": 2 }
+      ]
+    }
+  ]
+}

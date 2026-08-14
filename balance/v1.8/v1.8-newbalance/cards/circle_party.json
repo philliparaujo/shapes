@@ -1,0 +1,9 @@
+{
+  "id": "circle_party",
+  "name": "Circle Party",
+  "kind": "spell",
+  "cost": { "wheel": 1 },
+  "effects": [
+    { "op": "free_moves", "type": "wheel" }
+  ]
+}
