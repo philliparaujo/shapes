@@ -1,5 +1,21 @@
 namespace Shapes.Sim;
 
+// Which decks a batch plays with. Every game is played with a deck; this chooses which.
+public enum DeckSource
+{
+    // One copy of every card in the set, both seats. The console's deck, and the mode every
+    // pre-deck balance run is comparable to -- see Program.cs's note on why this stays the
+    // default.
+    Default = 0,
+
+    // An explicit decklist loaded from a file, both seats.
+    Custom = 1,
+
+    // A freshly generated constrained-random deck PER SEAT PER GAME, so a batch samples the
+    // space of legal decks rather than measuring one of them.
+    Random = 2,
+}
+
 // CLI options for the batch runner. Deliberately narrower than Shapes.Console's ConsoleOptions --
 // there is no human seat and no rendering, but there is a matrix of agent pairings and a game
 // count, neither of which the console needs.
@@ -47,6 +63,21 @@ public sealed record SimOptions
     // stand in for a real balance run -- the point is a known-wrong answer to check the
     // detectors against, not a ranking of real cards.
     public bool Calibration { get; private init; }
+
+    // DECKS. Default (one of each) unless asked otherwise -- every balance number in
+    // balance/LOG.md was measured against it, so changing the default would silently make new
+    // runs incomparable to every recorded one.
+    public DeckSource Deck { get; private init; } = DeckSource.Default;
+
+    // Path to a decklist file, required by and only meaningful for --deck custom.
+    public string? DeckPath { get; private init; }
+
+    // Constrained-random generation knobs (--deck random). Defaults match
+    // DeckBuilder.RandomDeckConstraints: within +/-0.2 of the default deck's mean cost, 10+
+    // creatures of each type.
+    public double DeckCostTolerance { get; private init; } = 0.2;
+
+    public int DeckMinPerType { get; private init; } = 10;
 
     public bool ShowHelp { get; private init; }
 
@@ -125,6 +156,24 @@ public sealed record SimOptions
                 case "--calibration":
                     options = options with { Calibration = true };
                     break;
+                case "--deck":
+                    options = options with { Deck = ParseDeckSource(args, ref i) };
+                    break;
+                case "--deck-file":
+                    options = options with { DeckPath = RequireValue(args, ref i, "--deck-file") };
+                    break;
+                case "--deck-cost-tolerance":
+                    options = options with
+                    {
+                        DeckCostTolerance = ParseDouble(args, ref i, "--deck-cost-tolerance"),
+                    };
+                    break;
+                case "--deck-min-per-type":
+                    options = options with
+                    {
+                        DeckMinPerType = ParseInt(args, ref i, "--deck-min-per-type"),
+                    };
+                    break;
                 case "--help" or "-h":
                     options = options with { ShowHelp = true };
                     break;
@@ -148,6 +197,29 @@ public sealed record SimOptions
         else if (options.FromMetricsJson is null && options.Games <= 0)
         {
             throw new ArgumentException("--games must be positive.");
+        }
+
+        // A custom deck needs a file to read, and a file is meaningless without --deck custom.
+        // Both directions are checked: silently ignoring a --deck-file the user passed would run
+        // a whole batch against the wrong deck and report it as if nothing were wrong.
+        if (options.Deck == DeckSource.Custom && options.DeckPath is null)
+        {
+            throw new ArgumentException("--deck custom requires --deck-file PATH.");
+        }
+
+        if (options.Deck != DeckSource.Custom && options.DeckPath is not null)
+        {
+            throw new ArgumentException("--deck-file is only valid with --deck custom.");
+        }
+
+        if (options.DeckCostTolerance < 0)
+        {
+            throw new ArgumentException("--deck-cost-tolerance must not be negative.");
+        }
+
+        if (options.DeckMinPerType < 0)
+        {
+            throw new ArgumentException("--deck-min-per-type must not be negative.");
         }
 
         return options;
@@ -174,6 +246,11 @@ public sealed record SimOptions
         Console.WriteLine("  --cards-csv PATH   Write per-card metrics as a flat CSV");
         Console.WriteLine("  --moves-csv PATH   Write per-move metrics as a flat CSV");
         Console.WriteLine("  --calibration      Add the 6 deliberately mispriced calibration spells (PLAN.md step 4.2e)");
+        Console.WriteLine("  --deck MODE        default (one of each card, the default), custom, or random");
+        Console.WriteLine("  --deck-file PATH   Decklist to play; required with --deck custom.");
+        Console.WriteLine("                     One 'cardId count' or 'cardId' per line; # comments allowed");
+        Console.WriteLine("  --deck-cost-tolerance N  --deck random: max mean-cost gap from the default deck (default: 0.2)");
+        Console.WriteLine("  --deck-min-per-type N    --deck random: min creatures of each type (default: 10)");
         Console.WriteLine("  --help             Show this message");
     }
 
@@ -185,6 +262,32 @@ public sealed record SimOptions
         }
 
         return args[++i];
+    }
+
+    private static DeckSource ParseDeckSource(string[] args, ref int i)
+    {
+        var value = RequireValue(args, ref i, "--deck");
+        return value.ToLowerInvariant() switch
+        {
+            "default" => DeckSource.Default,
+            "custom" => DeckSource.Custom,
+            "random" => DeckSource.Random,
+            _ => throw new ArgumentException(
+                $"--deck expects default, custom, or random, got '{value}'."),
+        };
+    }
+
+    private static double ParseDouble(string[] args, ref int i, string flag)
+    {
+        var value = RequireValue(args, ref i, flag);
+        if (!double.TryParse(
+                value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+        {
+            throw new ArgumentException($"{flag} expects a number, got '{value}'.");
+        }
+
+        return parsed;
     }
 
     private static int ParseInt(string[] args, ref int i, string flag)

@@ -32,16 +32,21 @@ public class GameSessionTests
     [InlineData(4242UL)]
     public void Start_matches_the_console_setup_sequence(ulong seed)
     {
-        // Same steps Shapes.Console/Program.cs runs: symmetric decks, shuffle, draw, seat-2
-        // compensation, advance to Actions. If this ever drifts from the console's sequence,
-        // a seeded Godot game stops matching a seeded console game -- Milestone A's exit bar.
+        // Same steps Shapes.Console/Program.cs runs: the DEFAULT deck (one copy of every card --
+        // the console's only deck), dealt through GameSetup.Deal, then advance to Actions. If this
+        // ever drifts from the console's sequence, a seeded Godot game stops matching a seeded
+        // console game -- Milestone A's exit bar.
+        //
+        // Deliberately re-derives the deal here (rather than calling a shared helper both sides
+        // use) so this stays an independent check of the sequence: a test that called exactly what
+        // GameSession calls would pass no matter what either did.
         var random = new SeededRandom(seed);
         var expected = new GameState(Rules, random, PlayerId.One);
+        var deck = DeckBuilder.Default(Cards);
         foreach (var playerId in PlayerIds.All)
         {
             var player = expected[playerId];
-            player.SetDeck(Cards.BuildSymmetricDeck(Rules));
-            player.ShuffleDeck(random);
+            player.SetDeck(deck.Shuffled(random));
             player.Draw(Rules.StartingHandSize);
         }
 

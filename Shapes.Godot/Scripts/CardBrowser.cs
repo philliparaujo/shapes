@@ -122,6 +122,7 @@ public partial class CardBrowser : Control
 
     public override void _Ready()
     {
+        GodotTextFormat.Ensure();
         _grid = GetNode<GridContainer>(GridContainerPath);
         _backButton = GetNode<Button>(BackButtonPath);
         _searchBar = GetNode<LineEdit>(SearchBarPath);

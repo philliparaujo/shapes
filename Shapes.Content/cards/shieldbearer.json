@@ -7,7 +7,7 @@
   "types": ["anvil"],
   "moves": [
     {
-      "name": "Brace For Impact",
+      "name": "Brace",
       "cost": { "anvil": 1 },
       "effects": [
         { "op": "on_next_damage_taken", "target": "self",

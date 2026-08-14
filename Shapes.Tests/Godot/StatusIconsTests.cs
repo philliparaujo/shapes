@@ -133,7 +133,7 @@ public class StatusIconsTests
 
         var badge = Assert.Single(StatusIcons.Describe(creature));
         Assert.Equal(StatusIcons.PendingTriggerGlyph, badge.Glyph);
-        Assert.Equal("Next time this takes damage: gain 3 anvil", badge.Tooltip);
+        Assert.Equal("Gain 3 [anvil] next time this takes damage.", badge.Tooltip);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class StatusIconsTests
 
         var badge = Assert.Single(StatusIcons.Describe(creature));
         Assert.Equal(StatusIcons.PendingTriggerGlyph, badge.Glyph);
-        Assert.Equal("Next time this ricochets: draw 1", badge.Tooltip);
+        Assert.Equal("Draw 1 next time this ricochets.", badge.Tooltip);
     }
 
     [Fact]

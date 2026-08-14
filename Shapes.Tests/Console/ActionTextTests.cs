@@ -95,7 +95,7 @@ public class ActionTextTests
 
         var text = ActionText.Describe(action, state, Cards);
 
-        Assert.Contains("damage", text, StringComparison.Ordinal);
+        Assert.Contains("Deal 1", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class ActionTextTests
         var text = ActionText.Describe(action, state, Cards);
 
         Assert.Contains(Cards.Get(TestCards.Bolt).Name, text, StringComparison.Ordinal);
-        Assert.Contains("draw", text, StringComparison.Ordinal);
+        Assert.Contains("Draw 1", text, StringComparison.Ordinal);
     }
 
     [Fact]

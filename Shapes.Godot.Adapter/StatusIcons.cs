@@ -83,18 +83,33 @@ public static class StatusIcons
         // rule CardText/MoveText already follow, so a balance edit to the armed effect can never
         // leave a stale tooltip behind. State typed these `object?` specifically so State needn't
         // reference Effects; the adapter is outside that boundary, so it can cast back safely.
+        // The armed node is wrapped back into the op that armed it rather than described bare and
+        // hand-prefixed: EffectText already words both triggers ("Gain 3 [anvil] next time this
+        // takes damage"), so prefixing here would state the trigger twice, in two different
+        // phrasings, once the synthesizer's own wording changed.
         if (creature.PendingOnNextDamageTaken is EffectNode onDamageTaken)
         {
-            badges.Add(new StatusBadge(
-                PendingTriggerGlyph, $"Next time this takes damage: {EffectText.Describe([onDamageTaken])}"));
+            badges.Add(new StatusBadge(PendingTriggerGlyph, Trigger("on_next_damage_taken", onDamageTaken)));
         }
 
         if (creature.PendingOnNextRicochet is EffectNode onRicochet)
         {
-            badges.Add(new StatusBadge(
-                PendingTriggerGlyph, $"Next time this ricochets: {EffectText.Describe([onRicochet])}"));
+            badges.Add(new StatusBadge(PendingTriggerGlyph, Trigger("on_next_ricochet", onRicochet)));
         }
 
         return badges;
     }
+
+    // Targets "self" because a pending trigger always belongs to the creature holding it, which
+    // is what makes the synthesized text read as "... next time this takes damage".
+    private static string Trigger(string op, EffectNode effect) =>
+        EffectText.Describe(
+        [
+            new EffectNode(op, new EffectArgs(new Dictionary<string, object?>
+            {
+                ["target"] = "self",
+                ["effect"] = effect,
+            })),
+        ],
+            CardTextFormat.Resource);
 }

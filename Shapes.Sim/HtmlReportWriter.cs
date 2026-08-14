@@ -93,6 +93,11 @@ public static class HtmlReportWriter
   .bar-wrap { position: relative; width: 140px; height: 14px; background: color-mix(in srgb, CanvasText 10%, transparent); border-radius: 3px; }
   .bar { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, CanvasText 35%, transparent); border-radius: 3px; }
   .bar-point { position: absolute; top: -1px; bottom: -1px; width: 2px; background: CanvasText; }
+  /* Deck-stats sample bar: shows where the sample MASS is, so a 100%-win bucket resting on one
+     deck cannot look like the strongest row on the page. CanvasText-derived like .bar so it
+     follows the reader's light/dark theme rather than pinning a colour. */
+  .sample-bar { height: .6em; min-width: 1px; border-radius: 2px;
+    background: color-mix(in srgb, CanvasText 35%, transparent); }
   .bar-delta { position: absolute; top: -1px; bottom: -1px; width: 2px; background: #d14343; }
   .controls { display: flex; gap: 16px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
   .controls label { font-size: 12px; opacity: 0.8; }
@@ -301,6 +306,26 @@ public static class HtmlReportWriter
   <div class="grid" id="resource-extremes"></div>
 </div>
 
+<h2 id="decks-heading" style="display:none">Decks</h2>
+<div id="decks-body" style="display:none">
+  <p class="hint">
+    Win rate grouped by the deck's own composition — <em>what kind of deck wins</em>, rather than
+    which card does. One deck played by one seat in one game is one trial, the same rule the
+    per-card "Win (included)" column follows. <strong>Read the intervals, not the shape:</strong>
+    bucketed win rates drawn as bars always look like a trend, and the label on each group says
+    whether any two buckets actually separate. Buckets are anchored to fixed multiples (2.00–2.20,
+    not "min to min+0.2") so two runs stay comparable; the last one includes its upper bound, and
+    an empty bucket in the middle is shown rather than skipped, since a gap is itself information.
+  </p>
+  <p class="hint">
+    <strong>Creature counts</strong> are what the cards <em>are</em> on the board (a multi-type
+    creature counts once per type it carries); <strong>cost pips</strong> are what the deck
+    <em>pays</em>. They differ, and the difference matters: a type shortage loses the type-chart
+    matchup, while a cost concentration means the deck stalls whenever that one resource runs dry.
+  </p>
+  <div id="deck-stats"></div>
+</div>
+
 <h2>Cards</h2>
 <p class="hint">
   <strong>Power score</strong> is an opinionated rollup, not a replacement for the columns beside
@@ -413,6 +438,38 @@ function zoomRate(r) {
 function zoomInterval(iv) {
   return { rate: zoomRate(iv.rate), low: zoomRate(iv.low), high: zoomRate(iv.high), trials: iv.trials };
 }
+
+// Whether deck INCLUSION varied across the batch. Under the default one-of-each deck it does not
+// -- every deck runs every card, so included win rate is the same pooled seat win rate on every
+// row -- and the columns are hidden entirely rather than showing 36 identical numbers that invite
+// a reader to find meaning in them. Tested on the data, not on a deck-mode flag, so a custom-deck
+// batch that happens to vary its lists gets the columns too.
+const inclusionVaries =
+  new Set(metrics.cardStats.filter(c => c.decksIncludedIn > 0).map(c => c.decksIncludedIn)).size > 1;
+
+// The copy-count buckets, one COLUMN each (1x, 2x, 3x) rather than one concatenated trend cell.
+// Separate columns so each is independently sortable -- "which cards win most as a 3-of" is the
+// question this breakdown exists to answer, and it cannot be asked of a single text cell.
+//
+// The copy counts are fixed at 1/2/3 rather than derived from the data because 3 is the ruleset's
+// MaxCopiesPerCard; a ruleset allowing 4 would want a fourth column here.
+const COPY_COUNTS = [1, 2, 3];
+
+// One bucket's cell: win rate over the decks running exactly that many copies, with the deck
+// count beside it so a rate resting on four decks is visibly thin rather than looking like the
+// rate next to it. An absent bucket renders "—", not 0% -- no deck ran that many copies, which is
+// a different claim from "tried and never won".
+function copyCell(c, n) {
+  const b = c.byCopyCount ? c.byCopyCount[n] : undefined;
+  if (!b) return '<td class="wr">—</td>';
+  return `<td class="wr ${wrClass(b.winRate, 0.5)}">${pct(b.winRate.rate)}`
+    + ` <span class="hint" style="margin:0">(${b.decks})</span></td>`;
+}
+
+// Sort key for a bucket column. Dotted path into byCopyCount -- the existing comparator resolves
+// these with split('.').reduce and already sinks missing values to the bottom in both
+// directions, which is what a card with no deck at that copy count should do.
+function copySortKey(n) { return `byCopyCount.${n}.winRate.rate`; }
 
 // Cost/attack-type reference data is looked up by id -- not part of MetricsReport itself (that
 // stays pure aggregation over played games), joined in here purely for display so an outlier
@@ -911,6 +968,63 @@ function renderResourceExtremes(scores, minN) {
   }).join('');
 }
 
+// DECK STATS -- win rate bucketed by deck composition. Hidden entirely when the batch has no deck
+// variation to group by (--deck default: every deck identical, so every property has one value),
+// which is also what an older metrics JSON without the field looks like.
+function renderDeckStats() {
+  const stats = metrics.deckStats || [];
+
+  // A group needs two non-empty buckets to be a comparison at all; one is just the whole batch
+  // wearing a range label.
+  const usable = stats.filter(s => s.buckets.filter(b => b.decks > 0).length >= 2);
+  if (usable.length === 0) return;
+
+  document.getElementById('decks-heading').style.display = '';
+  document.getElementById('decks-body').style.display = '';
+
+  document.getElementById('deck-stats').innerHTML = usable.map(stat => {
+    // Bars are scaled against the widest bucket rather than the full 0-100% axis: win rates here
+    // cluster near 50%, so a 0-100% scale renders every group as the same flat block.
+    const peak = Math.max(...stat.buckets.map(b => b.decks));
+    const verdict = stat.hasSeparatedBuckets
+      ? '<span class="sep sep-hi">buckets separate</span>'
+      : '<span class="hint" style="margin:0">no bucket separates — not distinguishable</span>';
+
+    const rows = stat.buckets.map(b => {
+      const label = fmtBucket(b, stat.decimals);
+      if (b.decks === 0) {
+        return `<tr class="thin-n"><td>${label}</td><td>—</td><td></td><td>0</td><td></td></tr>`;
+      }
+      // Deck count drives the width so the reader sees where the sample actually is -- a 100%
+      // bucket resting on one deck must not look like the strongest row on the page.
+      const width = peak > 0 ? Math.round((b.decks / peak) * 100) : 0;
+      return `<tr class="${b.decks < 5 ? 'thin-n' : ''}">
+        <td>${label}</td>
+        <td class="wr ${wrClass(b.winRate, 0.5)}">${pct(b.winRate.rate)}</td>
+        <td>${intervalBar(zoomInterval(b.winRate))}</td>
+        <td>${b.decks}</td>
+        <td><div class="sample-bar" style="width:${width}%"></div></td>
+      </tr>`;
+    }).join('');
+
+    return `<div style="margin:1.2em 0">
+      <h3 style="margin:0 0 .3em">${stat.name} <span class="hint" style="margin:0">(n=${stat.totalDecks} decks)</span> ${verdict}</h3>
+      <table>
+        <thead><tr><th>Range</th><th>Win rate</th><th>Interval</th><th>Decks (n)</th><th>Sample</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+// Bucket label, mirroring DeckBucket.Label on the C# side. The last bucket is closed on the right
+// (the maximum sample belongs somewhere), every other one is half-open, and saying so in the label
+// is what stops a reader assuming a deck on the boundary was counted twice.
+function fmtBucket(b, decimals) {
+  const lo = b.low.toFixed(decimals), hi = b.high.toFixed(decimals);
+  return `${lo}–${hi}${b.includesHigh ? '' : '<span class="hint" style="margin:0"> )</span>'}`;
+}
+
 function renderByResource() {
   // cardInfo is empty when the report was rebuilt from a saved metrics file (no CardDatabase to
   // join costs from), and every panel here is keyed on cost -- so the whole section steps aside
@@ -1030,6 +1144,10 @@ function cardRows() {
       <td>${c.offeredInTurns}</td>
       <td class="wr ${wrClass(c.winRateWhenPlayed, fieldWinPlayed)}">${pctInterval(c.winRateWhenPlayed)}</td>
       <td class="wr ${wrClass(c.winRateWhenDrawn, fieldWinDrawn)}">${pctInterval(c.winRateWhenDrawn)}${drawBar}</td>
+      ${inclusionVaries ? `
+      <td class="wr ${wrClass(c.includedWinRate, 0.5)}">${pctInterval(c.includedWinRate)}</td>
+      <td>${c.decksIncludedIn}</td>
+      ${COPY_COUNTS.map(n => copyCell(c, n)).join('')}` : ''}
       <td>${pct(c.costPressure.rate)}</td>
       <td>${c.survivalSteps.count > 0 ? num(c.survivalSteps.mean, 1) : '—'}</td>
       <td>${c.survivalSteps.count > 0 ? pct(c.scoredWhileAliveRate.rate) : '—'}</td>
@@ -1054,6 +1172,13 @@ function cardHeader() {
     ['offeredInTurns', 'Turns offered (n)'],
     ['winRateWhenPlayed.rate', 'Win (played)'],
     ['winRateWhenDrawn.rate', 'Win (drawn)'],
+    ...(inclusionVaries
+      ? [
+          ['includedWinRate.rate', 'Win (included)'],
+          ['decksIncludedIn', 'Decks (n)'],
+          ...COPY_COUNTS.map(n => [copySortKey(n), `Win (${n}x)`]),
+        ]
+      : []),
     ['costPressure.rate', 'Cost pressure'],
     ['survivalSteps.mean', 'Survival (steps)'],
     ['scoredWhileAliveRate.rate', 'Scored while alive'],
@@ -1105,6 +1230,22 @@ function renderCardTable() {
     { get: c => c.offeredInTurns, fmt: v => num(v, 0) },
     { get: c => c.winRateWhenPlayed.rate, fmt: pct },
     { get: c => c.winRateWhenDrawn.rate, fmt: pct },
+    // Must stay in lockstep with cardHeader()/cardRows()' own inclusionVaries branches -- this
+    // array positions the "field average" row against the header, so a mismatch silently shifts
+    // every average one column sideways rather than failing.
+    ...(inclusionVaries
+      ? [
+          { get: c => c.decksIncludedIn > 0 ? c.includedWinRate.rate : null, fmt: pct },
+          { get: c => c.decksIncludedIn, fmt: v => num(v, 0) },
+          // One averaged column per copy count. Cards with no deck at that count return null and
+          // are excluded from the mean by averageRow, rather than being averaged in as zeros --
+          // "no 3-of ever ran" must not drag the 3x field average toward nothing.
+          ...COPY_COUNTS.map(n => ({
+            get: c => (c.byCopyCount && c.byCopyCount[n]) ? c.byCopyCount[n].winRate.rate : null,
+            fmt: pct,
+          })),
+        ]
+      : []),
     { get: c => c.costPressure.rate, fmt: pct },
     { get: c => c.survivalSteps.count > 0 ? c.survivalSteps.mean : null, fmt: v => num(v, 1) },
     { get: c => c.survivalSteps.count > 0 ? c.scoredWhileAliveRate.rate : null, fmt: pct },
@@ -1247,6 +1388,7 @@ renderHandChart();
 renderBoardPresenceCharts();
 renderEconomy();
 renderByResource();
+renderDeckStats();
 renderCardTable();
 renderMoveTable();
 </script>

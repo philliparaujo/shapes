@@ -89,6 +89,35 @@ seats hold every card, so most cards contribute a win *and* a loss in most games
 correlation regardless. Take rate is a direct measure of what a strong agent chose when it had the
 option, and is the metric a card-level balance change should move.
 
+**Included win rate** (`--deck random`) is the deckbuilding counterpart: of the decks that *ran*
+a card, how often that seat won. Unlike win-rate-when-played/drawn it is not conditioned on the
+card showing up — a card that sits in the deck undrawn all game still counts, and those are
+exactly the games the other two rates cannot see. Deck inclusion is decided before the game
+starts and is independent of anything that happens in it, which makes this the one card win-rate
+free of mid-game selection. **One deck = one trial regardless of copies**: copy-weighting would
+let a single game's outcome count three times as three perfectly-correlated "trials" and report a
+Wilson interval up to √3 narrower than the evidence supports, for exactly the cards people run
+three of. The copy-count signal instead lives in a **1×/2×/3× breakdown** beside it, which
+answers "does running more copies win more" empirically rather than by assumption. Under
+`--deck default` every deck runs every card, so this collapses to the pooled seat win rate for
+every card — the sim says so and the report hides the columns rather than printing 36 identical
+numbers.
+
+**Deck stats** answer the level above the card: *what kind of deck wins*. Win rate bucketed by the
+deck's own composition — mean card cost in 0.2-wide bands, then three views of each resource type
+— one deck played by one seat being one trial, as above. The three views answer different
+questions and are worth reading together: **cards by cost** is how many cards *demand* that
+resource (the quantity `MinPerType` constrains — a shortage here means the deck stalls whenever
+that pool runs dry), **creatures** is how many cards *are* that type once in play (a shortage
+loses the type-chart matchup, and spells are absent by definition), and **cost pips** is the total
+paid. A deck can demand plenty of spike while fielding few spike creatures, spending it on spells
+instead. Buckets are anchored to fixed multiples
+(`2.00–2.20`, never "min to min+0.2") so two runs stay comparable, half-open on the right so a
+boundary deck is not double-counted, and empty interior buckets are kept because a gap is itself
+information. **Every group carries a separation verdict**, because bucketed win rates drawn as
+bars always *look* like a trend — the label says whether any two buckets' intervals actually
+separate, and at 800 decks most groups still honestly read "not distinguishable".
+
 **A big matrix shows live progress, not silence until the end** — `Shapes.Sim` redraws a single
 `completed/total games  rate  elapsed` line in place as games finish (only when stdout is a real
 terminal; piping to a file or CI log skips it, so logs stay clean). Nothing to opt into — every
@@ -208,11 +237,41 @@ expand into distinct legal actions for MCTS. **Single-target rule**: a move/spel
 most one player-chosen target — keeps branching flat (N, not N×M), cards readable, and the
 Phase 5 targeting UI a single state. Enforced at card-load validation.
 
-**Deck model** — Phases 1–3 use fixed symmetric decks (`deckMode: "symmetric"`), deliberately, so
-varying decks doesn't confound card win-rate with deck-composition effects. Phase 5 adds
-deckbuilding (`deckMode: "custom"`, explicit card-id-plus-count lists) — this is also an AI
-change, since the determinizer currently assumes symmetric decks and throws otherwise (Phase 5
-step C2 migrates it).
+**Deck model** — every game is played with a `Deck` (`Shapes.Core/Cards/Deck.cs`), dealt through
+the single `GameSetup.Deal` entry point that the console, the sim, the Godot adapter, and the test
+fixtures all share. Three sources: the **default deck** (one copy of every card — the console's
+only deck, deliberately exempt from the 40-card limit so a console game exercises the whole set),
+an explicit **custom** decklist, and a **constrained random** deck (40 cards, ≤3 copies each,
+generated to sit within ±0.2 of the default deck's mean cost and to run ≥10 cards **demanding
+each resource type by play cost**). `Shapes.Sim` selects between them with
+`--deck default|custom|random`.
+
+**The type minimum is about resource demand, not board typing.** Income arrives as three separate
+pools, so a deck whose cards nearly all cost spike drains spike dry while anvil and wheel pile up
+unspent — bottlenecked on one resource and idle on two. A 3-spike *spell* is that demand exactly
+as a 3-spike creature is; the pool cannot tell them apart. Counting by cost is therefore what the
+constraint has to do, and **spells count**. (They originally did not: the seeding phase drew from
+creatures only, and since no shipping creature is multi-type, the three minimums consumed ~30 of
+40 slots before a spell was eligible — holding spells to **6.4%** of a deck against the 25% an
+unbiased draw gives, so every spell's per-card metrics rested on ~⅓ the sample every creature's
+did. Fixed; spells now sit at 24.0%, and creature/spell mean deck-inclusion is 1.02× where it was
+2.90×. Pinned by regression test in `ContentCardSetTests`.)
+
+Phases 1–3 measured on fixed symmetric decks deliberately, so varying decks didn't confound card
+win-rate with deck-composition effects — and **that is still the default**, so every number in
+`balance/LOG.md` stays comparable to a fresh `--deck default` run.
+
+> **⚠️ Determinizer follow-up (owed, tracked at D1).** IS-MCTS on non-symmetric decks currently
+> works by being handed its opponent's **real decklist** (`Determinizer(cards, opponentDeck)`).
+> Hand contents and deck order are still hidden and sampled, but deck *composition* is not — the
+> agent knows which 40 cards the opponent drew from, which a human would not. This is a deliberate
+> temporary cheat, taken so IS-MCTS stays usable on exactly the deck-diversity runs that need it
+> rather than throwing. **Consequence: treat any `ismcts` win rate measured on `--deck random` or
+> `--deck custom` as an optimistic bound on that agent's true strength, and never compare it
+> against a symmetric-deck run.** The real fix is the belief distribution described in C2/D1
+> (sample a plausible decklist per iteration, constrained to cards demonstrably played and filled
+> uniformly otherwise); it changes only `Determinizer.UnseenCardsOf`, leaving the public surface
+> and everything downstream untouched.
 
 **Rules as configuration** — income, scoring, draw, hand limit, win condition, type chart all
 live in a `RuleSet` loaded from JSON, so a balance experiment is just a named ruleset file. Board
@@ -529,9 +588,13 @@ seeded Godot game matching the same seed's console result.
   invisible pending-income/pending-score previews alongside score and resources), icon chips instead
   of text glyphs for resources, a styled End Turn control, and a consistent visual language (palette,
   type, spacing) applied across board slots, hand cards, and the status bar.
-- [ ] **C2. Deckbuilder** (`deckMode: "custom"`) — also migrates the determinizer off its
-  symmetric-deck assumption (a belief-distribution problem once the opponent's decklist itself is
-  hidden). First belief model: constrain to cards demonstrably played, fill the rest uniformly.
+- [~] **C2. Deckbuilder** (`deckMode: "custom"`) — **engine half landed; UI and the honest
+  determinizer still owed.** Done: `Deck`/`DeckBuilder`/`DeckLoader` in `Shapes.Core`, the shared
+  `GameSetup.Deal` path, decklist files, constrained random generation, and `Shapes.Sim`'s
+  `--deck` modes. Still owed: (a) the Godot deckbuilding UI itself — `GameSession.Start` already
+  takes a `Deck`, which is the seam it plugs into; (b) migrating the determinizer off the
+  supplied-decklist cheat onto a real belief distribution (constrain to cards demonstrably played,
+  fill the rest uniformly) — see the Deck model warning above.
 - [ ] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half C6 didn't
   cover.
 - [ ] **C4b. Card stats** — win-rate/pick-rate context per card from `balance/LOG.md`, deferred out
@@ -542,8 +605,10 @@ seeded Godot game matching the same seed's console result.
 
 #### Milestone D — ship — 0/5
 
-- [ ] **D1. Deckbuilder + determinizer migration** (C2, moved here — feature-complete before the
-  final visual/export pass).
+- [ ] **D1. Deckbuilder UI + determinizer migration** (C2's remaining half, moved here —
+  feature-complete before the final visual/export pass). The determinizer migration is a
+  correctness debt, not a nice-to-have: until it lands, `ismcts` numbers on non-default decks are
+  measured with the agent knowing its opponent's decklist. See the Deck model warning above.
 - [ ] **D2. Persistence (C3) + tutorial/rules surfacing (C7).**
 - [ ] **D3. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
   consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state

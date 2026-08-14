@@ -46,20 +46,30 @@ namespace Shapes.Ai.Search;
 // determinizer would deal the opponent cards that are physically dead. See
 // Shapes.Tests/Mechanics/CardConservationTests.cs, which pins the identity this relies on.
 //
-// == Deliberate limitations ==
+// == Where the decklist comes from ==
 //
-// SYMMETRIC DECKS ONLY. The whole reconstruction rests on the opponent's decklist being public.
-// Under deckMode: "custom" it isn't, and a correct determinizer would need a belief distribution
-// over possible decklists -- a different and larger problem. Rather than silently sampling
-// nonsense, Determinize throws on a non-symmetric ruleset, mirroring BuildSymmetricDeck's own
-// guard. Phases 1-3 are symmetric by design (PLAN.md, "Deck model").
+// The reconstruction needs SOME decklist to subtract from. Two sources, in order:
 //
-// Lifting that assumption is scoped at PLAN.md Phase 5 step 9, alongside the deckbuilder that
-// makes it necessary. The short version: this class's public surface does not change, and
-// neither does anything downstream of it -- only UnseenCardsOf changes, from "start with the
-// known decklist" to "start with a sampled one." The throw above is what makes that a
-// compile-and-fix rather than a silent behaviour change, which is why it is a hard failure
-// rather than a fallback.
+//   1. An explicitly supplied opponent decklist (the `opponentDeck` constructor argument). This
+//      is what non-symmetric play uses -- the sim's random/custom deck modes hand the agent the
+//      decklist its opponent is actually playing.
+//   2. Otherwise, the symmetric decklist (CardDatabase.BuildSymmetricDeck), which under
+//      deckMode: "symmetric" genuinely IS public knowledge.
+//
+// KNOWN LIMITATION -- option 1 is a deliberate, temporary cheat. Handing the agent its
+// opponent's real decklist gives it perfect information about deck COMPOSITION that a human
+// player would not have. Hand CONTENTS and deck ORDER remain hidden and are still sampled, so
+// the search is not reading its opponent's hand; but it knows which 40 cards that hand is drawn
+// from. This is accepted so IS-MCTS remains usable on non-symmetric decks at all, rather than
+// throwing and leaving the strongest agent unavailable for exactly the deck-diversity runs that
+// need it.
+//
+// The correct fix is a belief distribution over decklists -- sample a plausible decklist per
+// iteration, constrained by the cards the opponent has demonstrably played and filled uniformly
+// otherwise. That is PLAN.md Phase 5 step C2/D1, and it changes only UnseenCardsOf: this class's
+// public surface and everything downstream of it stay as they are. Until then, treat any
+// ismcts win rate measured on non-symmetric decks as an OPTIMISTIC bound on that agent's real
+// strength, and do not compare it against a symmetric-deck run.
 //
 // UNIFORM SAMPLING. Every world consistent with the observation is equally likely. A stronger
 // agent would weight by opponent behaviour ("they held that card, so it is probably expensive"),
@@ -68,11 +78,17 @@ namespace Shapes.Ai.Search;
 public sealed class Determinizer
 {
     private readonly CardDatabase _cards;
+    private readonly Deck? _opponentDeck;
 
-    public Determinizer(CardDatabase cards)
+    // `opponentDeck` is the decklist the OPPONENT of whoever owns this determinizer is playing.
+    // Null (the default) means "use the symmetric decklist," preserving the original behaviour
+    // exactly for every symmetric-ruleset caller. See the class note on why supplying it is a
+    // deliberate temporary cheat.
+    public Determinizer(CardDatabase cards, Deck? opponentDeck = null)
     {
         ArgumentNullException.ThrowIfNull(cards);
         _cards = cards;
+        _opponentDeck = opponentDeck;
     }
 
     // Samples one possible world from `observed`, using `random` for every guess.
@@ -85,12 +101,16 @@ public sealed class Determinizer
         ArgumentNullException.ThrowIfNull(observed);
         ArgumentNullException.ThrowIfNull(random);
 
-        if (observed.Rules.DeckMode != DeckMode.Symmetric)
+        // Only the SYMMETRIC fallback needs the ruleset to be symmetric. With an explicit
+        // opponent decklist there is nothing to infer from the deck mode -- the decklist is
+        // already in hand -- so the guard applies to the fallback path alone.
+        if (_opponentDeck is null && observed.Rules.DeckMode != DeckMode.Symmetric)
         {
             throw new InvalidOperationException(
                 $"Determinize requires a symmetric ruleset, but '{observed.Rules.Name}' is "
                 + $"{observed.Rules.DeckMode}. Reconstructing an opponent's hidden cards depends on "
-                + "their decklist being public knowledge, which custom decks are not.");
+                + "their decklist being public knowledge, which custom decks are not -- pass the "
+                + "opponent's Deck to the constructor to determinize against a known decklist.");
         }
 
         var observer = observed.Observer;
@@ -217,8 +237,12 @@ public sealed class Determinizer
     // parameter exists to attribute failures in the error messages, not to generalize the method.
     private List<string> UnseenCardsOf(GameState state, ObservedState observed, PlayerId opponent)
     {
+        // The opponent's own decklist when one was supplied, else the symmetric decklist both
+        // seats are known to share. See the class note.
+        var decklist = _opponentDeck?.Cards ?? _cards.BuildSymmetricDeck(observed.Rules);
+
         var remaining = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var cardId in _cards.BuildSymmetricDeck(observed.Rules))
+        foreach (var cardId in decklist)
         {
             remaining[cardId] = remaining.GetValueOrDefault(cardId) + 1;
         }

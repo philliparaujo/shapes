@@ -51,6 +51,97 @@ public sealed class RunProvenance
 //     primary balance signal, and treat win rate as corroboration. This is why step 4.3's sweep
 //     is delta-based (change one thing, diff two reports) rather than ranking one report's
 //     cards against each other in isolation.
+// One bucket of CardStat.ByCopyCount: how decks running exactly N copies of a card fared.
+//
+// A class with an explicit Wilson interval rather than a bare (wins, decks) tuple because the
+// interval is the whole point of splitting the buckets -- a 3-of bucket with 12 decks in it looks
+// like a strong signal as a raw percentage and like the noise it is as an interval, and the
+// buckets are exactly where the sample gets thin enough for that to matter.
+public sealed class CopyCountStat
+{
+    public required int Copies { get; init; }
+
+    public required int Decks { get; init; }
+
+    public required int Wins { get; init; }
+
+    public Interval WinRate => Interval.Wilson(Wins, Decks);
+}
+
+// One bucket of a deck-stats grouping: the decks whose measured property fell in [Low, High), and
+// how often those decks' seats won.
+//
+// Half-open on the right so adjacent buckets never double-count a deck sitting exactly on a
+// boundary -- a deck averaging exactly 2.2 belongs to 2.2-2.4, not to both. The final bucket is
+// closed on both ends so the maximum sample is not silently dropped.
+public sealed class DeckBucket
+{
+    public required double Low { get; init; }
+
+    public required double High { get; init; }
+
+    // Whether this is the last bucket, and therefore includes its own upper bound.
+    public required bool IncludesHigh { get; init; }
+
+    // (game, seat) pairs whose deck fell in this bucket. One deck played by one seat in one game
+    // is one trial -- the same one-deck-one-trial rule CardStat.IncludedWinRate follows, and for
+    // the same reason: a seat has exactly one win/loss, so it cannot contribute more than one.
+    public required int Decks { get; init; }
+
+    public required int Wins { get; init; }
+
+    public Interval WinRate => Interval.Wilson(Wins, Decks);
+
+    // Bucket label as "2.00-2.20". Formatted here rather than at each of the three writers so the
+    // console, the CSV, and the HTML cannot disagree about what a bucket is called.
+    public string Label(int decimals = 2) =>
+        $"{Low.ToString($"F{decimals}", System.Globalization.CultureInfo.InvariantCulture)}-"
+        + $"{High.ToString($"F{decimals}", System.Globalization.CultureInfo.InvariantCulture)}";
+}
+
+// One deck property, bucketed, with a win rate per bucket. The "do decks with X win more" family:
+// mean card cost, creature count per type, and cost pips per type.
+public sealed class DeckStat
+{
+    // What was measured -- "Mean card cost", "Spike creatures", "Anvil cost pips".
+    public required string Name { get; init; }
+
+    // How many decimals the buckets should be labelled to. Cost averages want 2 ("2.00-2.20");
+    // whole-card counts want 0 ("10-12").
+    public required int Decimals { get; init; }
+
+    public required IReadOnlyList<DeckBucket> Buckets { get; init; }
+
+    // Every deck that carried this property, across all buckets -- the denominator a reader needs
+    // to judge whether the spread between buckets is worth anything.
+    public int TotalDecks => Buckets.Sum(b => b.Decks);
+
+    // Whether ANY pair of buckets has non-overlapping win-rate intervals. This is the honest
+    // headline for a deckbuilding signal: a monotone-looking climb across buckets whose intervals
+    // all overlap is noise, and reading a trend into it is exactly the mistake the intervals exist
+    // to prevent.
+    public bool HasSeparatedBuckets
+    {
+        get
+        {
+            var live = Buckets.Where(b => b.Decks > 0).ToList();
+            for (var i = 0; i < live.Count; i++)
+            {
+                for (var j = i + 1; j < live.Count; j++)
+                {
+                    if (live[i].WinRate.High < live[j].WinRate.Low
+                        || live[j].WinRate.High < live[i].WinRate.Low)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+}
+
 public sealed class CardStat
 {
     public required string CardId { get; init; }
@@ -104,6 +195,47 @@ public sealed class CardStat
     public required int WinsWhenDrawn { get; init; }
 
     public Interval WinRateWhenDrawn => Interval.Wilson(WinsWhenDrawn, GamesDrawnIn);
+
+    // INCLUDED WIN RATE -- of the (game, seat) pairs whose DECK ran at least one copy of this
+    // card, how often that seat won. The deckbuilding counterpart of WinRateWhenPlayed: that one
+    // is conditioned on the card being drawn AND cast, this one only on the deckbuilder having
+    // chosen it.
+    //
+    // WHY IT IS THE RIGHT QUESTION FOR DECK MODES. A card that sits in the deck undrawn all game
+    // still contributes to that deck's record, and those games are invisible to both
+    // WinRateWhenPlayed and WinRateWhenDrawn -- which conditions on the card having shown up.
+    // Conditioning on a draw is conditioning on an event the card's own cost and the game's length
+    // influence, so the played/drawn rates quietly select on games that went a certain way. Deck
+    // inclusion is decided before the game starts and is independent of everything that happens
+    // in it, which is what makes this the one card win-rate that is not conditioned on
+    // mid-game selection.
+    //
+    // UNDER THE DEFAULT DECK THIS IS UNINFORMATIVE, BY CONSTRUCTION. One-of-each means every deck
+    // runs every card, so DecksIncludedIn is 2 x GameCount for every card and the rate collapses
+    // to the pooled seat win rate -- identical for all cards. That is not a bug to correct; it is
+    // the honest answer to "how much did including this card matter" when inclusion was never a
+    // choice. Read it only for --deck random (and --deck custom across varied lists), which is
+    // where inclusion actually varies. The same compression caveat that applies to
+    // WinRateWhenPlayed under symmetric decks applies here, only total rather than partial.
+    public required int DecksIncludedIn { get; init; }
+
+    public required int WinsWhenIncluded { get; init; }
+
+    public Interval IncludedWinRate => Interval.Wilson(WinsWhenIncluded, DecksIncludedIn);
+
+    // The same measurement split by HOW MANY copies the deck ran, indexed by copy count (1, 2,
+    // 3...). This is what answers the "should more copies weight it higher" question empirically
+    // rather than by assumption: if a 3-of wins more than a 1-of, the card rewards commitment and
+    // the trend shows up here as a monotone climb across the buckets.
+    //
+    // Deliberately NOT folded into IncludedWinRate as a copy-weighted numerator/denominator.
+    // Weighting would let one deck contribute three "observations" of a single game outcome --
+    // three counts that are perfectly correlated, since they share one win/loss. Wilson's interval
+    // assumes independent trials, so a weighted version would report an interval up to sqrt(3)
+    // narrower than the evidence supports, and it would do so for exactly the cards people run
+    // three of. Keeping the headline rate unweighted (one deck = one trial) and putting the copy
+    // signal in a breakdown gives both numbers without either lying about its confidence.
+    public required IReadOnlyDictionary<int, CopyCountStat> ByCopyCount { get; init; }
 
     // Decision points where this card sat in hand and the ONLY thing stopping it being played
     // was its cost. Read against OfferCount: a card with 20 offers and 200 blocked decisions is
@@ -346,6 +478,15 @@ public sealed class MetricsReport
 
     public required IReadOnlyList<CardStat> CardStats { get; init; }
 
+    // DECK STATS -- win rate grouped by a deck's own measurable properties (mean card cost,
+    // creatures per type, cost pips per type), asking "what kind of deck wins" rather than "which
+    // card wins".
+    //
+    // Empty under --deck default, and correctly so: one-of-each means every deck is the SAME deck,
+    // so there is exactly one value of every property and nothing to group by. These only carry
+    // information when decks actually vary (--deck random, or custom runs across varied lists).
+    public required IReadOnlyList<DeckStat> DeckStats { get; init; }
+
     public required IReadOnlyList<MoveStat> MoveStats { get; init; }
 
     // Move usage: how many UseMoveAction choices occurred, out of every action taken -- a coarse
@@ -519,6 +660,7 @@ public sealed class MetricsReport
             GamesDecidedByFatigue =
                 Interval.Wilson(games.Count(DecidedByFatigue), games.Count),
             CardStats = cardStats,
+            DeckStats = ComputeDeckStats(games),
             MoveStats = moveStats,
             MoveUsageCount = moveUsageCount,
             MoveUsageRate = totalActions == 0 ? 0.0 : (double)moveUsageCount / totalActions,
@@ -734,6 +876,43 @@ public sealed class MetricsReport
         }
     }
 
+    // One seat's decklist, for the included-win-rate metric. Each distinct card in the deck counts
+    // the (game, seat) pair ONCE toward that card's inclusion denominator regardless of how many
+    // copies are run -- one deck is one trial, since all its copies share a single win/loss. The
+    // copy count is recorded separately as a bucket key, which is where the "do more copies win
+    // more" signal lives without contaminating the headline rate's independence. See
+    // CardStat.ByCopyCount.
+    //
+    // A seat whose deck was not recorded (an empty dictionary -- every pre-deck GameResult and
+    // every test fixture that doesn't care) contributes nothing, so this is a no-op rather than a
+    // source of zero-count noise for those.
+    private static void AccountDeck(
+        IReadOnlyDictionary<string, int> deck, bool seatWon,
+        Dictionary<string, int> decksIncludedIn, Dictionary<string, int> winsWhenIncluded,
+        Dictionary<(string, int), int> decksByCopies, Dictionary<(string, int), int> winsByCopies)
+    {
+        foreach (var (cardId, copies) in deck)
+        {
+            // A recorded count of zero means the card is absent, not included -- Deck.CountsById
+            // never emits one, but a hand-built fixture or a round-tripped JSON could, and
+            // counting it would put a card in the denominator of a deck that does not run it.
+            if (copies <= 0)
+            {
+                continue;
+            }
+
+            decksIncludedIn[cardId] = decksIncludedIn.GetValueOrDefault(cardId) + 1;
+            var bucket = (cardId, copies);
+            decksByCopies[bucket] = decksByCopies.GetValueOrDefault(bucket) + 1;
+
+            if (seatWon)
+            {
+                winsWhenIncluded[cardId] = winsWhenIncluded.GetValueOrDefault(cardId) + 1;
+                winsByCopies[bucket] = winsByCopies.GetValueOrDefault(bucket) + 1;
+            }
+        }
+    }
+
     private static void AccumulateOffers<TKey>(
         IReadOnlyDictionary<TKey, int> offers, Dictionary<TKey, int> into)
         where TKey : notnull
@@ -742,6 +921,169 @@ public sealed class MetricsReport
         {
             into[key] = into.GetValueOrDefault(key) + count;
         }
+    }
+
+    // The per-copy-count buckets for one card, ordered by copy count so a reader sees 1, 2, 3 in
+    // the order the trend would run. Only counts that actually occurred get a bucket -- an absent
+    // "3 copies" entry means no deck ran three, which is different from three copies having been
+    // tried and lost, and an empty zero-count bucket would read as the latter.
+    private static IReadOnlyDictionary<int, CopyCountStat> BuildCopyBuckets(
+        string cardId, Dictionary<(string CardId, int Copies), int> decksByCopies,
+        Dictionary<(string CardId, int Copies), int> winsByCopies)
+    {
+        var buckets = new SortedDictionary<int, CopyCountStat>();
+
+        foreach (var ((id, copies), decks) in decksByCopies)
+        {
+            if (!string.Equals(id, cardId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            buckets[copies] = new CopyCountStat
+            {
+                Copies = copies,
+                Decks = decks,
+                Wins = winsByCopies.GetValueOrDefault((id, copies)),
+            };
+        }
+
+        return buckets;
+    }
+
+    // Win rate grouped by deck property. One (game, seat) pair per deck played -- the same
+    // one-deck-one-trial rule the included-win-rate metric uses.
+    //
+    // Returns EMPTY when no deck property varies across the batch, which is the --deck default
+    // case (every deck identical, so every sample lands in one bucket and the "grouping" says
+    // nothing). Checked per property rather than globally so a batch that varies cost but not
+    // type count reports the cost grouping alone rather than all-or-nothing.
+    private static IReadOnlyList<DeckStat> ComputeDeckStats(IReadOnlyList<GameResult> games)
+    {
+        // (property value, did that seat win) for every deck played in the batch.
+        var samples = new List<(DeckProfile Profile, bool Won)>();
+        foreach (var game in games)
+        {
+            if (game.DeckProfileOne is { } one)
+            {
+                samples.Add((one, game.Winner == PlayerId.One));
+            }
+
+            if (game.DeckProfileTwo is { } two)
+            {
+                samples.Add((two, game.Winner == PlayerId.Two));
+            }
+        }
+
+        if (samples.Count == 0)
+        {
+            return [];
+        }
+
+        var stats = new List<DeckStat>();
+
+        // Mean card cost in 0.2-wide buckets -- the requested "2.0-2.2, 2.2-2.4" grouping, and the
+        // headline deckbuilding axis since it is what the random generator's own constraint
+        // targets.
+        Add(stats, "Mean card cost", samples, p => p.MeanCost, width: 0.2, decimals: 2);
+
+        // Cards DEMANDING each type by play cost -- the quantity the generator's own MinPerType
+        // constrains, and the one that answers "is this deck bottlenecked on one resource while
+        // two pile up unspent". Listed before the board-type counts because it is the constrained
+        // one and therefore the one a reader is usually checking.
+        //
+        // Width 2 for counts (a 40-card deck spans maybe 10-20 of a type, so 1-wide buckets would
+        // be mostly noise and 5-wide would be two buckets) and 4 for pips, which range wider.
+        foreach (var (type, label) in new[]
+        {
+            (ResourceType.Spike, "Spike"),
+            (ResourceType.Anvil, "Anvil"),
+            (ResourceType.Wheel, "Wheel"),
+        })
+        {
+            Add(stats, $"{label} cards (by cost)", samples, p => p.CardsOfType(type), width: 2, decimals: 0);
+        }
+
+        // Creature counts by BOARD type -- what the deck fields, as opposed to what it pays for.
+        // A deck can demand plenty of spike while fielding few spike creatures (spending it on
+        // spells instead), and that is a different shape of deck than the cost counts alone show.
+        foreach (var (type, label) in new[]
+        {
+            (ResourceType.Spike, "Spike"),
+            (ResourceType.Anvil, "Anvil"),
+            (ResourceType.Wheel, "Wheel"),
+        })
+        {
+            Add(stats, $"{label} creatures", samples, p => p.CreaturesOfType(type), width: 2, decimals: 0);
+        }
+
+        foreach (var (type, label) in new[]
+        {
+            (ResourceType.Spike, "Spike"),
+            (ResourceType.Anvil, "Anvil"),
+            (ResourceType.Wheel, "Wheel"),
+        })
+        {
+            Add(stats, $"{label} cost pips", samples, p => p.CostOfType(type), width: 4, decimals: 0);
+        }
+
+        return stats;
+    }
+
+    // Buckets one property and appends it, unless the property does not vary (every deck the same
+    // value) -- in which case there is no grouping to report and the row is skipped entirely.
+    private static void Add(
+        List<DeckStat> stats, string name, IReadOnlyList<(DeckProfile Profile, bool Won)> samples,
+        Func<DeckProfile, double> value, double width, int decimals)
+    {
+        var values = samples.Select(s => value(s.Profile)).ToList();
+        var min = values.Min();
+        var max = values.Max();
+
+        if (max - min < 1e-9)
+        {
+            return;
+        }
+
+        // Buckets are anchored to multiples of the width rather than to the observed minimum, so
+        // "2.0-2.2" means the same range in every run and two reports stay comparable. Anchoring
+        // to the min would shift every boundary whenever the luckiest deck in a batch changed.
+        var first = Math.Floor(min / width) * width;
+        var count = (int)Math.Floor((max - first) / width) + 1;
+
+        var decks = new int[count];
+        var wins = new int[count];
+
+        foreach (var (profile, won) in samples)
+        {
+            // Clamped rather than trusted: floating-point division can land the maximum sample one
+            // index past the end, and an out-of-range write here would be a crash in a reporting
+            // path rather than a visible wrong number.
+            var index = Math.Clamp((int)Math.Floor((value(profile) - first) / width), 0, count - 1);
+            decks[index]++;
+            if (won)
+            {
+                wins[index]++;
+            }
+        }
+
+        var buckets = new List<DeckBucket>(count);
+        for (var i = 0; i < count; i++)
+        {
+            // Empty interior buckets are KEPT: a gap in the middle of a distribution is
+            // information ("no deck ran 14-16 spike creatures"), and dropping it would make the
+            // remaining buckets look adjacent when they are not.
+            buckets.Add(new DeckBucket
+            {
+                Low = first + (i * width),
+                High = first + ((i + 1) * width),
+                IncludesHigh = i == count - 1,
+                Decks = decks[i],
+                Wins = wins[i],
+            });
+        }
+
+        stats.Add(new DeckStat { Name = name, Decimals = decimals, Buckets = buckets });
     }
 
     private static IReadOnlyList<CardStat> ComputeCardStats(IReadOnlyList<GameResult> games)
@@ -760,10 +1102,20 @@ public sealed class MetricsReport
         var scoredWhileAlive = new Dictionary<string, int>(StringComparer.Ordinal);
         var lifetimeCount = new Dictionary<string, int>(StringComparer.Ordinal);
 
+        // Included-win-rate accumulators. Keyed by card id for the headline rate, and by
+        // (card id, copies) for the by-copy-count breakdown.
+        var decksIncludedIn = new Dictionary<string, int>(StringComparer.Ordinal);
+        var winsWhenIncluded = new Dictionary<string, int>(StringComparer.Ordinal);
+        var decksByCopies = new Dictionary<(string CardId, int Copies), int>();
+        var winsByCopies = new Dictionary<(string CardId, int Copies), int>();
+
         foreach (var game in games)
         {
             var oneWon = game.Winner == PlayerId.One;
             var twoWon = game.Winner == PlayerId.Two;
+
+            AccountDeck(game.DeckOne, oneWon, decksIncludedIn, winsWhenIncluded, decksByCopies, winsByCopies);
+            AccountDeck(game.DeckTwo, twoWon, decksIncludedIn, winsWhenIncluded, decksByCopies, winsByCopies);
 
             AccountSeat(game.CardsPlayedOne, oneWon, playCounts, gamesPlayedIn, winsWhenPlayed);
             AccountSeat(game.CardsPlayedTwo, twoWon, playCounts, gamesPlayedIn, winsWhenPlayed);
@@ -808,6 +1160,12 @@ public sealed class MetricsReport
         // card whose only signal is survival silently vanishes from the report.
         everyCardId.UnionWith(survivalByCard.Keys);
 
+        // Deck keys: a card can be in every deck and never once be drawn, offered, or played --
+        // in which case inclusion is its ONLY signal and this union is the only thing that puts
+        // it in the report at all. That card (in decks, never seen) is a real finding worth
+        // surfacing, not a row to drop.
+        everyCardId.UnionWith(decksIncludedIn.Keys);
+
         return everyCardId
             .Select(cardId => new CardStat
             {
@@ -822,6 +1180,9 @@ public sealed class MetricsReport
                 GamesDrawnIn = gamesDrawnIn.GetValueOrDefault(cardId),
                 WinsWhenDrawn = winsWhenDrawn.GetValueOrDefault(cardId),
                 BlockedByCostCount = blockedCounts.GetValueOrDefault(cardId),
+                DecksIncludedIn = decksIncludedIn.GetValueOrDefault(cardId),
+                WinsWhenIncluded = winsWhenIncluded.GetValueOrDefault(cardId),
+                ByCopyCount = BuildCopyBuckets(cardId, decksByCopies, winsByCopies),
                 SurvivalSteps = MeanEstimate.From(
                     survivalByCard.GetValueOrDefault(cardId) ?? []),
                 ScoredWhileAliveRate = Interval.Wilson(

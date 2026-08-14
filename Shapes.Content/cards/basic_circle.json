@@ -7,7 +7,7 @@
   "types": ["wheel"],
   "moves": [
     {
-      "name": "Deal 1",
+      "name": "Pound",
       "cost": { "wheel": 1 },
       "effects": [
         { "op": "damage", "target": "opposing", "amount": 1 }

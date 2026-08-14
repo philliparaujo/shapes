@@ -14,7 +14,7 @@
       ]
     },
     {
-      "name": "Unopposed Growth",
+      "name": "Swagger",
       "cost": { "spike": 3 },
       "condition": { "op": "creature_state", "target": "self", "check": "unopposed" },
       "effects": [

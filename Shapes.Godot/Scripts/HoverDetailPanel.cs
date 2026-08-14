@@ -38,11 +38,15 @@ public partial class HoverDetailPanel : Control
     [Export] public NodePath MoveListPath { get; set; } = "Panel/PanelMargin/Layout/MoveList";
     [Export] public NodePath PanelPath { get; set; } = "Panel";
 
+    // Matches the EffectsLabel font size set in HoverDetailPanel.tscn -- inline resource icons
+    // size themselves off it (InlineResourceIcons.SizeForFont), so the two must not drift apart.
+    private const int SpellEffectsFontSize = 10;
+
     private Label? _nameLabel;
     private Control? _costBadge;
     private Control? _artHolder;
     private Label? _statLabel;
-    private Label? _effectsLabel;
+    private RichTextLabel? _effectsLabel;
     private VBoxContainer? _moveList;
 
     public override void _Ready()
@@ -51,7 +55,7 @@ public partial class HoverDetailPanel : Control
         _costBadge = GetNode<Control>(CostBadgePath);
         _artHolder = GetNode<Control>(ArtHolderPath);
         _statLabel = GetNode<Label>(StatLabelPath);
-        _effectsLabel = GetNode<Label>(EffectsLabelPath);
+        _effectsLabel = GetNode<RichTextLabel>(EffectsLabelPath);
         _moveList = GetNode<VBoxContainer>(MoveListPath);
 
         // The tooltip IS a card, so it takes the same stock/edge/radius as one in hand or in play
@@ -78,8 +82,8 @@ public partial class HoverDetailPanel : Control
         _nameLabel!.Text = name;
         _nameLabel.Visible = name.Length > 0;
         _statLabel!.Text = statLine;
-        _effectsLabel!.Text = spellEffects;
-        _effectsLabel.Visible = spellEffects.Length > 0;
+        InlineResourceIcons.AppendTo(_effectsLabel!, spellEffects, SpellEffectsFontSize);
+        _effectsLabel!.Visible = spellEffects.Length > 0;
 
         foreach (var child in _costBadge!.GetChildren())
         {

@@ -20,19 +20,29 @@ public static class GameRunner
     // needs to surface as a counted outcome, not a stuck process.
     private const int MaxTurns = 500;
 
+    // `deckOne`/`deckTwo` are the decks the two seats play. Both default to the one-of-each
+    // default deck, which is what every pre-deck balance run used -- so an existing caller that
+    // passes neither gets exactly the batch it got before.
     public static GameResult Play(
         string agentOneKind, string agentTwoKind, ulong seed, CardDatabase cards, RuleSet rules,
-        int iterations)
+        int iterations, Deck? deckOne = null, Deck? deckTwo = null)
     {
         var stopwatch = Stopwatch.StartNew();
 
         var random = new SeededRandom(seed);
 
+        deckOne ??= DeckBuilder.Default(cards);
+        deckTwo ??= DeckBuilder.Default(cards);
+
         // Same derived-stream scheme as the console client: distinct multipliers so neither
         // agent's draws interleave with the other's, and so swapping one agent's kind never
         // changes the other's decisions for the same seed.
-        var agentOne = AgentFactory.Build(agentOneKind, seed * 7919, cards, iterations);
-        var agentTwo = AgentFactory.Build(agentTwoKind, seed * 104729, cards, iterations);
+        //
+        // Each agent is told its OPPONENT's deck, which is what IS-MCTS's determinizer needs to
+        // reconstruct hidden cards once the two seats are not playing the same list. Note this
+        // is a deliberate temporary information cheat -- see Determinizer's class note.
+        var agentOne = AgentFactory.Build(agentOneKind, seed * 7919, cards, iterations, deckTwo);
+        var agentTwo = AgentFactory.Build(agentTwoKind, seed * 104729, cards, iterations, deckOne);
         var agents = new Dictionary<PlayerId, IAgent>
         {
             [PlayerId.One] = agentOne,
@@ -40,24 +50,14 @@ public static class GameRunner
         };
 
         var state = new GameState(rules, random, PlayerId.One);
-        var cardsDrawnOne = new List<string>();
-        var cardsDrawnTwo = new List<string>();
 
-        foreach (var playerId in PlayerIds.All)
-        {
-            var player = state[playerId];
-            player.SetDeck(cards.BuildSymmetricDeck(rules));
-            player.ShuffleDeck(random);
-            var openingHand = player.Draw(rules.StartingHandSize);
-            (playerId == PlayerId.One ? cardsDrawnOne : cardsDrawnTwo).AddRange(openingHand);
-        }
-
-        // Seat two's step-4.8 compensation, after both opening hands are dealt off shuffled decks
-        // and before the first AdvanceToActions(). The extra cards count toward seat two's drawn
-        // total exactly as its opening hand does, so CardsDrawn* and the deck-exhaustion metrics
-        // stay honest -- a compensation that quietly drew cards nothing counted would understate
-        // how much closer to fatigue it puts seat two.
-        cardsDrawnTwo.AddRange(state.ApplySecondSeatCompensation());
+        // Deals both decks, draws both opening hands, and applies seat two's step-4.8
+        // compensation -- whose extra cards come back in the returned draw lists, so CardsDrawn*
+        // and the deck-exhaustion metrics stay honest (a compensation that quietly drew cards
+        // nothing counted would understate how much closer to fatigue it puts seat two).
+        var (dealtOne, dealtTwo) = GameSetup.Deal(state, deckOne, deckTwo);
+        var cardsDrawnOne = new List<string>(dealtOne);
+        var cardsDrawnTwo = new List<string>(dealtTwo);
 
         // Indexed by PlayerId.ToIndex(), so HarvestDrawEvents can bump whichever seat fatigued
         // without a conditional `ref` -- same reason mergeOffersOne/Two below are arrays.
@@ -278,6 +278,12 @@ public static class GameRunner
             AgentOne = agentOneKind,
             AgentTwo = agentTwoKind,
             Seed = seed,
+            DeckOne = deckOne.CountsById(),
+            DeckTwo = deckTwo.CountsById(),
+            DeckNameOne = deckOne.Name,
+            DeckNameTwo = deckTwo.Name,
+            DeckProfileOne = Profile(deckOne, cards),
+            DeckProfileTwo = Profile(deckTwo, cards),
             Winner = winner,
             Ending = ending,
             ScoreOne = state[PlayerId.One].Score,
@@ -340,6 +346,31 @@ public static class GameRunner
             CardsBlockedByCostOne = trackers[PlayerId.One].BlockedByCost,
             CardsBlockedByCostTwo = trackers[PlayerId.Two].BlockedByCost,
             Elapsed = stopwatch.Elapsed,
+        };
+    }
+
+    // Reduces a deck to the numbers the report's deck-stats section groups by. Done here because
+    // this is where the CardDatabase is available -- MetricsReport.From deliberately has none.
+    private static DeckProfile Profile(Deck deck, CardDatabase cards)
+    {
+        var byCost = DeckBuilder.TypeCounts(deck.Cards, cards);
+        var byBoard = DeckBuilder.CreatureTypeCounts(deck.Cards, cards);
+        var cost = DeckBuilder.CostByType(deck.Cards, cards);
+
+        return new DeckProfile
+        {
+            Name = deck.Name,
+            CardCount = deck.Count,
+            MeanCost = DeckBuilder.MeanCost(deck.Cards, cards),
+            SpikeCards = byCost[ResourceType.Spike],
+            AnvilCards = byCost[ResourceType.Anvil],
+            WheelCards = byCost[ResourceType.Wheel],
+            SpikeCreatures = byBoard[ResourceType.Spike],
+            AnvilCreatures = byBoard[ResourceType.Anvil],
+            WheelCreatures = byBoard[ResourceType.Wheel],
+            SpikeCost = cost.Spike,
+            AnvilCost = cost.Anvil,
+            WheelCost = cost.Wheel,
         };
     }
 

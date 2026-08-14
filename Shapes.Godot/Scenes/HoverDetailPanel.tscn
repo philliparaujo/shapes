@@ -65,11 +65,14 @@ layout_mode = 2
 mouse_filter = 2
 clip_contents = true
 
-[node name="EffectsLabel" type="Label" parent="Panel/PanelMargin/Layout"]
+[node name="EffectsLabel" type="RichTextLabel" parent="Panel/PanelMargin/Layout"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/normal_font_size = 10
 autowrap_mode = 2
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
 text = ""
 
 [node name="MoveList" type="VBoxContainer" parent="Panel/PanelMargin/Layout"]

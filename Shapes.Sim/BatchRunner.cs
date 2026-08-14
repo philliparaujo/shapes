@@ -43,10 +43,15 @@ public static class BatchRunner
     // whichever worker thread finished it, so callers must be thread-safe (Program.cs's use just
     // rewrites a console line under a lock). Optional and last so it doesn't disturb existing
     // callers/tests that only care about the result.
+    // `decks` supplies each game's two decklists. Defaults to the one-of-each default deck, which
+    // is what every pre-deck balance run played -- so an existing caller passing none gets the
+    // batch it got before.
     public static BatchResult Run(
         SimOptions options, CardDatabase cards, RuleSet rules,
-        Action<int, int>? onGameCompleted = null)
+        Action<int, int>? onGameCompleted = null, DeckProvider? decks = null)
     {
+        decks ??= new DeckProvider(DeckSource.Default, cards, rules);
+
         var pairingSpecs = new List<(string One, string Two)>();
         foreach (var one in options.Agents)
         {
@@ -82,7 +87,12 @@ public static class BatchRunner
         var completed = 0;
         Parallel.ForEach(jobs, parallelOptions, job =>
         {
-            var result = GameRunner.Play(job.One, job.Two, job.Seed, cards, rules, options.Iterations);
+            // Decks are derived from the game's own seed, not drawn from a shared stream, so a
+            // game gets the same decks regardless of the order Parallel.ForEach happens to run it
+            // in -- see DeckProvider.DecksFor.
+            var (deckOne, deckTwo) = decks.DecksFor(job.Seed);
+            var result = GameRunner.Play(
+                job.One, job.Two, job.Seed, cards, rules, options.Iterations, deckOne, deckTwo);
             allGames.Add(result);
             gamesByPairing[(job.One, job.Two)].Add(result);
 

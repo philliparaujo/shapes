@@ -112,11 +112,15 @@ public sealed class IsMctsAgent : IAgent
     // break, keeps exercising true per-iteration resampling unless a caller opts in.
     private const int DefaultIterationsPerDeterminization = 1;
 
+    // `opponentDeck` is the decklist this agent's OPPONENT is playing, needed only when decks are
+    // not symmetric -- see Determinizer's class note, including why supplying it is a deliberate
+    // temporary cheat. Null (the default) keeps the symmetric-decklist behaviour unchanged.
     public IsMctsAgent(
         CardDatabase cards, IRandomSource random, SearchBudget? budget = null,
         double explorationConstant = DefaultExploration, int playoutDepth = DefaultPlayoutDepth,
         IPlayoutPolicy? playoutPolicy = null,
-        int iterationsPerDeterminization = DefaultIterationsPerDeterminization)
+        int iterationsPerDeterminization = DefaultIterationsPerDeterminization,
+        Deck? opponentDeck = null)
     {
         ArgumentNullException.ThrowIfNull(cards);
         ArgumentNullException.ThrowIfNull(random);
@@ -126,7 +130,7 @@ public sealed class IsMctsAgent : IAgent
 
         _cards = cards;
         _random = random;
-        _determinizer = new Determinizer(cards);
+        _determinizer = new Determinizer(cards, opponentDeck);
         _playoutPolicy = playoutPolicy ?? UniformPlayoutPolicy.Instance;
 
         Budget = budget ?? SearchBudget.Default;

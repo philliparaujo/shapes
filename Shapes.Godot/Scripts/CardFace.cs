@@ -47,10 +47,14 @@ public partial class CardFace : Button
     // Opaque: only RGB is scaled, alpha stays 1 (see Render's note on why not translucency).
     private static readonly Color UnplayableTint = new(0.62f, 0.62f, 0.66f, 1f);
 
+    // Matches the EffectsLabel font size set in CardFace.tscn -- inline resource icons size
+    // themselves off it (InlineResourceIcons.SizeForFont), so the two must not drift apart.
+    private const int SpellEffectsFontSize = 9;
+
     private Label? _nameLabel;
     private Control? _artHolder;
     private Control? _costBadge;
-    private Label? _effectsLabel;
+    private RichTextLabel? _effectsLabel;
     private Container? _moveList;
     private Label? _statLabel;
 
@@ -80,7 +84,7 @@ public partial class CardFace : Button
         _nameLabel = GetNode<Label>(NameLabelPath);
         _artHolder = GetNode<Control>(ArtHolderPath);
         _costBadge = GetNode<Control>(CostBadgePath);
-        _effectsLabel = GetNode<Label>(EffectsLabelPath);
+        _effectsLabel = GetNode<RichTextLabel>(EffectsLabelPath);
         _moveList = GetNode<Container>(MoveListPath);
         _statLabel = GetNode<Label>(StatLabelPath);
         Pressed += () => Tapped?.Invoke();
@@ -128,8 +132,8 @@ public partial class CardFace : Button
         // and a stat line, not just a cropped art thumbnail with a title. MoveRowFactory is the
         // shared component the tooltip and the board's move buttons already use, so a move reads
         // identically everywhere it appears.
-        _effectsLabel!.Text = text.SpellEffects;
-        _effectsLabel.Visible = text.SpellEffects.Length > 0;
+        InlineResourceIcons.AppendTo(_effectsLabel!, text.SpellEffects, SpellEffectsFontSize);
+        _effectsLabel!.Visible = text.SpellEffects.Length > 0;
         _statLabel!.Text = text.IsCreature ? $"{text.Health} HP" : "Spell";
 
         foreach (var child in _moveList!.GetChildren())
@@ -162,14 +166,27 @@ public partial class CardFace : Button
     // Finds the wrapped description inside a MoveRowFactory row and limits it to two lines. Walks
     // the row rather than having the factory take a parameter: the tooltip and the board's move
     // buttons want the full uncapped text, and this constraint belongs to the hand card alone.
+    //
+    // Matches RichTextLabel, which is what a description is now that it embeds inline resource
+    // icons (see MoveRowFactory). A RichTextLabel with FitContent reports its FULL wrapped height
+    // as its minimum, so without the cap a long move (T Flare's Meltdown) grows the row, then
+    // MoveList, then the whole card past the height the fan lays out -- exactly the drift the
+    // Label-era cap above was added to stop, which silently stopped applying when the node type
+    // changed. MaxLinesVisible does the same job here, and FitContent must go off with it, since
+    // it is what reports the uncapped height in the first place.
     private static void ClampDescriptionLines(Node row)
     {
         foreach (var child in row.GetChildren())
         {
-            if (child is Label { AutowrapMode: not TextServer.AutowrapMode.Off } label)
+            if (child is RichTextLabel { AutowrapMode: not TextServer.AutowrapMode.Off } rich)
             {
-                label.MaxLinesVisible = MaxDescriptionLines;
-                label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+                // RichTextLabel has no MaxLinesVisible (that is a Label property), so the cap is
+                // a fixed height plus clipping: FitContent off stops it reporting the full
+                // wrapped height as its minimum, and the explicit size holds it to two lines.
+                rich.FitContent = false;
+                rich.CustomMinimumSize = new Vector2(0, HandMoveDescriptionHeight);
+                rich.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+                rich.ClipContents = true;
             }
 
             ClampDescriptionLines(child);
@@ -177,6 +194,13 @@ public partial class CardFace : Button
     }
 
     private const int MaxDescriptionLines = 2;
+
+    // The height MaxLinesVisible alone would have given a Label. A RichTextLabel does not shrink
+    // its minimum to match the cap (FitContent off makes it report nothing at all), so the two
+    // capped lines have to be asked for explicitly -- derived from the shared font size rather
+    // than hard-coded, so a font change carries through instead of clipping the second line.
+    private const float HandMoveDescriptionHeight =
+        CardMetrics.MoveDescriptionFontSize * 1.35f * MaxDescriptionLines;
 
     // Shorter than the tooltip's row: a hand card is narrower, and its move list has to share the
     // card with the art band rather than owning the panel's whole lower half.

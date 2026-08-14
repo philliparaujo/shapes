@@ -27,19 +27,33 @@ public sealed class GameSession
     // Deals starting hands, applies the second-seat compensation (Phase 4 step 8), and enters
     // the Actions phase for turn one -- mirroring Shapes.Console's setup (Program.cs) so a
     // seeded Godot game matches the seeded console game, per Milestone A's exit bar.
-    public void Start(int startingHandSize)
+    // `deck` defaults to DeckBuilder.Default (one of every card) -- the same deck the console
+    // plays, so a seeded Godot game still matches the same seed's console result, which is
+    // Milestone A's exit bar. The parameter is the seam C2's deckbuilder fills in.
+    //
+    // startingHandSize is now unused: GameSetup.Deal reads it from the ruleset, which is where it
+    // always came from at every other call site. Kept in the signature so existing callers
+    // compile unchanged, and asserted against the ruleset rather than silently ignored -- a
+    // caller passing a different number is expressing an intent this no longer honours, and it
+    // should say so rather than quietly deal a different hand.
+    public void Start(int startingHandSize, Deck? deck = null)
     {
-        foreach (var playerId in PlayerIds.All)
+        if (startingHandSize != _state.Rules.StartingHandSize)
         {
-            var player = _state[playerId];
-            player.SetDeck(Cards.BuildSymmetricDeck(_state.Rules));
-            player.ShuffleDeck(_state.Random);
-            player.Draw(startingHandSize);
+            throw new ArgumentOutOfRangeException(
+                nameof(startingHandSize), startingHandSize,
+                $"Ruleset '{_state.Rules.Name}' deals {_state.Rules.StartingHandSize} cards; "
+                + "the opening hand size is a ruleset property and cannot be overridden here.");
         }
 
-        _state.ApplySecondSeatCompensation();
+        Deck = deck ?? DeckBuilder.Default(Cards);
+        GameSetup.Deal(_state, Deck);
         _state.AdvanceToActions();
     }
+
+    // The decklist this session was dealt, once Start has run. Null before that -- a session that
+    // has not started has no deck, and reading one would be a caller-ordering bug worth surfacing.
+    public Deck? Deck { get; private set; }
 
     // Legal actions for whoever's turn it is right now. Mirrors ActionGenerator.Generate
     // exactly (including the AwaitingDiscard gate to discard-only) -- callers should not

@@ -80,17 +80,21 @@ System.Console.WriteLine(
 System.Console.WriteLine();
 
 var state = new GameState(rules, random, PlayerId.One);
-foreach (var playerId in PlayerIds.All)
-{
-    var player = state[playerId];
-    player.SetDeck(cards.BuildSymmetricDeck(rules));
-    player.ShuffleDeck(random);
-    player.Draw(rules.StartingHandSize);
-}
 
-// Seat two's step-4.8 starting compensation. Nothing to track here -- the console renders state
-// rather than measuring it -- but it must run so a human game matches what Shapes.Sim measured.
-state.ApplySecondSeatCompensation();
+// THE console's only deck: one copy of every card in the set (DeckBuilder.Default). Both seats
+// play it, so a console game still exercises the whole card set -- which is what the console is
+// FOR (watching a card actually work), and why it is not sized to the 40-card constructed limit
+// that Shapes.Sim's other deck modes use.
+//
+// Dealing goes through GameSetup.Deal rather than an inline loop so the console cannot drift from
+// the sim's setup ordering; seat two's step-4.8 compensation is applied in there. Nothing to
+// track here -- the console renders state rather than measuring it -- but it must run so a human
+// game matches what Shapes.Sim measured.
+var deck = DeckBuilder.Default(cards);
+System.Console.WriteLine($"Deck: {deck}");
+System.Console.WriteLine();
+
+GameSetup.Deal(state, deck);
 
 state.AdvanceToActions();
 

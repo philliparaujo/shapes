@@ -135,9 +135,44 @@ if (options.Calibration)
     Console.WriteLine($"Calibration: added {calibrationCards.Count} deliberately mispriced spells.");
 }
 
+// Decks. Every game is played with one; --deck chooses which. Built before the run so a bad
+// decklist file fails immediately rather than thousands of games in.
+DeckProvider deckProvider;
+try
+{
+    var customDeck = options.DeckPath is null
+        ? null
+        : DeckLoader.FromFile(options.DeckPath, cards, rules);
+
+    deckProvider = new DeckProvider(
+        options.Deck, cards, rules, customDeck,
+        new DeckBuilder.RandomDeckConstraints
+        {
+            CostTolerance = options.DeckCostTolerance,
+            MinPerType = options.DeckMinPerType,
+        });
+}
+catch (Exception ex) when (ex is DeckBuildException or IOException)
+{
+    Console.Error.WriteLine($"Deck error: {ex.Message}");
+    return 1;
+}
+
 Console.WriteLine(
     $"Agents: {string.Join(", ", options.Agents)}    Games/pairing: {options.Games}    "
     + $"Seed: {options.Seed}    Iterations: {options.Iterations}");
+Console.WriteLine($"Decks: {deckProvider.Describe()}");
+
+// The included-win-rate metric only varies when deck inclusion varies, and under the default
+// one-of-each deck it never does -- every deck runs every card. Saying so up front beats having
+// a reader discover a column of identical numbers and wonder which part is broken.
+if (options.Deck == DeckSource.Default)
+{
+    Console.WriteLine(
+        "       (one-of-each: every deck runs every card, so included win rate is uninformative "
+        + "-- use --deck random to vary it)");
+}
+
 Console.WriteLine();
 
 BatchResult result;
@@ -183,7 +218,7 @@ try
         }
     }
 
-    result = BatchRunner.Run(options, cards, rules, ReportProgress);
+    result = BatchRunner.Run(options, cards, rules, ReportProgress, deckProvider);
 }
 catch (ArgumentException ex)
 {
@@ -383,6 +418,109 @@ if (byTakeRate.Count > 10)
 foreach (var card in byTakeRate.Skip(Math.Max(5, byTakeRate.Count - 5)))
 {
     PrintCard(card, cardInfoLookup);
+}
+
+// INCLUDED WIN RATE -- of the decks that ran a card, how often that seat won. Printed only when
+// inclusion actually VARIED: under the default one-of-each deck every deck runs every card, so
+// every row would carry the identical pooled seat win rate, and a table of 36 identical numbers
+// invites the reader to find meaning that is not there. The check is on the data rather than on
+// the --deck flag so a custom-deck batch that happens to vary gets the table too.
+var included = metrics.CardStats.Where(c => c.DecksIncludedIn > 0).ToList();
+if (included.Select(c => c.DecksIncludedIn).Distinct().Count() > 1)
+{
+    Console.WriteLine();
+    Console.WriteLine(
+        "Cards by included win rate — of the decks running the card, how often that seat won:");
+    Console.WriteLine(
+        "  (one deck = one trial regardless of copies; the 1x/2x/3x split is the copy-count trend)");
+
+    static void PrintIncluded(CardStat card)
+    {
+        // Buckets are printed as bare rates with their deck counts, so a 3x rate resting on four
+        // decks is visibly thin rather than looking like the 1x rate beside it.
+        static string Bucket(CardStat c, int copies) =>
+            c.ByCopyCount.TryGetValue(copies, out var b)
+                ? $"{b.WinRate.Rate,5:P0}/{b.Decks,-4}"
+                : "    -/-   ";
+
+        Console.WriteLine(
+            $"  {card.CardId,-18} incl={card.IncludedWinRate.Rate,6:P1} "
+            + $"[{card.IncludedWinRate.Low,5:P0},{card.IncludedWinRate.High,5:P0}]  "
+            + $"decks={card.DecksIncludedIn,5}   "
+            + $"1x {Bucket(card, 1)}  2x {Bucket(card, 2)}  3x {Bucket(card, 3)}");
+    }
+
+    var byIncluded = included.OrderByDescending(c => c.IncludedWinRate.Rate).ToList();
+
+    foreach (var card in byIncluded.Take(5))
+    {
+        PrintIncluded(card);
+    }
+
+    if (byIncluded.Count > 10)
+    {
+        Console.WriteLine($"  ... {byIncluded.Count - 10} more ...");
+    }
+
+    foreach (var card in byIncluded.Skip(Math.Max(5, byIncluded.Count - 5)))
+    {
+        PrintIncluded(card);
+    }
+
+    // Same honesty check the play-rate resolution line below makes, for this metric: an interval
+    // straddling 50% cannot rank anything, and inclusion samples are thinner than play samples
+    // (one per deck, not one per decision), so this is usually the tighter constraint on games.
+    var undecidedIncluded = included.Count(c => !c.IncludedWinRate.Excludes());
+    Console.WriteLine(
+        $"  {undecidedIncluded} of {included.Count} cards have an included-win-rate interval "
+        + "still straddling 50%.");
+}
+
+// DECK STATS -- win rate by the deck's own properties, asking "what kind of deck wins" rather
+// than "which card wins". Empty under --deck default (every deck identical, nothing to group by),
+// so the whole section disappears rather than printing single-bucket rows.
+if (metrics.DeckStats.Count > 0)
+{
+    Console.WriteLine();
+    Console.WriteLine("Deck stats — win rate by deck composition (one deck played by one seat = one trial):");
+
+    foreach (var stat in metrics.DeckStats)
+    {
+        // Buckets with no decks in them are printed as gaps rather than skipped: "no deck ran
+        // 14-16 spike creatures" is information, and hiding it would make the surrounding buckets
+        // look adjacent when they are not.
+        var live = stat.Buckets.Where(b => b.Decks > 0).ToList();
+        if (live.Count < 2)
+        {
+            continue;
+        }
+
+        // The separation flag is the honest headline: without it a monotone-looking climb is just
+        // as likely to be noise, and this is the number that says which.
+        var verdict = stat.HasSeparatedBuckets
+            ? "buckets separate"
+            : "no bucket separates — not distinguishable";
+        Console.WriteLine();
+        Console.WriteLine($"  {stat.Name}  (n={stat.TotalDecks} decks, {verdict})");
+
+        foreach (var bucket in stat.Buckets)
+        {
+            if (bucket.Decks == 0)
+            {
+                Console.WriteLine($"    {bucket.Label(stat.Decimals),-14}      —  (no decks)");
+                continue;
+            }
+
+            // A bar makes the shape readable at a glance; the interval beside it is what says
+            // whether the shape means anything.
+            // Width 7, not 6: "100.0 %" is seven characters and overflows a 6-wide field, which
+            // misaligns exactly the rows a thin bucket produces.
+            var bar = new string('#', (int)Math.Round(bucket.WinRate.Rate * 20));
+            Console.WriteLine(
+                $"    {bucket.Label(stat.Decimals),-14} {bucket.WinRate.Rate,7:P1} "
+                + $"[{bucket.WinRate.Low,5:P0},{bucket.WinRate.High,5:P0}]  n={bucket.Decks,4}  {bar}");
+        }
+    }
 }
 
 var moveInfoLookup = MoveInfo.BuildLookup(cards);

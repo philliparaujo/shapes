@@ -64,15 +64,17 @@ size_flags_vertical = 0
 mouse_filter = 2
 clip_contents = true
 
-[node name="EffectsLabel" type="Label" parent="Body/BodyMargin/Layout"]
+[node name="EffectsLabel" type="RichTextLabel" parent="Body/BodyMargin/Layout"]
 custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
 size_flags_vertical = 0
 mouse_filter = 2
 clip_contents = true
-theme_override_font_sizes/font_size = 9
+theme_override_font_sizes/normal_font_size = 9
 autowrap_mode = 2
-max_lines_visible = 2
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
 text = ""
 
 [node name="MoveList" type="VBoxContainer" parent="Body/BodyMargin/Layout"]

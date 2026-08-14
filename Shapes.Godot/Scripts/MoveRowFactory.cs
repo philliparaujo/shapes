@@ -54,16 +54,24 @@ public static class MoveRowFactory
         nameLabel.AddThemeFontSizeOverride("font_size", CardMetrics.MoveNameFontSize);
         lines.AddChild(nameLabel);
 
-        var descriptionLabel = new Label
+        // A RichTextLabel, not a Label, because the description embeds real resource icons where
+        // the rules text names a resource (see InlineResourceIcons) -- a plain Label can only show
+        // the bracketed fallback text. FitContent so it still sizes to its wrapped text the way
+        // the Label did, rather than demanding an explicit height.
+        var descriptionLabel = new RichTextLabel
         {
-            Text = text.Effects,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MouseFilter = Control.MouseFilterEnum.Ignore,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            FitContent = true,
+            ScrollActive = false,
+            BbcodeEnabled = false,
         };
-        descriptionLabel.AddThemeFontSizeOverride("font_size", CardMetrics.MoveDescriptionFontSize);
-        descriptionLabel.AddThemeColorOverride("font_color", new Color(0.82f, 0.82f, 0.82f));
+        descriptionLabel.AddThemeFontSizeOverride("normal_font_size", CardMetrics.MoveDescriptionFontSize);
+        descriptionLabel.AddThemeColorOverride("default_color", new Color(0.82f, 0.82f, 0.82f));
         lines.AddChild(descriptionLabel);
+        InlineResourceIcons.AppendTo(
+            descriptionLabel, text.Effects, CardMetrics.MoveDescriptionFontSize);
 
         return row;
     }

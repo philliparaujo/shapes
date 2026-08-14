@@ -88,6 +88,7 @@ public partial class GameRoot : Control
 
     public override void _Ready()
     {
+        GodotTextFormat.Ensure();
         _boardView = GetNode<BoardView>(BoardViewPath);
 
         _boardView.SlotTapped += OnSlotTapped;

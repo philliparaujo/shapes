@@ -305,6 +305,77 @@ public class DeterminizerTests
         Assert.Contains("symmetric", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // -- Explicit opponent decklists (non-symmetric play) ----------------------------------------
+    //
+    // Supplying the opponent's real decklist is a deliberate temporary information cheat that
+    // keeps IS-MCTS usable on random/custom decks -- see Determinizer's class note and PLAN.md
+    // D1. These pin that the supplied list is what actually gets sampled from.
+
+    [Fact]
+    public void An_explicit_opponent_deck_is_sampled_instead_of_the_symmetric_decklist()
+    {
+        // The opponent's whole deck is one card id repeated, which the symmetric decklist would
+        // never produce -- so if every sampled card is that id, the supplied list is genuinely
+        // the source rather than a decoration.
+        var only = Cards.All[0].Id;
+        var state = NewGame(seed: 5);
+        var observed = new ObservedState(state, PlayerId.One);
+
+        // Sized to exactly the opponent's unseen cards: the deal is an accounting identity, not a
+        // best effort, and a list that does not cover hand + deck is correctly rejected.
+        var unseen = observed.Opponent.HandSize + observed.Opponent.DeckSize;
+        var opponentDeck = new Deck("mono", Enumerable.Repeat(only, unseen));
+        var subject = new Determinizer(Cards, opponentDeck);
+
+        var sampled = subject.Determinize(observed, new SeededRandom(1));
+        var opponent = sampled[PlayerId.Two];
+
+        Assert.NotEmpty(opponent.Hand);
+        Assert.All(opponent.Hand, id => Assert.Equal(only, id));
+        Assert.All(opponent.Deck, id => Assert.Equal(only, id));
+    }
+
+    [Fact]
+    public void An_explicit_opponent_deck_lifts_the_symmetric_ruleset_guard()
+    {
+        // With the decklist in hand there is nothing left to infer from the deck mode, so the
+        // guard must apply to the symmetric FALLBACK only -- otherwise custom-deck play could
+        // never use IS-MCTS at all, which is the whole reason this path exists.
+        var only = Cards.All[0].Id;
+        var state = new StateBuilder()
+            .WithRuleSet(RuleSetTestHelper.CustomDeck())
+            .P1(p => p.Hand(only))
+            .P2(p => p.Hand(only))
+            .Build();
+
+        var observed = new ObservedState(state, PlayerId.One);
+
+        // One unseen opponent card (their hand), so a one-card decklist covers it exactly.
+        var subject = new Determinizer(Cards, new Deck("d", [only]));
+
+        // The point is that this does not throw about symmetry under a custom-deck ruleset.
+        var sampled = subject.Determinize(observed, new SeededRandom(1));
+
+        Assert.Equal(only, Assert.Single(sampled[PlayerId.Two].Hand));
+    }
+
+    [Fact]
+    public void Observed_opponent_hand_and_deck_sizes_still_hold_with_an_explicit_deck()
+    {
+        // The sizes are observations, not guesses, on this path exactly as on the symmetric one.
+        var state = NewGame(seed: 11);
+        var observed = new ObservedState(state, PlayerId.One);
+
+        var unseen = observed.Opponent.HandSize + observed.Opponent.DeckSize;
+        var opponentDeck = new Deck("mono", Enumerable.Repeat(Cards.All[0].Id, unseen));
+        var subject = new Determinizer(Cards, opponentDeck);
+
+        var sampled = subject.Determinize(observed, new SeededRandom(2));
+
+        Assert.Equal(observed.Opponent.HandSize, sampled[PlayerId.Two].Hand.Count);
+        Assert.Equal(observed.Opponent.DeckSize, sampled[PlayerId.Two].Deck.Count);
+    }
+
     // -- Non-degeneracy: it is genuinely sampling ------------------------------------------------
 
     [Fact]

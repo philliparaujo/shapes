@@ -53,11 +53,113 @@ public static class MoveKey
 // different roles, and a balance change usually means to move one and not the other.
 public sealed record CreatureLifetime(string CardId, int ScoringStepsSurvived, bool ScoredWhileAlive);
 
+// A deck's composition, reduced to the handful of numbers the deck-stats section groups by.
+//
+// Computed at GAME time (GameRunner, where the CardDatabase is in hand) rather than during
+// aggregation, because MetricsReport.From takes only GameResults and deliberately has no
+// CardDatabase -- it is pure aggregation and every MetricsReportTests fixture constructs one
+// without card data. Carrying the derived numbers on the result is what lets that stay true.
+//
+// Small and flat rather than the whole decklist: the report groups by mean cost, creature counts
+// per type, and cost pips per type, and nothing downstream needs to re-derive those from card ids.
+public sealed record DeckProfile
+{
+    public required string Name { get; init; }
+
+    public required int CardCount { get; init; }
+
+    // Mean total pip cost per card -- the primary grouping axis ("decks averaging 2.0-2.2").
+    public required double MeanCost { get; init; }
+
+    // Cards DEMANDING each type by play cost -- creatures and spells together, since both draw
+    // down the same pool. This is the quantity RandomDeckConstraints.MinPerType is enforced
+    // against, so the report groups by the same number the generator constrained.
+    public required int SpikeCards { get; init; }
+
+    public required int AnvilCards { get; init; }
+
+    public required int WheelCards { get; init; }
+
+    // Creature counts by BOARD type (what the cards ARE once in play, not what they cost).
+    // Spells carry no board type and are absent here; multi-type creatures count once per type.
+    // Kept alongside the cost counts because the two answer different questions -- see
+    // DeckBuilder.CreatureTypeCounts.
+    public required int SpikeCreatures { get; init; }
+
+    public required int AnvilCreatures { get; init; }
+
+    public required int WheelCreatures { get; init; }
+
+    // Total COST pips by resource (what the deck pays to play its cards). Deliberately separate
+    // from the type counts above -- see DeckBuilder.CostByType for why the two differ and why
+    // both are worth reading.
+    public required int SpikeCost { get; init; }
+
+    public required int AnvilCost { get; init; }
+
+    public required int WheelCost { get; init; }
+
+    public int CardsOfType(ResourceType type) => type switch
+    {
+        ResourceType.Spike => SpikeCards,
+        ResourceType.Anvil => AnvilCards,
+        _ => WheelCards,
+    };
+
+    public int CreaturesOfType(ResourceType type) => type switch
+    {
+        ResourceType.Spike => SpikeCreatures,
+        ResourceType.Anvil => AnvilCreatures,
+        _ => WheelCreatures,
+    };
+
+    public int CostOfType(ResourceType type) => type switch
+    {
+        ResourceType.Spike => SpikeCost,
+        ResourceType.Anvil => AnvilCost,
+        _ => WheelCost,
+    };
+}
+
 public sealed class GameResult
 {
     public required string AgentOne { get; init; }
 
     public required string AgentTwo { get; init; }
+
+    // DECK COMPOSITION per seat: card id -> copies in that seat's deck. The input to the
+    // included-win-rate metric (MetricsReport.CardStat.IncludedWinRate), which asks "of the decks
+    // that ran this card, how often did that seat win" -- a question that needs the DECKLIST, not
+    // the play/draw log. A card can sit in a deck all game and never be drawn; those games are
+    // exactly the ones win-rate-when-played and win-rate-when-drawn cannot see, and they are half
+    // the point of measuring inclusion.
+    //
+    // Counts rather than the flat card list: the metric needs copies-per-card (for the by-copy
+    // breakdown) and nothing else, the flat list is ~40 strings per seat per game against a
+    // dictionary of ~25 entries, and a dictionary keyed by card id serializes to readable JSON
+    // where a 40-element array of repeated ids does not.
+    //
+    // Defaulted to empty rather than required so every existing GameResult construction site --
+    // the fixtures in MetricsReportTests especially -- keeps compiling and reads as "this test
+    // isn't about decks."
+    public IReadOnlyDictionary<string, int> DeckOne { get; init; } =
+        new Dictionary<string, int>(StringComparer.Ordinal);
+
+    public IReadOnlyDictionary<string, int> DeckTwo { get; init; } =
+        new Dictionary<string, int>(StringComparer.Ordinal);
+
+    // What the decks were called, for reporting. "default" for the one-of-each deck, the file
+    // name for a custom list, "random#<seed>a/b" for generated ones.
+    public string DeckNameOne { get; init; } = string.Empty;
+
+    public string DeckNameTwo { get; init; } = string.Empty;
+
+    // Each seat's deck reduced to its groupable numbers. Null when the runner had no deck data to
+    // profile (pre-deck results, test fixtures) -- the deck-stats section simply has no samples
+    // then, which is the correct outcome rather than a row of zeros.
+    public DeckProfile? DeckProfileOne { get; init; }
+
+    public DeckProfile? DeckProfileTwo { get; init; }
 
     public required ulong Seed { get; init; }
 

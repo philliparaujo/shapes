@@ -1,6 +1,6 @@
 {
   "id": "def_stance",
-  "name": "Def. Stance",
+  "name": "Defensive Stance",
   "kind": "spell",
   "cost": { "anvil": 1 },
   "effects": [

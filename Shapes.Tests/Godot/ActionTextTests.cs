@@ -22,7 +22,7 @@ public class ActionTextTests
 
         var text = ActionText.Describe(action, state, Cards);
 
-        Assert.Equal("Play test_bolt [◯1] (draw 1)", text);
+        Assert.Equal("Play test_bolt [◯1] (Draw 1.)", text);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class ActionTextTests
 
         var text = ActionText.Describe(action, state, Cards);
 
-        Assert.Equal("Strike [◯1] from P1:0 (deal 1 damage to opposing)", text);
+        Assert.Equal("Strike [◯1] from P1:0 (Deal 1.)", text);
     }
 
     [Fact]

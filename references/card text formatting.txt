@@ -1,0 +1,45 @@
+*Some move names have been changed in this version
+
+Card	Effect*	Move 1*	Move 2*
+Basic Circle		Pound - Deal 1	Rev Up - Gain +2 attack
+Basic Square		Jab - Deal 2 if this has at least 4 health	Fortify - Gain +1 max health. Heal 1
+Basic T		Poke - Deal 1	Finish - Deal 2 if opposing is damaged
+Defensive Stance	Each friendly gains +2 max health		
+Rally	Gain attack equal to missing health		
+Siphon	Deal 2		
+Circle Cadet		Scout - Draw 1 if this is at full health	Rebound - Deal 1. Heal 1
+Circle Priest		Mend - Discard 1. Heal 4	Focus Strike - Deal 2 if this is at full health
+Monk		Recover - Gain +3 max health if this is damaged	Palm Strike - Deal damage equal to health this has
+T Battery		Discharge - Deal 1 to this. Draw 1	Overload - Deal damage equal to your hand size
+T Medic		Transfusion - Deal 2 to this. Your right friendly gains +4 max health	Triage Strike - Deal 2 if this is damaged
+Worshipper		Blessing - Your left friendly gains reflect	Channel - Deal damage equal to your left friendly's health
+Zealot		Martyrdom - Gain 3 [anvil] next time this take damage	Smite - Deal 1. Gain +1 max health
+Anchor	Draw 1. Gain max health equal to your hand size		
+Circle Bender		Exhale - Deal 1	Inhale - Gain +4 attack
+Circle Mouse		Evasive - Gain ricochet right	Spalsh - Deal 2 to all enemies
+Circle Planner		Strike - Deal 3	Plan Ahead - Gain 4 [wheel] next turn
+Columns		Renovate - Gain +2 max health. Gain taunt until your next turn	Slam - Deal 2
+Enrage	Draw 1 for each damaged creature		
+Gravewarden		Reap - Gain max health equal to creatures destroyed this turn	Blight - Deal 1 to all enemies
+T Body		Piston - Deal 2. Deal 2	Overclock - Deal 3 to this. Gain 3 [spike]
+T Flare		Meltdown - Gain [spike] equal to health this has. Destroy this. Draw 1	Flare Burst - Deal damage equal to twice the health this has. Destroy this.
+T Juggler		Toss - Discard 1. Gain 3 [spike]	Catch and Throw - Draw 1. Deal 3
+Wave Crash	Deal 2 to all enemies		
+Bubbles		Fizz - Deal 1 to all enemies	Burst - Deal 6 to this. Deal 6 to all enemies
+Champion T		Barrage - Deal damage equal to your [spike]	Swagger - Gain +3 max health if this is unopposed
+Circle Surfer		Wipeout - Discard 2. Deal 6	Cutback - Deal 1. Draw 1
+Execute	Deal 2. Double it if the enemy is damaged		
+Guardian		Bulwark - Gain reflect	Smash - Deal 3 and stun
+Safeguard	Gain reflect		
+Shieldbearer		Brace - Draw 1 next time this takes damage	Shield Bash - Deal 3. Gain taunt until your next turn
+Suffocate	Destroy an enemy. Refund its cost to your opponent		
+T Dealer		Deal Out - Draw up to 4 cards	Ace - Discard 1. Deal 4
+Circle Captain		Rally Charge - Deal 2 damage for each friendly creature	Wardance - Gain ricochet left. Your left friendly gains reflect
+Relic		Crumble - Deal 3 if this is damaged	Unearth - Deal 3 to this. Gain 3 [anvil]
+T Swarm		Swarm - Deal damage equal to half the health this has	Grow - Gain +2 max health
+			
+Keywords			
+Reflect	The next damage taken is ignored		
+Ricochet (left/right)	The next damage taken is dealt to the (left/right) friendly, if possible		
+Taunt	All enemy creature attacks target this creature		
+Stun	No moves can be used on your opponent's next turn		

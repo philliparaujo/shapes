@@ -60,7 +60,13 @@ public static class ResultWriter
             + "playCount,gamesPlayedIn,offerCount,playTakeRate,playTakeRateLow,playTakeRateHigh,"
             + "offeredInTurns,playedInTurns,playTakeRatePerTurn,playTakeRatePerTurnLow,playTakeRatePerTurnHigh,"
             + "winRateWhenPlayed,timesDrawn,gamesDrawnIn,winRateWhenDrawn,blockedByCostCount,"
-            + "costPressure,survivalStepsMean,survivalStepsCount,scoredWhileAliveRate");
+            + "costPressure,survivalStepsMean,survivalStepsCount,scoredWhileAliveRate,"
+            // Included-win-rate columns, appended rather than inserted so a script reading the
+            // older layout by position keeps working. The per-copy columns are flat (1/2/3) rather
+            // than a nested structure because this is a CSV -- a reader wanting the full breakdown
+            // reads --metrics-json instead.
+            + "decksIncludedIn,winsWhenIncluded,includedWinRate,includedWinRateLow,includedWinRateHigh,"
+            + "decks1Copy,winRate1Copy,decks2Copies,winRate2Copies,decks3Copies,winRate3Copies");
 
         foreach (var card in metrics.CardStats)
         {
@@ -92,7 +98,15 @@ public static class ResultWriter
               .Append(F(card.CostPressure.Rate)).Append(',')
               .Append(F(card.SurvivalSteps.Mean)).Append(',')
               .Append(F(card.SurvivalSteps.Count)).Append(',')
-              .Append(F(card.ScoredWhileAliveRate.Rate))
+              .Append(F(card.ScoredWhileAliveRate.Rate)).Append(',')
+              .Append(F(card.DecksIncludedIn)).Append(',')
+              .Append(F(card.WinsWhenIncluded)).Append(',')
+              .Append(F(card.IncludedWinRate.Rate)).Append(',')
+              .Append(F(card.IncludedWinRate.Low)).Append(',')
+              .Append(F(card.IncludedWinRate.High)).Append(',')
+              .Append(CopyBucket(card, 1)).Append(',')
+              .Append(CopyBucket(card, 2)).Append(',')
+              .Append(CopyBucket(card, 3))
               .AppendLine();
         }
 
@@ -137,6 +151,14 @@ public static class ResultWriter
 
         File.WriteAllText(path, sb.ToString());
     }
+
+    // One copy-count bucket as its two CSV columns, "decks,winRate". An absent bucket writes
+    // "0," with an EMPTY rate rather than 0 -- no deck ran that many copies, so there is no rate,
+    // and writing 0.0000 would read as "tried and never won," a different and false claim.
+    private static string CopyBucket(CardStat card, int copies) =>
+        card.ByCopyCount.TryGetValue(copies, out var bucket)
+            ? $"{F(bucket.Decks)},{F(bucket.WinRate.Rate)}"
+            : "0,";
 
     private static string F(int value) => value.ToString(CultureInfo.InvariantCulture);
 

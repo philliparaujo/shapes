@@ -81,4 +81,104 @@ public class ContentCardSetTests
 
         Assert.Equal(36, db.Count);
     }
+
+    [Fact]
+    public void The_default_deck_is_one_of_every_content_card()
+    {
+        // The console's only deck, and the sim's default mode. Exercises the whole set by
+        // construction, which is the property that makes a console game a card-watching tool.
+        var db = Load();
+
+        var deck = DeckBuilder.Default(db);
+
+        Assert.Equal(db.Count, deck.Count);
+        Assert.All(db.All, card => Assert.Equal(1, deck.CopiesOf(card.Id)));
+    }
+
+    [Fact]
+    public void Random_decks_include_spells_at_roughly_their_share_of_the_card_set()
+    {
+        // REGRESSION GUARD. MinPerType counts cards by PLAY COST, so spells count toward the type
+        // they drain exactly as creatures do. When the seeding phase drew from creatures only, the
+        // three type minimums consumed ~30 of 40 slots before a spell was ever eligible, holding
+        // spells to ~6% of a deck against the ~25% an unbiased draw gives -- which made every
+        // spell's per-card metrics rest on roughly a third of the sample every creature's did.
+        //
+        // The bound is loose (half the natural share) because the cost-tolerance rejection still
+        // mildly favours creatures, which are slightly more expensive on average. It is tight
+        // enough to catch a return of the structural exclusion, which was a 4x miss.
+        var db = Load();
+        var rules = RuleSet.Default;
+        var spellShareOfSet = (double)db.All.Count(c => c.Kind == CardKind.Spell) / db.Count;
+
+        var totalCards = 0;
+        var totalSpells = 0;
+        for (var seed = 1UL; seed <= 20; seed++)
+        {
+            var deck = DeckBuilder.Random($"r{seed}", db, rules, new Core.State.SeededRandom(seed));
+            totalCards += deck.Count;
+            totalSpells += deck.Cards.Count(id => db[id].Kind == CardKind.Spell);
+        }
+
+        var observed = (double)totalSpells / totalCards;
+        Assert.True(
+            observed > spellShareOfSet / 2,
+            $"Spells are {observed:P1} of generated decks but {spellShareOfSet:P1} of the card set "
+            + "-- the type-minimum seeding is excluding them again.");
+    }
+
+    [Fact]
+    public void Random_deck_type_minimums_count_spells_by_cost()
+    {
+        // The constraint is about RESOURCE DEMAND: a deck whose cards nearly all cost spike
+        // drains spike dry while anvil and wheel pile up unspent. A 3-spike spell is that demand
+        // just as much as a 3-spike creature, so DeckBuilder.TypeCounts (what the generator
+        // enforces against) must count both -- and must therefore not agree with a creature-only
+        // count on a set that has spells.
+        var db = Load();
+        var deck = DeckBuilder.Random("r", db, RuleSet.Default, new Core.State.SeededRandom(3));
+
+        var byCost = DeckBuilder.TypeCounts(deck.Cards, db);
+        var byBoard = DeckBuilder.CreatureTypeCounts(deck.Cards, db);
+
+        Assert.All(byCost, kv => Assert.True(kv.Value >= 10, $"{kv.Key} demand = {kv.Value}"));
+
+        // Cost demand counts every card; board typing counts creatures only. With spells in the
+        // deck the totals must differ, which is what proves the two are measuring different things.
+        Assert.True(
+            byCost.Values.Sum() > byBoard.Values.Sum(),
+            "Cost-demand counts should exceed creature-board counts when the deck holds spells.");
+    }
+
+    [Fact]
+    public void Constrained_random_decks_are_generatable_from_the_content_set()
+    {
+        // The generator's constraints (mean cost within +/-0.2 of the default deck, 10+ cards
+        // demanding each resource type by play cost) are only satisfiable if the real card set
+        // actually supports them -- a content
+        // change that skewed the cost curve or dropped a type below the minimum would make
+        // --deck random start throwing, and it should fail HERE with a clear reason instead of
+        // mid-batch hours into a balance run.
+        var db = Load();
+        var rules = RuleSet.Default;
+        var reference = DeckBuilder.Default(db);
+        var target = DeckBuilder.MeanCost(reference.Cards, db);
+
+        for (var seed = 1UL; seed <= 20; seed++)
+        {
+            var deck = DeckBuilder.Random(
+                $"r{seed}", db, rules, new Core.State.SeededRandom(seed), reference);
+
+            Assert.Equal(DeckBuilder.StandardDeckSize, deck.Count);
+            Assert.All(deck.CountsById().Values, c => Assert.True(c <= DeckBuilder.StandardMaxCopiesPerCard));
+
+            var counts = DeckBuilder.TypeCounts(deck.Cards, db);
+            Assert.All(counts, kv => Assert.True(kv.Value >= 10, $"seed {seed}: {kv.Key}={kv.Value}"));
+
+            var cost = DeckBuilder.MeanCost(deck.Cards, db);
+            Assert.True(
+                Math.Abs(cost - target) <= 0.2 + 1e-9,
+                $"seed {seed}: mean cost {cost:F3} vs default-deck {target:F3}");
+        }
+    }
 }

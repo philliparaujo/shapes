@@ -4,6 +4,18 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Adapter;
 
+// How rules text names a resource, for every CardText/MoveText this assembly builds.
+//
+// Set once at startup by the Godot layer to emit inline-icon markers (InlineResourceIcons);
+// left at EffectText's bracketed default everywhere else, including tests. A single mutable
+// default rather than a parameter on all ~8 call sites specifically so none can be MISSED --
+// a forgotten argument would render a literal "[anvil]" in one view and a drawn icon in the
+// next, which is exactly the per-view drift MoveRowFactory's own header describes fixing.
+public static class CardTextFormat
+{
+    public static Func<ResourceType, string> Resource { get; set; } = EffectText.DefaultResourceFormat;
+}
+
 // One move's text, for a card face's move list. Name/cost stay separate fields (rather than
 // pre-joined into Summary) so the scene can size/style them differently -- a move row is a
 // name, a cost badge, and a rules line, not one paragraph. PrimaryType is the same derivation
@@ -16,7 +28,7 @@ public sealed record MoveText(string Name, string Cost, string Effects, Resource
     public static MoveText Of(MoveDefinition move) => new(
         move.Name,
         ResourceIcons.DescribeCost(move.Cost),
-        EffectText.DescribeMove(move.Condition, move.Effects),
+        EffectText.DescribeMove(move.Condition, move.Effects, CardTextFormat.Resource),
         move.AttackType,
         move.AttackType is { } t ? move.Cost[t] : 0);
 }
@@ -68,7 +80,7 @@ public sealed record CardText(
             card.IsCreature,
             card.Health,
             [.. card.Moves.Select(MoveText.Of)],
-            EffectText.Describe(card.Effects),
+            EffectText.Describe(card.Effects, CardTextFormat.Resource),
             primaryType,
             costAmount);
     }

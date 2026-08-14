@@ -30,7 +30,7 @@ public class CardTextTests
         var move = Assert.Single(text.Moves);
         Assert.Equal("Strike", move.Name);
         Assert.Equal("◯1", move.Cost);
-        Assert.Equal("deal 1 damage to opposing", move.Effects);
+        Assert.Equal("Deal 1.", move.Effects);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class CardTextTests
         var text = CardText.Of(Cards.Get(TestCards.Gated));
 
         var move = Assert.Single(text.Moves);
-        Assert.Equal("only if self is at full health: draw 1", move.Effects);
+        Assert.Equal("Draw 1 if this is at full health.", move.Effects);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class CardTextTests
         Assert.False(text.IsCreature);
         Assert.Equal(0, text.Health);
         Assert.Empty(text.Moves);
-        Assert.Equal("deal 2 damage to chosen enemy", text.SpellEffects);
+        Assert.Equal("Deal 2 to an enemy.", text.SpellEffects);
     }
 
     [Fact]
