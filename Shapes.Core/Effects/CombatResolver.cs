@@ -44,10 +44,13 @@ internal static class CombatResolver
         ApplyToTarget(ctx, targetSlot, target, finalAmount);
     }
 
-    // Reflect and ricochet redirect where the damage actually lands; both only trigger against
-    // an attack from a creature (a move), never a spell -- gated on HasCreatureSource, which is
-    // independent of whether the attack has a type (a spell can be typed; it still has no
-    // creature to redirect the hit back onto).
+    // Ricochet redirects where the damage lands; reflect cancels it entirely. Both only trigger
+    // against an attack from a creature (a move), never a spell -- gated on HasCreatureSource,
+    // which is independent of whether the attack has a type (a spell can be typed; it is still
+    // not a creature's attack, and neither keyword answers it).
+    //
+    // Ricochet is checked first, so a creature holding both redirects the hit to a neighbor and
+    // keeps its reflect charge armed for the next attack, rather than spending both on one hit.
     private static void ApplyToTarget(EffectContext ctx, SlotIndex targetSlot, CreatureInstance target, int amount)
     {
         if (ctx.HasCreatureSource && target.HasKeyword(KeywordFlags.Ricochet))
@@ -77,9 +80,11 @@ internal static class CombatResolver
             // No friendly neighbor on that side: ricochet does not trigger, target takes it.
         }
 
+        // Reflect negates the hit outright: the defender takes nothing and the attacker takes
+        // nothing back. Nobody is damaged, so no on_next_damage_taken trigger fires either --
+        // that trigger is armed against damage actually landing, and here none did.
         if (ctx.HasCreatureSource && target.ConsumeReflect())
         {
-            ctx.SourceCreature?.TakeDamage(amount);
             return;
         }
 

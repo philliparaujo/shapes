@@ -18,6 +18,7 @@ public partial class Lobby : Control
     [Export] public NodePath StartButtonPath { get; set; } = "Layout/StartButton";
     [Export] public NodePath ResumeButtonPath { get; set; } = "Layout/ResumeButton";
     [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/CardBrowserButton";
+    [Export] public NodePath ExitButtonPath { get; set; } = "Layout/ExitButton";
     [Export] public string GameScenePath { get; set; } = "res://Scenes/GameRoot.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
 
@@ -34,6 +35,7 @@ public partial class Lobby : Control
     private Button? _startButton;
     private Button? _resumeButton;
     private Button? _cardBrowserButton;
+    private Button? _exitButton;
 
     public override void _Ready()
     {
@@ -44,6 +46,7 @@ public partial class Lobby : Control
         _startButton = GetNode<Button>(StartButtonPath);
         _resumeButton = GetNode<Button>(ResumeButtonPath);
         _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
+        _exitButton = GetNode<Button>(ExitButtonPath);
 
         PopulateKindPicker(_playerOneKind);
         PopulateKindPicker(_playerTwoKind);
@@ -67,6 +70,11 @@ public partial class Lobby : Control
         _startButton.Pressed += OnStartPressed;
         _resumeButton.Pressed += OnResumePressed;
         _cardBrowserButton.Pressed += () => GetTree().ChangeSceneToFile(CardBrowserScenePath);
+
+        // Quitting from the lobby leaves any save alone, so an interrupted match is still there
+        // on the next launch -- same reasoning as OnBackToLobbyRequested in GameRoot: only
+        // game-over clears the save, walking away never does.
+        _exitButton.Pressed += () => GetTree().Quit();
     }
 
     private static void PopulateKindPicker(OptionButton picker)

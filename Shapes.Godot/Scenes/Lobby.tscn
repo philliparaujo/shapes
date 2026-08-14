@@ -75,3 +75,8 @@ text = "Start Game"
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 text = "Card Browser"
+
+[node name="ExitButton" type="Button" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "Exit Game"

@@ -287,7 +287,8 @@ public sealed class CreatureInstance
     public bool HasKeyword(KeywordFlags keyword) => (Keywords & keyword) == keyword;
 
     // Reflect fires once then clears -- a second attack this turn (or any later turn) is not
-    // reflected until the keyword is granted again.
+    // reflected until the keyword is granted again. "Reflected" here means the hit is ignored
+    // entirely (see CombatResolver.ApplyToTarget); the attacker takes nothing back.
     public bool ConsumeReflect()
     {
         if (!HasKeyword(KeywordFlags.Reflect))

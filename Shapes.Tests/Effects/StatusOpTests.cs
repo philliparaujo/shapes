@@ -68,8 +68,10 @@ public class StatusOpTests
     }
 
     [Fact]
-    public void Reflect_deals_full_damage_to_the_attacker_and_none_to_the_defender()
+    public void Reflect_ignores_the_hit_entirely_damaging_neither_side()
     {
+        // Reflect is pure negation, not a counter-attack: the hit is ignored, and the attacker
+        // takes nothing back for having thrown it.
         var state = new StateBuilder()
             .P1(p => p.Slot(0, "attacker", TypeMask.Wheel, maxHealth: 5))
             .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 5))
@@ -80,7 +82,7 @@ public class StatusOpTests
         EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 3)), ctx);
 
         Assert.Equal(5, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health); // defender untouched
-        Assert.Equal(2, state.Board[new SlotIndex(PlayerId.One, 0)]!.Health); // attacker took it
+        Assert.Equal(5, state.Board[new SlotIndex(PlayerId.One, 0)]!.Health); // attacker untouched
     }
 
     [Fact]
@@ -96,9 +98,9 @@ public class StatusOpTests
         EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 3)), ctx);
         EffectInterpreter.Apply(Eff.Node("damage", ("target", "opposing"), ("amount", 2)), ctx);
 
-        // Second hit is not reflected: defender takes the second hit normally.
+        // First hit is ignored; the second is not reflected, so the defender takes it normally.
         Assert.Equal(3, state.Board[new SlotIndex(PlayerId.Two, 0)]!.Health);
-        Assert.Equal(7, state.Board[new SlotIndex(PlayerId.One, 0)]!.Health);
+        Assert.Equal(10, state.Board[new SlotIndex(PlayerId.One, 0)]!.Health); // attacker never hurt
     }
 
     [Fact]
@@ -106,8 +108,8 @@ public class StatusOpTests
     {
         // Reflect gates on HasCreatureSource, not on whether the attack has a type -- a spell
         // can be typed (see ActionExecutorTests.A_spells_attack_type_comes_from_its_own_cost)
-        // and still never trigger reflect, because there is no attacking creature to redirect
-        // the hit back onto.
+        // and still never trigger reflect, because a spell is not a creature's attack. Reflect
+        // answers being attacked by a creature; damage from elsewhere lands normally.
         var state = new StateBuilder()
             .P1(p => p.Slot(0, "caster", TypeMask.Wheel, maxHealth: 5))
             .P2(p => p.Slot(0, "defender", TypeMask.Anvil, maxHealth: 5))
