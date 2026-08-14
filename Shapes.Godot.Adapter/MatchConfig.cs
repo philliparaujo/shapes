@@ -31,7 +31,12 @@ public sealed record SeatConfig(AgentKind Kind, int Iterations)
 // built-in way to pass constructor arguments across ChangeSceneToFile, and a static holder set
 // immediately before the scene change and read once in GameRoot._Ready is the smallest
 // mechanism that works, matching how little state actually needs to cross the boundary.
-public sealed record MatchConfig(SeatConfig PlayerOne, SeatConfig PlayerTwo, ulong Seed)
+// `DeckOne`/`DeckTwo` are the decklists the lobby's per-seat deck dropdowns selected (PLAN.md
+// C2), null meaning "the default deck" -- the same null-means-default convention GameSession.Start
+// already uses, so an AI-vs-AI game started without touching the dropdowns behaves exactly as it
+// did before decks existed.
+public sealed record MatchConfig(
+    SeatConfig PlayerOne, SeatConfig PlayerTwo, ulong Seed, Deck? DeckOne = null, Deck? DeckTwo = null)
 {
     // Iteration budget, not a time budget, even here -- SearchBudget's own header: a wall-clock
     // budget makes the same seed play a different game on a different machine, and a hotseat

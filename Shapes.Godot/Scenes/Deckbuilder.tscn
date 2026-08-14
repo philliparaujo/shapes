@@ -1,0 +1,154 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8dkbld0001x"]
+
+[ext_resource type="Script" path="res://Scripts/Deckbuilder.cs" id="1_deckbuilder"]
+[ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="2_hoverdetail"]
+
+[node name="Deckbuilder" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_deckbuilder")
+HoverDetailPanelScene = ExtResource("2_hoverdetail")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 8
+
+[node name="TopBar" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+theme_override_constants/separation = 16
+
+[node name="BackButton" type="Button" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 44)
+text = "Back"
+
+[node name="TitleLabel" type="Label" parent="Layout/TopBar"]
+layout_mode = 2
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 20
+text = "Deckbuilding"
+
+[node name="SlotLabel" type="Label" parent="Layout/TopBar"]
+layout_mode = 2
+vertical_alignment = 1
+text = "Deck"
+
+[node name="SlotPicker" type="OptionButton" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 36)
+size_flags_vertical = 4
+
+[node name="NameEdit" type="LineEdit" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(240, 36)
+size_flags_horizontal = 3
+size_flags_vertical = 4
+placeholder_text = "Deck name..."
+
+[node name="DeleteButton" type="Button" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 36)
+size_flags_vertical = 4
+text = "Delete Deck"
+
+[node name="FilterBar" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+theme_override_constants/separation = 12
+
+[node name="SearchLabel" type="Label" parent="Layout/FilterBar"]
+layout_mode = 2
+vertical_alignment = 1
+text = "Search"
+
+[node name="SearchBar" type="LineEdit" parent="Layout/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 36)
+size_flags_vertical = 4
+placeholder_text = "Search by name..."
+
+[node name="CostTypeFilter" type="OptionButton" parent="Layout/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 36)
+size_flags_vertical = 4
+
+[node name="KindFilter" type="OptionButton" parent="Layout/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(130, 36)
+size_flags_vertical = 4
+
+[node name="HintLabel" type="Label" parent="Layout/FilterBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 13
+text = "Left click adds a copy   |   Right click removes one   |   Hover for card detail"
+
+[node name="Columns" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="CollectionColumn" type="VBoxContainer" parent="Layout/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="CollectionHeader" type="Label" parent="Layout/Columns/CollectionColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "Collection"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Layout/Columns/CollectionColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="CollectionList" type="VBoxContainer" parent="Layout/Columns/CollectionColumn/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="DeckColumn" type="VBoxContainer" parent="Layout/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="DeckHeader" type="HBoxContainer" parent="Layout/Columns/DeckColumn"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DeckHeaderLabel" type="Label" parent="Layout/Columns/DeckColumn/DeckHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 17
+text = "Decklist"
+
+[node name="CountLabel" type="Label" parent="Layout/Columns/DeckColumn/DeckHeader"]
+layout_mode = 2
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 17
+text = "0 / 40"
+
+[node name="StatsLabel" type="Label" parent="Layout/Columns/DeckColumn"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 13
+text = "Empty slot -- click cards on the left to add them."
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Layout/Columns/DeckColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="DeckList" type="VBoxContainer" parent="Layout/Columns/DeckColumn/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4

@@ -17,10 +17,10 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -220.0
-offset_top = -160.0
+offset_top = -300.0
 offset_right = 220.0
-offset_bottom = 160.0
-theme_override_constants/separation = 24
+offset_bottom = 300.0
+theme_override_constants/separation = 14
 
 [node name="TitleLabel" type="Label" parent="Layout"]
 layout_mode = 2
@@ -44,6 +44,10 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
+[node name="DeckPicker" type="OptionButton" parent="Layout/PlayerOne"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
 [node name="PlayerTwo" type="VBoxContainer" parent="Layout"]
 layout_mode = 2
 theme_override_constants/separation = 6
@@ -60,6 +64,19 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
+[node name="DeckPicker" type="OptionButton" parent="Layout/PlayerTwo"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="ErrorLabel" type="Label" parent="Layout"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.839216, 0.560784, 0.560784, 1)
+theme_override_font_sizes/font_size = 13
+text = ""
+
 [node name="ResumeButton" type="Button" parent="Layout"]
 visible = false
 layout_mode = 2
@@ -70,6 +87,11 @@ text = "Resume Game"
 layout_mode = 2
 custom_minimum_size = Vector2(0, 52)
 text = "Start Game"
+
+[node name="DeckbuilderButton" type="Button" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "Deckbuilding"
 
 [node name="CardBrowserButton" type="Button" parent="Layout"]
 layout_mode = 2

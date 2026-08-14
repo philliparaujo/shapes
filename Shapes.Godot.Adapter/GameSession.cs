@@ -36,7 +36,17 @@ public sealed class GameSession
     // compile unchanged, and asserted against the ruleset rather than silently ignored -- a
     // caller passing a different number is expressing an intent this no longer honours, and it
     // should say so rather than quietly deal a different hand.
-    public void Start(int startingHandSize, Deck? deck = null)
+    public void Start(int startingHandSize, Deck? deck = null) =>
+        Start(startingHandSize, deck, deck);
+
+    // Per-seat decks (PLAN.md C2): each seat is dealt its OWN decklist, which is what the
+    // deckbuilder's per-seat lobby dropdowns select. Either may be null, meaning "the default
+    // deck" -- so a human-picked deck can face the default without the caller building one.
+    //
+    // The symmetric overload above delegates here rather than the reverse, so there is exactly
+    // one place that deals a game and the two cannot drift on setup order (GameSetup.Deal's own
+    // header explains why that order is load-bearing and silent when wrong).
+    public void Start(int startingHandSize, Deck? deckOne, Deck? deckTwo)
     {
         if (startingHandSize != _state.Rules.StartingHandSize)
         {
@@ -46,14 +56,29 @@ public sealed class GameSession
                 + "the opening hand size is a ruleset property and cannot be overridden here.");
         }
 
-        Deck = deck ?? DeckBuilder.Default(Cards);
-        GameSetup.Deal(_state, Deck);
+        DeckOne = deckOne ?? DeckBuilder.Default(Cards);
+        DeckTwo = deckTwo ?? DeckBuilder.Default(Cards);
+        GameSetup.Deal(_state, DeckOne, DeckTwo);
         _state.AdvanceToActions();
     }
 
-    // The decklist this session was dealt, once Start has run. Null before that -- a session that
+    // The decklist each seat was dealt, once Start has run. Null before that -- a session that
     // has not started has no deck, and reading one would be a caller-ordering bug worth surfacing.
-    public Deck? Deck { get; private set; }
+    public Deck? DeckOne { get; private set; }
+
+    public Deck? DeckTwo { get; private set; }
+
+    // Seat one's deck, kept as `Deck` for callers that predate per-seat decks and for the
+    // symmetric case where both seats share a list. New callers should ask for the seat they
+    // mean: an IS-MCTS agent determinizes against its OPPONENT's deck specifically, and under
+    // per-seat decks reading the wrong one is exactly the size mismatch AgentFactory.Build warns
+    // about -- silent, and fatal to the agent rather than to the game.
+    public Deck? Deck => DeckOne;
+
+    // The deck the given seat's OPPONENT is playing -- what AgentFactory.Build wants for that
+    // seat's determinizer. Named for the question the caller is actually asking, so a call site
+    // cannot quietly pass the agent its own decklist.
+    public Deck? OpponentDeckOf(PlayerId seat) => seat == PlayerId.One ? DeckTwo : DeckOne;
 
     // Legal actions for whoever's turn it is right now. Mirrors ActionGenerator.Generate
     // exactly (including the AwaitingDiscard gate to discard-only) -- callers should not
@@ -78,14 +103,23 @@ public sealed class GameSession
     // same seed and the same action list (Phase 1's determinism guarantee, the same property
     // MCTS and console/Godot seed parity already depend on) -- replaying is not a weaker
     // approximation of the original game, it reconstructs it exactly.
+    //
+    // The decks MUST be the ones the original game was dealt from. Replay reconstructs the game
+    // by re-running the same seeded stream, and the deal is the first thing in that stream -- so
+    // resuming a custom-deck game against the default decklist would shuffle a different deck,
+    // deal a different opening hand, and then apply an action log describing cards that are no
+    // longer in hand. That desync is silent at the seam and only surfaces as an unrelated-looking
+    // failure several actions later, which is why SavedMatch persists both decklists rather than
+    // letting them default here.
     public static GameSession Resume(
         RuleSet rules, CardDatabase cards, IRandomSource random, PlayerId firstPlayer,
-        int startingHandSize, IReadOnlyList<GameAction> actions)
+        int startingHandSize, IReadOnlyList<GameAction> actions,
+        Deck? deckOne = null, Deck? deckTwo = null)
     {
         ArgumentNullException.ThrowIfNull(actions);
 
         var session = new GameSession(rules, cards, random, firstPlayer);
-        session.Start(startingHandSize);
+        session.Start(startingHandSize, deckOne, deckTwo);
 
         foreach (var action in actions)
         {

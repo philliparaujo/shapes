@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Shapes.Core.Actions;
+using Shapes.Core.Cards;
 using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Adapter;
@@ -16,8 +17,20 @@ namespace Shapes.Godot.Adapter;
 // half-serialized state -- precisely the failure mode this step's own plan text warns against.
 // GameAction is already a flat, five-case, fully-value-equal type (Shapes.Core/Actions/
 // GameAction.cs), so one DTO with nullable fields per case covers all of it.
+//
+// The DECKLISTS are saved alongside the seed and the log, and they have to be: replay re-runs the
+// seeded stream from the deal onwards, so a game resumed against a different deck than it was
+// dealt from desyncs silently (see GameSession.Resume's note). Stored as flat card-id lists --
+// the exact order Deck.Cards had, not a re-derived one -- because that pre-shuffle order is an
+// input to the seeded shuffle, so preserving the decklist's CONTENT but not its ORDER would
+// reproduce a different game just as surely as the wrong deck would.
+//
+// Null decks (a game played on the default decklist) round-trip as null, so saves written before
+// per-seat decks existed still load: a missing field deserializes to null and resumes on the
+// default deck, which is exactly what those games were played with.
 public sealed record SavedMatch(
-    ulong Seed, SeatConfig PlayerOne, SeatConfig PlayerTwo, IReadOnlyList<GameAction> Actions)
+    ulong Seed, SeatConfig PlayerOne, SeatConfig PlayerTwo, IReadOnlyList<GameAction> Actions,
+    SavedDeckList? DeckOne = null, SavedDeckList? DeckTwo = null)
 {
     public static SavedMatch FromDto(SavedMatchDto dto)
     {
@@ -30,7 +43,9 @@ public sealed record SavedMatch(
             dto.Seed,
             SeatDto.ToSeatConfig(dto.PlayerOne),
             SeatDto.ToSeatConfig(dto.PlayerTwo),
-            [.. dto.Actions.Select(ActionDto.ToGameAction)]);
+            [.. dto.Actions.Select(ActionDto.ToGameAction)],
+            SavedDeckList.FromDto(dto.DeckOne),
+            SavedDeckList.FromDto(dto.DeckTwo));
     }
 
     public SavedMatchDto ToDto() => new()
@@ -39,7 +54,45 @@ public sealed record SavedMatch(
         PlayerOne = SeatDto.FromSeatConfig(PlayerOne),
         PlayerTwo = SeatDto.FromSeatConfig(PlayerTwo),
         Actions = [.. Actions.Select(ActionDto.FromGameAction)],
+        DeckOne = DeckOne?.ToDto(),
+        DeckTwo = DeckTwo?.ToDto(),
     };
+}
+
+// One seat's decklist as saved: the deck's name and its cards in their exact pre-shuffle order.
+//
+// Deliberately NOT reusing SavedDeck (the deckbuilder's id->count shape). That type exists to be
+// EDITED, so it stores counts and re-derives an order on demand; this one exists to REPRODUCE a
+// specific deal, so it stores the flat order verbatim. Collapsing the two would mean a resumed
+// game's deck order came from SavedDeck.ToCardIds' sort rather than from what was actually
+// shuffled -- identical content, different game.
+public sealed record SavedDeckList(string Name, IReadOnlyList<string> Cards)
+{
+    public static SavedDeckList Of(Deck deck)
+    {
+        ArgumentNullException.ThrowIfNull(deck);
+        return new SavedDeckList(deck.Name, [.. deck.Cards]);
+    }
+
+    public Deck ToDeck() => new(Name, Cards);
+
+    public static SavedDeckList? FromDto(DeckListDto? dto)
+    {
+        if (dto?.Cards is null || dto.Cards.Count == 0)
+        {
+            return null;
+        }
+
+        return new SavedDeckList(dto.Name ?? "custom", dto.Cards);
+    }
+
+    public DeckListDto ToDto() => new() { Name = Name, Cards = [.. Cards] };
+}
+
+public sealed class DeckListDto
+{
+    public string? Name { get; set; }
+    public List<string>? Cards { get; set; }
 }
 
 public sealed class SavedMatchDto
@@ -48,6 +101,11 @@ public sealed class SavedMatchDto
     public SeatDto? PlayerOne { get; set; }
     public SeatDto? PlayerTwo { get; set; }
     public List<ActionDto>? Actions { get; set; }
+
+    // Absent in saves written before per-seat decks -- see SavedMatch's header on why null is
+    // the correct reading of a missing deck rather than a load failure.
+    public DeckListDto? DeckOne { get; set; }
+    public DeckListDto? DeckTwo { get; set; }
 }
 
 // Mirrors SeatConfig (AgentKind + Iterations) exactly -- Human needs no iteration count, but
@@ -178,6 +236,8 @@ public sealed class ActionDto
 [JsonSerializable(typeof(SeatDto))]
 [JsonSerializable(typeof(ActionDto))]
 [JsonSerializable(typeof(List<ActionDto>))]
+[JsonSerializable(typeof(DeckListDto))]
+[JsonSerializable(typeof(List<string>))]
 public sealed partial class SavedMatchJsonContext : JsonSerializerContext
 {
 }

@@ -566,7 +566,7 @@ seeded Godot game matching the same seed's console result.
   too high-risk to touch. Two real bugs (scale/position ordering, a same-frame stale-child race)
   found post-playtest and fixed.
 
-#### Milestone C — the other scenes — 4/10 complete
+#### Milestone C — the other scenes — 7/9 complete
 
 - [x] **C1. Lobby / match setup with a working AI seat** — per-seat choice of Human/Random/Greedy/
   IS-MCTS/IS-MCTS-heuristic, mirroring the console's own agent factory. AI turns currently run
@@ -582,21 +582,26 @@ seeded Godot game matching the same seed's console result.
 - [x] **C6. Interrupted-game persistence** — seed + action log (not a `GameState` serialization),
   replayed on resume via Phase 1's determinism guarantee. Saves after every action so a mobile OS
   kill mid-turn still resumes correctly; one save slot, cleared on game-over.
-- [ ] **C-UI. Professional game screen UI (next up).** The board screen is currently Godot's default
-  theme with zero custom styling — no theme resources exist in the project. Design a real HUD pass:
-  a sidebar/grouping for per-player stats (surfacing deck count, discard count, and the currently
-  invisible pending-income/pending-score previews alongside score and resources), icon chips instead
-  of text glyphs for resources, a styled End Turn control, and a consistent visual language (palette,
-  type, spacing) applied across board slots, hand cards, and the status bar.
-- [~] **C2. Deckbuilder** (`deckMode: "custom"`) — **engine half landed; UI and the honest
-  determinizer still owed.** Done: `Deck`/`DeckBuilder`/`DeckLoader` in `Shapes.Core`, the shared
-  `GameSetup.Deal` path, decklist files, constrained random generation, and `Shapes.Sim`'s
-  `--deck` modes. Still owed: (a) the Godot deckbuilding UI itself — `GameSession.Start` already
-  takes a `Deck`, which is the seam it plugs into; (b) migrating the determinizer off the
-  supplied-decklist cheat onto a real belief distribution (constrain to cards demonstrably played,
-  fill the rest uniformly) — see the Deck model warning above.
-- [ ] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half C6 didn't
-  cover.
+- [x] **C-UI. Professional game screen UI** — a real HUD pass over the board screen, which had been
+  Godot's default theme with zero custom styling: a sidebar/grouping for per-player stats (surfacing
+  deck count, discard count, and the previously invisible pending-income/pending-score previews
+  alongside score and resources), icon chips instead of text glyphs for resources, a styled End Turn
+  control, and a consistent visual language (palette, type, spacing) applied across board slots, hand
+  cards, and the status bar.
+- [x] **C2. Deckbuilder** (`deckMode: "custom"`) — engine half plus the Godot UI. Engine:
+  `Deck`/`DeckBuilder`/`DeckLoader` in `Shapes.Core`, the shared `GameSetup.Deal` path, decklist
+  files, constrained random generation, and `Shapes.Sim`'s `--deck` modes. UI: a Deckbuilding tab
+  over ten `user://` deck slots (40 cards, ≤3 copies), edited as collection/decklist columns of a
+  new short-wide card row view, with per-seat deck dropdowns in the lobby. Partial decks save;
+  legality is enforced at match start through the same `DeckBuilder.Custom` path the sim uses.
+  `GameSession` gained per-seat decks (`Start(hand, deckOne, deckTwo)`, `OpponentDeckOf`) — the
+  agent factory had been handing both seats seat one's decklist, which only became wrong once the
+  seats could differ — and `SavedMatch` now persists both decklists, without which a resumed
+  custom-deck game replays its action log against the wrong deal. The determinizer still reads the
+  opponent's supplied decklist; that migration is tracked under D1.
+- [x] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half C6 didn't
+  cover. Deck slots persist through `DeckStore` (write-through on every edit, one cached JSON
+  document, corrupt-file-tolerant), mirroring `MatchSaveStore`'s pure-adapter/Godot-IO split.
 - [ ] **C4b. Card stats** — win-rate/pick-rate context per card from `balance/LOG.md`, deferred out
   of C4 since the collection view didn't need it to ship.
 - [ ] **C7. Tutorial / rules surfacing** — nothing about the ruleset (type cycle, merge
@@ -605,11 +610,14 @@ seeded Godot game matching the same seed's console result.
 
 #### Milestone D — ship — 0/5
 
-- [ ] **D1. Deckbuilder UI + determinizer migration** (C2's remaining half, moved here —
-  feature-complete before the final visual/export pass). The determinizer migration is a
-  correctness debt, not a nice-to-have: until it lands, `ismcts` numbers on non-default decks are
-  measured with the agent knowing its opponent's decklist. See the Deck model warning above.
-- [ ] **D2. Persistence (C3) + tutorial/rules surfacing (C7).**
+- [ ] **D1. Determinizer migration** (the deckbuilder UI half landed with C2). Migrate off the
+  supplied-decklist cheat onto a real belief distribution: constrain to cards demonstrably played,
+  fill the rest uniformly. A correctness debt, not a nice-to-have — until it lands, `ismcts` numbers
+  on non-default decks are measured with the agent knowing its opponent's decklist, and C2's
+  per-seat decks make that assumption reachable in normal play rather than only in the sim. See the
+  Deck model warning above.
+- [ ] **D2. Tutorial / rules surfacing (C7).** Persistence (C3) landed with C2's deck slots;
+  settings and progress are still unpersisted if either grows a durable surface.
 - [ ] **D3. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
   consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state
   polish (hover/selected/legal-target states), and card art integration once B1c completes.
@@ -633,15 +641,15 @@ possible, a regime no interactive client enters. The console is where a card is 
 blocking-slot bug was invisible to a passing suite and surfaced only by watching a game. Godot adds
 a third question the other two can't answer: is the card legible and satisfying to a human? So the
 loop for new content stays: author JSON → console watch (does it work) → sim sweep (is it
-balanced) → Godot (does it read). **One caveat once C2 lands:** every number in `balance/LOG.md` is
-against symmetric decks, and cards measured on custom decks are a different experiment — keep those
-runs in separate directories rather than comparing them to `v1.7-final`.
+balanced) → Godot (does it read). **One caveat, now that C2 has landed:** every number in
+`balance/LOG.md` is against symmetric decks, and cards measured on custom decks are a different
+experiment — keep those runs in separate directories rather than comparing them to `v1.7-final`.
 
 **On the carried-over seat-2 margin.** Phase 4 left a small real seat-2 edge (−0.28 [−0.40, −0.16]
 at 4000 games). Deliberately *not* scheduled in this phase: the fix is a ruleset knob, and C2's
-custom decks will move the number again. Re-measure after C2, not before — tuning against a
-symmetric-deck margin that is about to be invalidated would be balancing twice and trusting the
-wrong one.
+custom decks move the number again. C2 has now landed, so the re-measure it was waiting on is
+unblocked — measure before touching the knob, since the symmetric-deck margin above is the one
+custom decks invalidate.
 
 ---
 

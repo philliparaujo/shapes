@@ -140,7 +140,11 @@ public partial class GameRoot : Control
         var rules = RuleSet.Default;
         var random = new SeededRandom(seed);
         _session = new GameSession(rules, _cards, random, PlayerId.One);
-        _session.Start(rules.StartingHandSize);
+
+        // Per-seat decks from the lobby's deck dropdowns (PLAN.md C2). Null for either seat means
+        // the default deck, so a config from before decks existed -- or one where the player left
+        // the dropdowns alone -- deals exactly as it always did.
+        _session.Start(rules.StartingHandSize, config?.DeckOne, config?.DeckTwo);
 
         _seed = seed;
         _matchConfig = config;
@@ -163,11 +167,20 @@ public partial class GameRoot : Control
 
         var rules = RuleSet.Default;
         var random = new SeededRandom(saved.Seed);
+        // The decks the interrupted game was dealt from -- null for a save written before decks
+        // existed, which resumes on the default deck exactly as that game was played. Replay
+        // re-runs the deal through the same seeded stream, so passing the wrong decks here
+        // desyncs the whole action log; see GameSession.Resume's note.
+        var deckOne = saved.DeckOne?.ToDeck();
+        var deckTwo = saved.DeckTwo?.ToDeck();
+
         _session = GameSession.Resume(
-            rules, _cards, random, PlayerId.One, rules.StartingHandSize, saved.Actions);
+            rules, _cards, random, PlayerId.One, rules.StartingHandSize, saved.Actions,
+            deckOne, deckTwo);
 
         _seed = saved.Seed;
-        var config = new MatchConfig(saved.PlayerOne, saved.PlayerTwo, saved.Seed);
+        var config = new MatchConfig(
+            saved.PlayerOne, saved.PlayerTwo, saved.Seed, deckOne, deckTwo);
         _matchConfig = config;
         _actionLog.Clear();
         _actionLog.AddRange(saved.Actions);
@@ -185,25 +198,29 @@ public partial class GameRoot : Control
     // agent's own RNG stream is derived from the match seed.
     private void BuildAgents(ulong seed, MatchConfig? config)
     {
-        // The deck each agent's OPPONENT is playing. Both seats are dealt from the one deck
-        // GameSession.Start built (one of every card), so both get the same list -- but it must be
-        // passed, because an IS-MCTS agent without it determinizes against the ruleset's SYMMETRIC
-        // decklist instead, which is CopiesPerCard (2) of every card and therefore twice the size
-        // of the deck actually in play. See AgentFactory.Build's note: the size disagreement makes
+        // The deck each agent's OPPONENT is playing -- asked for PER SEAT, because the two seats
+        // can now be playing different decklists (PLAN.md C2). It must be passed, because an
+        // IS-MCTS agent without it determinizes against the ruleset's SYMMETRIC decklist instead,
+        // which is CopiesPerCard (2) of every card and therefore twice the size of the deck
+        // actually in play. See AgentFactory.Build's note: the size disagreement makes
         // Determinizer.RestoreOpponent throw, and RunAiTurns being `async void` turns that into
         // "the AI silently stops taking turns" rather than a visible error.
         //
-        // Called after _session is assigned in both StartNewGame and ResumeGame, so Deck is set.
-        var deck = _session?.Deck;
-
+        // Passing the agent its OWN deck instead would be the same class of failure whenever the
+        // decks differ in composition -- the determinizer would rule out cards the opponent can
+        // actually hold -- which is why GameSession exposes OpponentDeckOf rather than leaving
+        // each call site to pick a side. Called after _session is assigned in both StartNewGame
+        // and ResumeGame, so both decks are set.
         _agents = new Dictionary<PlayerId, IAgent?>
         {
             [PlayerId.One] = config is null
                 ? null
-                : AgentFactory.Build(config.PlayerOne, seed * 7919, _cards!, deck),
+                : AgentFactory.Build(
+                    config.PlayerOne, seed * 7919, _cards!, _session?.OpponentDeckOf(PlayerId.One)),
             [PlayerId.Two] = config is null
                 ? null
-                : AgentFactory.Build(config.PlayerTwo, seed * 104729, _cards!, deck),
+                : AgentFactory.Build(
+                    config.PlayerTwo, seed * 104729, _cards!, _session?.OpponentDeckOf(PlayerId.Two)),
         };
     }
 
@@ -262,7 +279,18 @@ public partial class GameRoot : Control
         }
 
         var config = _matchConfig ?? new MatchConfig(SeatConfig.Human, SeatConfig.Human, _seed);
-        var saved = new SavedMatch(_seed, config.PlayerOne, config.PlayerTwo, [.. _actionLog]);
+
+        // Saved from the SESSION, not from the config: the config's decks are null for a default
+        // deck, while the session holds the resolved Deck it actually shuffled and dealt. Saving
+        // the resolved list means a resume reproduces this game even if the default deck itself
+        // changes between launches (a card added to the set changes DeckBuilder.Default), which a
+        // saved null would silently fail to do -- see SavedMatch's header on why the exact
+        // pre-shuffle order is what has to survive.
+        var saved = new SavedMatch(
+            _seed, config.PlayerOne, config.PlayerTwo, [.. _actionLog],
+            _session?.DeckOne is { } one ? SavedDeckList.Of(one) : null,
+            _session?.DeckTwo is { } two ? SavedDeckList.Of(two) : null);
+
         MatchSaveStore.Save(saved);
     }
 
