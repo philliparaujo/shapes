@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Shapes.Core.Primitives;
+using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
@@ -52,12 +53,19 @@ public static class InlineResourceIcons
         $"{SentinelStart}{(int)type}{SentinelEnd}";
 
     // Fills `label` with text produced using SentinelFormat, substituting a real icon at each
-    // sentinel.
+    // sentinel and bolding every status keyword the text names (KeywordText).
     //
     // AddImage rather than a BBCode [img] tag: [img] resolves its argument through the resource
     // loader, so runtime-generated textures would each need a registered resource path, and the
     // whole string would then need escaping so a "[" in card data could not be read as markup.
     // Pushing textures directly sidesteps both -- the label never parses markup at all.
+    //
+    // Keyword bolding rides along here rather than in each of the ~5 views that render rules text,
+    // for exactly the reason CardTextFormat's own header gives for centralizing the resource
+    // formatter: this is the single function every rules string already passes through on its way
+    // to a label, so a hand card, a board creature's move button and the tooltip cannot end up
+    // highlighting different words. It is also why the bold is pushed as a font VARIATION rather
+    // than emitted as BBCode -- the label still parses no markup at all.
     public static void AppendTo(RichTextLabel label, string textWithSentinels, int fontSize)
     {
         ArgumentNullException.ThrowIfNull(label);
@@ -72,13 +80,13 @@ public static class InlineResourceIcons
             var start = textWithSentinels.IndexOf(SentinelStart, index);
             if (start < 0)
             {
-                label.AddText(textWithSentinels[index..]);
+                AddKeywordedText(label, textWithSentinels[index..]);
                 return;
             }
 
             if (start > index)
             {
-                label.AddText(textWithSentinels[index..start]);
+                AddKeywordedText(label, textWithSentinels[index..start]);
             }
 
             var end = textWithSentinels.IndexOf(SentinelEnd, start);
@@ -86,7 +94,7 @@ public static class InlineResourceIcons
             {
                 // Unterminated sentinel: emit the remainder as text rather than dropping it, so a
                 // malformed string degrades to visible characters instead of silently vanishing.
-                label.AddText(textWithSentinels[start..]);
+                AddKeywordedText(label, textWithSentinels[start..]);
                 return;
             }
 
@@ -114,6 +122,89 @@ public static class InlineResourceIcons
             {
                 index++;
             }
+        }
+    }
+
+    // Emphasis applied to a keyword inside rules text. Bolder than the surrounding weight AND
+    // tinted: at MoveDescriptionFontSize (9px) weight alone is nearly invisible -- the synthesized
+    // stroke gains well under a pixel -- so the color carries most of the signal and the weight
+    // reinforces it at the larger tooltip/effects sizes.
+    //
+    // The same light yellow a discounted move's cost number takes, referenced rather than
+    // re-specified: both say "this is not the ordinary case, look here," so they are one highlight
+    // convention and must stay one color. It reads as emphasis and not as a fourth resource
+    // because no resource shape is yellow -- red/green/blue are taken (see ColorOf), which is what
+    // leaves this hue free to mean emphasis without competing with the inline icons.
+    private static readonly Color KeywordColor = ResourceIconFactory.DiscountedNumberColor;
+
+    // Synthesized from the same default font the label already uses, rather than shipping a second
+    // font file: the project sets no custom theme (project.godot has no theme/custom), so there IS
+    // no bold face registered for PushBold to find -- it looks up the "bold_font" theme item and
+    // silently renders identical text when that is unset, which is exactly the kind of no-op this
+    // whole change exists to avoid. A FontVariation with a positive embolden thickens the outline
+    // of whatever face is in play, so it works against the default font and against any theme font
+    // a later change introduces.
+    private static FontVariation? _boldFont;
+
+    private static FontVariation BoldFont(RichTextLabel label)
+    {
+        if (_boldFont is not null && GodotObject.IsInstanceValid(_boldFont))
+        {
+            return _boldFont;
+        }
+
+        _boldFont = new FontVariation
+        {
+            BaseFont = label.GetThemeFont("normal_font"),
+
+            // Heavier than a typical bold face (~0.5 on this scale). Embolden thickens the outline
+            // by a fraction of an em, so at the 9px move-description size a conventional weight
+            // buys under half a pixel of stroke -- the small sizes are exactly where the emphasis
+            // has to work hardest, which is why this is pushed past the usual value rather than
+            // set to it.
+            VariationEmbolden = 1.0f,
+        };
+
+        return _boldFont;
+    }
+
+    // Appends one sentinel-free run, bolding each status keyword inside it.
+    //
+    // Push/Pop rather than wrapping the word in "[b]...[/b]": BbcodeEnabled is off on every label
+    // this fills (see the class header on why nothing here parses markup), so a bracketed tag
+    // would render as literal characters. Push/Pop drives the same formatting stack the parser
+    // would have driven, without opening card text up to being read as markup.
+    private static void AddKeywordedText(RichTextLabel label, string run)
+    {
+        var index = 0;
+        var plainFrom = 0;
+
+        while (index < run.Length)
+        {
+            if (KeywordText.Match(run, index) is not { } match)
+            {
+                index++;
+                continue;
+            }
+
+            if (index > plainFrom)
+            {
+                label.AddText(run[plainFrom..index]);
+            }
+
+            label.PushFont(BoldFont(label));
+            label.PushColor(KeywordColor);
+            label.AddText(run.Substring(index, match.Length));
+            label.Pop();
+            label.Pop();
+
+            index += match.Length;
+            plainFrom = index;
+        }
+
+        if (plainFrom < run.Length)
+        {
+            label.AddText(run[plainFrom..]);
         }
     }
 

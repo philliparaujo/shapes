@@ -49,6 +49,21 @@ public partial class HoverDetailPanel : Control
     private RichTextLabel? _effectsLabel;
     private VBoxContainer? _moveList;
 
+    // The keyword explainer stack that sits above this card. Created here rather than placed in
+    // HoverDetailPanel.tscn because it is TopLevel -- it has to escape this panel's own rect to
+    // grow upward past its top edge, and a TopLevel child's position is set in global coordinates,
+    // which a scene's anchors cannot express.
+    private KeywordTooltip? _keywords;
+
+    // Whether this panel is acting as a floating TOOLTIP (the board's corner tooltip, the
+    // deckbuilder's cursor-following one) or as an embedded static card FACE inside another
+    // control (CollectionCardView's grid cells, CardBrowser's). Only a tooltip grows explainers
+    // above itself: the stack is TopLevel, so inside a grid cell it would float free of the cell
+    // and over its neighbours -- the same mismatch that makes those two callers reset ZIndex and
+    // clear the scene's anchors. Defaults to true so the tooltip callers, which are the reason
+    // this panel exists, need no extra call.
+    public bool ShowsKeywordExplainers { get; set; } = true;
+
     public override void _Ready()
     {
         _nameLabel = GetNode<Label>(NameLabelPath);
@@ -57,6 +72,28 @@ public partial class HoverDetailPanel : Control
         _statLabel = GetNode<Label>(StatLabelPath);
         _effectsLabel = GetNode<RichTextLabel>(EffectsLabelPath);
         _moveList = GetNode<VBoxContainer>(MoveListPath);
+
+        _keywords = new KeywordTooltip
+        {
+            TopLevel = true,
+            // Above this panel's own z_index (100, set in the scene) so the explainers draw over
+            // whatever the tooltip itself overlaps rather than under it.
+            ZIndex = 101,
+        };
+        AddChild(_keywords);
+
+        // A TopLevel child is excluded from its parent's transform AND from its visibility, so the
+        // stack would stay on screen after the tooltip behind it was hidden. Every caller dismisses
+        // this panel with the built-in Hide()/Visible (BoardView, Deckbuilder, CollectionCardView),
+        // neither of which is virtual, so the stack follows the signal instead -- which fires for
+        // both, and leaves all three call sites unchanged.
+        VisibilityChanged += () =>
+        {
+            if (!Visible)
+            {
+                _keywords.Visible = false;
+            }
+        };
 
         // The tooltip IS a card, so it takes the same stock/edge/radius as one in hand or in play
         // (CardStyle) instead of Godot's default panel -- which was square-cornered and a
@@ -133,7 +170,53 @@ public partial class HoverDetailPanel : Control
             _moveList.AddChild(row);
         }
 
+        // Scanned over the SAME strings this panel just rendered -- the spell effects and every
+        // move description -- rather than over the CardDefinition behind them, so the explainers
+        // can only ever name a keyword the player can actually see in the text above. That matters
+        // most for a merged board creature, whose move list is folded from several cards and is
+        // not any single CardDefinition's.
+        var keywords = ShowsKeywordExplainers
+            ? KeywordText.FindAll([spellEffects, .. moves.Select(m => m.Effects)])
+            : [];
+
+        if (_keywords!.Render(keywords))
+        {
+            // Deferred: the stack was only just populated, so its own height is not settled until
+            // Godot's layout pass has run -- reading it synchronously gives the pre-layout (0,0)
+            // rect, the same trap BoardView.RefreshAnimatorLayout documents for slot rects.
+            CallDeferred(nameof(PositionKeywords));
+        }
+
         Visible = true;
+    }
+
+    // Anchors the explainer stack to this panel's top edge, growing upward, and clamps it into the
+    // viewport so a tooltip near the top of the screen pushes its explainers DOWN the screen
+    // instead of off it. Reads this panel's global rect rather than any caller's placement rule,
+    // which is what lets the same code serve the board's fixed-corner tooltip and the
+    // deckbuilder's cursor-following one (see the class header).
+    private void PositionKeywords()
+    {
+        if (_keywords is not { Visible: true } stack)
+        {
+            return;
+        }
+
+        // Sized explicitly, not read off stack.Size. A TopLevel node is excluded from its parent's
+        // transform, which also means no container ever runs a layout pass over it -- so its Size
+        // stays whatever it was last set to (0 on the first show) no matter how many frames are
+        // deferred, and the stack silently rendered at the viewport's top edge instead of above
+        // the card. GetCombinedMinimumSize is what a parent container WOULD have asked it for, so
+        // asking directly and assigning the result does the sizing that has no parent to do it.
+        stack.Size = new Vector2(KeywordTooltip.Width, stack.GetCombinedMinimumSize().Y);
+
+        var height = stack.Size.Y;
+        var viewport = GetViewportRect().Size;
+        var top = GlobalPosition.Y - height - KeywordTooltip.Separation;
+
+        stack.GlobalPosition = new Vector2(
+            Mathf.Clamp(GlobalPosition.X, 0f, Mathf.Max(0f, viewport.X - KeywordTooltip.Width)),
+            Mathf.Clamp(top, 0f, Mathf.Max(0f, viewport.Y - height)));
     }
 
     // Convenience for the exact-one-CardDefinition case (CardFace's hand card). No type glyphs in

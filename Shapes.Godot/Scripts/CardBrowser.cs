@@ -440,6 +440,12 @@ public partial class CardBrowser : Control
 
         var panel = HoverDetailPanelScene!.Instantiate<HoverDetailPanel>();
         panel.CustomMinimumSize = CardMetrics.TooltipSize;
+
+        // A browser cell is a static face in a grid, not a floating tooltip -- the explainer stack
+        // is TopLevel and would float over the neighbouring cells. Keywords still read as bold in
+        // the cell's own move text, which is what this screen is for.
+        panel.ShowsKeywordExplainers = false;
+
         _grid!.AddChild(panel);
         panel.Show(CardText.Of(card));
     }

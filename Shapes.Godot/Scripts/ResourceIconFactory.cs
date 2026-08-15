@@ -51,7 +51,12 @@ public static class ResourceIconFactory
     // a light yellow against the usual white, so a 0 that is temporary reads as different from a
     // move that simply prints no cost. Chosen light rather than saturated because it sits on top
     // of three different shape fills (red/green/blue) and has to stay legible on all of them.
-    private static readonly Color DiscountedNumberColor = new(0.9f, 0.85f, 0.35f);
+    //
+    // Public because keyword highlighting in rules text takes the SAME yellow (see
+    // InlineResourceIcons.KeywordColor): both mark "this word/number is not the ordinary case,
+    // look here," and two hand-tuned yellows a shade apart would read as an inconsistency rather
+    // than as one highlight convention.
+    public static readonly Color DiscountedNumberColor = new(0.9f, 0.85f, 0.35f);
 
     // number is null for the no-number small glyph case (move description text); a badge with a
     // number renders it as a bold overlay in the shape's bottom-right corner, high-contrast

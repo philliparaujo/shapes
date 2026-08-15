@@ -95,6 +95,12 @@ public partial class CollectionCardView : Button
         // layers stack in the order they were added.
         face.ZIndex = 0;
 
+        // Same mismatch, one layer further: the keyword explainer stack is TopLevel so it can grow
+        // above a floating tooltip, which inside a grid cell means floating over the neighbouring
+        // cells instead. This cell is a static face, not a tooltip -- the deckbuilder's real
+        // hover panel (Deckbuilder._hoverPanel) is what carries the explainers here.
+        face.ShowsKeywordExplainers = false;
+
         host.SetContent(face);
 
         // Show only works once the panel's _Ready has resolved its child references, which
