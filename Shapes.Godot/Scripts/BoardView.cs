@@ -65,6 +65,13 @@ public partial class BoardView : Control
     private IReadOnlyList<GameAction>? _pendingTargetActions;
     private (StateDiff Diff, PlayerId SelfSeat)? _pendingAnimation;
 
+    // Each seat's avatar art, keyed by PlayerId and fixed for the whole match (see SetAvatars).
+    //
+    // Keyed by PLAYER, not by panel: which of the two rail panels is "self" swaps every turn (see
+    // Render, where the active player takes the self panel), so binding a portrait to a panel
+    // would make both faces trade places on every end-turn instead of following their owners.
+    private readonly Dictionary<PlayerId, Texture2D?> _avatars = [];
+
     public override void _Ready()
     {
         _opponentPanel = GetNode<PlayerPanel>(OpponentPanelPath);
@@ -129,6 +136,18 @@ public partial class BoardView : Control
     // a paused game keeps its Resume button, a finished one does not.
     public void OpenPauseMenu() => _menuPanel!.Open("Paused", canResume: true);
 
+    // The portraits for the two seats, chosen once per match by GameRoot. Stored rather than
+    // applied here: the panels are assigned per SEAT on every Render, so the mapping from player
+    // to panel is only known there.
+    public void SetAvatars(Texture2D? one, Texture2D? two)
+    {
+        _avatars[PlayerId.One] = one;
+        _avatars[PlayerId.Two] = two;
+    }
+
+    private Texture2D? AvatarOf(PlayerId player) =>
+        _avatars.TryGetValue(player, out var texture) ? texture : null;
+
     public void Render(GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions)
     {
         var active = state.ActivePlayer;
@@ -155,6 +174,13 @@ public partial class BoardView : Control
         var scoreToWin = state.Rules.ScoreToWin;
         _opponentSide!.Render(waitingState, scoreToWin - activeState.Score);
         _selfSide!.Render(activeState, scoreToWin - waitingState.Score);
+
+        // Re-applied per Render because the two panels change hands every turn -- the seat that
+        // was "self" last turn is "opponent" now, so the portraits must follow their players
+        // across. Setting the same texture twice is free: PlayerBadge.Portrait ignores a write
+        // that does not change the value, so this only redraws on an actual swap.
+        _opponentSide.SetAvatar(AvatarOf(waiting));
+        _selfSide.SetAvatar(AvatarOf(active));
 
         // RenderSlots rebuilds every SlotView from scratch, which would silently drop
         // targeting highlights applied by BeginTargeting -- reapply them here so a Render

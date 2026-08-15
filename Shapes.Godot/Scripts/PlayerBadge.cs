@@ -3,33 +3,35 @@ using Godot;
 namespace Shapes.Godot.Scripts;
 
 // The floating avatar cluster on the right rail (PLAN.md 5.C-UI, from references/game screen.png):
-// a circular portrait with a ring, a small passive circle at its bottom-LEFT, and a health circle
-// at its bottom-RIGHT.
+// a circular portrait with a ring and a health circle at its bottom-RIGHT.
 //
 // Drawn rather than composed from Controls, and deliberately NOT a child of the rail's panel: in
 // the reference the cluster floats clear of the panel rather than sitting inside it. A Control
 // laid out by the panel's container could not do that, so SidePanel anchors this above (opponent)
 // or below (player) the rectangle and lets it draw outside.
 //
-// The satellites use the same shaded-sphere recipe as ResourceIconFactory's circle -- radial
+// The health pip uses the same shaded-sphere recipe as ResourceIconFactory's circle -- radial
 // gradient, drop shadow, darker rim, white text with a heavy outline -- so a health pip and a
-// resource chip read as the same family of object. Avatar art does not exist yet; a flat fill
-// plus a ring stands in, and swapping it for a real portrait is a texture draw in _Draw.
+// resource chip read as the same family of object.
+//
+// The reference also showed a second, blue "passive" satellite at the bottom-LEFT. That mechanic
+// is not being implemented, so the circle is gone rather than drawn empty: an always-blank pip
+// reads as a value that failed to load. Only the health satellite remains, which is why the
+// geometry below speaks of one satellite rather than a symmetric pair.
 public partial class PlayerBadge : Control
 {
-    // Diameter of the portrait, and of the two satellite circles that hang off it.
+    // Diameter of the portrait, and of the health satellite that hangs off it.
     public const float AvatarDiameter = 112f;
     public const float SatelliteDiameter = 34f;
 
-    // How far the satellites' centres sit from the avatar's, as a fraction of the avatar radius.
-    // Just past 1.0 so they straddle the ring rather than floating free of it.
+    // How far the satellite's centre sits from the avatar's, as a fraction of the avatar radius.
+    // Just under 1.0 so it straddles the ring rather than floating free of it.
     private const float SatelliteOffset = 0.84f;
 
     private const float RingWidth = 4f;
 
     private static readonly Color AvatarFill = new("4a5668");
     private static readonly Color RingColor = new("c9a677");
-    private static readonly Color PassiveColor = new("2f6fd0");
     private static readonly Color HealthColor = new("c0392b");
     private static readonly Color DropShadowColor = new(0f, 0f, 0f, 0.35f);
 
@@ -56,8 +58,26 @@ public partial class PlayerBadge : Control
     // there is no child to tween, so the tween drives this and _Draw reads it.
     private float _healthScale = 1f;
 
-    // The reference shows a "passive" here; this game has no passive mechanic, so the circle is
-    // drawn empty to hold the layout until something earns the slot.
+    // The portrait art, or null to fall back to the flat fill. Assigned once per match by
+    // BoardView (see AvatarPicker) rather than per Render: Render runs on every hover and
+    // targeting refresh, and re-picking there would reshuffle the face mid-game.
+    public Texture2D? Portrait
+    {
+        get => _portrait;
+        set
+        {
+            if (_portrait == value)
+            {
+                return;
+            }
+
+            _portrait = value;
+            QueueRedraw();
+        }
+    }
+
+    private Texture2D? _portrait;
+
     public void SetValues(int health)
     {
         var previous = _lastHealth;
@@ -118,8 +138,11 @@ public partial class PlayerBadge : Control
         AddChild(_healthLabel);
     }
 
-    // Sized so the satellites, which hang past the avatar on both sides, are inside our rect --
-    // otherwise the parent could clip them.
+    // Sized so the health satellite, which hangs past the avatar's edge, is inside our rect --
+    // otherwise the parent could clip it. Kept symmetric (the same span on both axes) even though
+    // only the bottom-right pip survives the passive circle's removal: SidePanel.PlaceBadge
+    // centres this rect horizontally over the panel, so a rect that hugged the pip's side would
+    // shift the AVATAR off-centre to make room for it.
     public override Vector2 _GetMinimumSize()
     {
         var span = AvatarDiameter + SatelliteDiameter;
@@ -129,20 +152,20 @@ public partial class PlayerBadge : Control
     // Where the drawn circles actually start and end inside the rect, as distances from the
     // rect's top and bottom edges.
     //
-    // The cluster is NOT vertically symmetric: the avatar is centred in the rect, but the two
-    // satellites hang below it and may reach lower than the avatar does. Both insets are derived
+    // The cluster is NOT vertically symmetric: the avatar is centred in the rect, but the health
+    // satellite hangs below it and may reach lower than the avatar does. Both insets are derived
     // from the SAME geometry _Draw uses rather than being written out separately -- deriving them
     // independently is what previously left the bottom badge sitting 11px inside its panel while
     // the top one cleared its own by 3px.
     private static float RectHalf => (AvatarDiameter + SatelliteDiameter) / 2f;
 
-    // How far below the rect's centre the satellites' lowest point falls. They sit at 45 degrees,
-    // so their centre drops by reach/sqrt(2) and their own radius extends past that.
+    // How far below the rect's centre the satellite's lowest point falls. It sits at 45 degrees,
+    // so its centre drops by reach/sqrt(2) and its own radius extends past that.
     private static float SatelliteBottom =>
         AvatarDiameter / 2f * SatelliteOffset * (Mathf.Sqrt(2f) / 2f) + SatelliteDiameter / 2f;
 
     // The visible cluster's top is always the avatar (nothing is drawn above it); its bottom is
-    // whichever reaches lower, the avatar or the satellites.
+    // whichever reaches lower, the avatar or the satellite.
     public static float TopInset => RectHalf - AvatarDiameter / 2f;
 
     public static float BottomInset =>
@@ -154,16 +177,16 @@ public partial class PlayerBadge : Control
         var satelliteRadius = SatelliteDiameter / 2f;
         var centre = Size / 2f;
 
+        // The fill is drawn even when there is art, so a portrait with transparent corners sits on
+        // the same base the placeholder uses rather than on whatever is behind the badge.
         DrawCircle(centre, avatarRadius, AvatarFill);
+        DrawPortrait(centre, avatarRadius);
         DrawArc(centre, avatarRadius, 0f, Mathf.Tau, 64, RingColor, RingWidth, antialiased: true);
 
-        // 45 degrees below-left and below-right of centre, on the ring.
+        // 45 degrees below-right of centre, on the ring.
         var reach = avatarRadius * SatelliteOffset;
         var diagonal = Mathf.Sqrt(2f) / 2f;
-        var passiveCentre = centre + new Vector2(-reach * diagonal, reach * diagonal);
         var healthCentre = centre + new Vector2(reach * diagonal, reach * diagonal);
-
-        DrawSphere(passiveCentre, satelliteRadius, PassiveColor);
 
         // Only the health pip scales -- the pulse is about health changing, so swelling the whole
         // cluster would blur which value moved.
@@ -181,6 +204,63 @@ public partial class PlayerBadge : Control
             _healthLabel.Scale = new Vector2(_healthScale, _healthScale);
             _healthLabel.Position = healthCentre - size / 2f;
         }
+    }
+
+    // The portrait, cropped to a circle.
+    //
+    // Godot's immediate-mode drawing has no circular clip, and a Control's ClipContents clips to
+    // the RECT, not a shape -- so the mask is built the same way DrawSphere builds its gradient:
+    // a triangle fan around the circle, with UVs computed per vertex so the texture is sampled
+    // only inside it. DrawTextureRect plus a clip would have been simpler but would square off
+    // the portrait's corners over the ring.
+    //
+    // The source art is authored 2:1 with the subject in the centred square (see CardArt's note
+    // on KeepAspectCovered), so the fan samples that centred square rather than the full width --
+    // sampling the whole 2:1 frame into a circle would squash every face horizontally.
+    private void DrawPortrait(Vector2 centre, float radius)
+    {
+        if (_portrait is null)
+        {
+            return;
+        }
+
+        var size = _portrait.GetSize();
+        if (size.X <= 0f || size.Y <= 0f)
+        {
+            return;
+        }
+
+        // The centred square, in UV (0..1) terms: the shorter side is used whole, the longer one
+        // is centred and cropped. Written for both axes rather than assuming landscape so a
+        // square or portrait source is handled too.
+        var side = Mathf.Min(size.X, size.Y);
+        var halfU = side / size.X / 2f;
+        var halfV = side / size.Y / 2f;
+
+        // The rim OUTLINE only -- no centre vertex, and no repeated vertex to close the loop.
+        // DrawPolygon triangulates the outline it is given rather than reading it as a triangle
+        // fan (which is what DrawSphere above builds, one DrawPolygon call per triangle), so a
+        // centre point would be an interior vertex and a duplicated seam point (angle 0 and Tau
+        // are the same place) would be a zero-area edge. Godot rejects the whole polygon for
+        // either -- "Invalid polygon data, triangulation failed" -- and draws nothing.
+        const int segments = 64;
+        var points = new Vector2[segments];
+        var uvs = new Vector2[segments];
+
+        for (var i = 0; i < segments; i++)
+        {
+            var angle = i / (float)segments * Mathf.Tau;
+            var offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            points[i] = centre + offset * radius;
+
+            // The unit offset doubles as the UV offset: a point on the circle's rim maps to the
+            // rim of the cropped square, so the square's inscribed circle is what shows.
+            uvs[i] = new Vector2(0.5f, 0.5f) + new Vector2(offset.X * halfU, offset.Y * halfV);
+        }
+
+        // Explicit arrays rather than collection expressions: DrawPolygon has both an array and a
+        // ReadOnlySpan overload, and a target-typed `[...]` cannot choose between them.
+        DrawPolygon(points, new[] { Colors.White }, uvs, _portrait);
     }
 
     // ResourceIconFactory.DrawCircle3D's recipe: offset drop shadow, a triangle-fan radial

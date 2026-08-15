@@ -293,6 +293,10 @@ public partial class SidePanel : Control
         _badge.Position = new Vector2((Size.X - size.X) / 2f, y);
     }
 
+    // This seat's avatar art. Set once per match by BoardView rather than passed through Render,
+    // which runs on every hover and targeting refresh -- see PlayerBadge.Portrait.
+    public void SetAvatar(Texture2D? portrait) => _badge!.Portrait = portrait;
+
     // health is passed in rather than derived here: it is scoreToWin minus the OPPONENT's score,
     // which is a rule this view has no business knowing (see BoardView.Render).
     public void Render(PlayerState player, int health)

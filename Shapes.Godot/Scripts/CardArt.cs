@@ -1,5 +1,7 @@
 using Godot;
+using Shapes.Core.Cards;
 using Shapes.Core.Primitives;
+using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
@@ -64,6 +66,33 @@ public static class CardArt
 
     // True when this card has real art -- lets a caller vary layout for art vs placeholder.
     public static bool Has(string cardId) => Load(cardId) is not null;
+
+    // Every card that can serve as a player portrait, in the database's own (deterministic)
+    // order: a CREATURE, with real art, whose cost is paid in a single resource type.
+    //
+    // Spells are excluded because a spell has no board presence -- using one as a player's face
+    // reads as an effect sitting in play rather than as an avatar. The single-type requirement
+    // comes from AvatarPicker needing to guarantee the two seats DIFFER in type: a free or
+    // mixed-cost card has no single type (CardText.SinglePipType returns null) and so cannot be
+    // compared against the other seat's.
+    //
+    // Filtered by Has rather than by listing the art directory: an exported build has no
+    // directory to list (the art is inside the .pck as .ctex -- see Load's note), and the card
+    // database is the only enumeration of ids that is guaranteed to be present in both builds.
+    // The Load cache means the probe is paid once per card for the whole process.
+    public static IReadOnlyList<AvatarPicker.Candidate> AvatarCandidates(CardDatabase cards)
+    {
+        ArgumentNullException.ThrowIfNull(cards);
+
+        return
+        [
+            .. cards.All
+                .Where(card => card.IsCreature && Has(card.Id))
+                .Select(card => (Card: card, Type: CardText.SinglePipType(card.Cost)))
+                .Where(pair => pair.Type is not null)
+                .Select(pair => new AvatarPicker.Candidate(pair.Card.Id, pair.Type!.Value)),
+        ];
+    }
 
     // The raw texture, for callers that composite art themselves rather than parenting a
     // TextureRect -- MergedArt draws two of these into one band with a blended seam, which no

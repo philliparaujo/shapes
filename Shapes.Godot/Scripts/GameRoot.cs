@@ -150,6 +150,7 @@ public partial class GameRoot : Control
         _matchConfig = config;
         _actionLog.Clear();
 
+        AssignAvatars(seed);
         BuildAgents(seed, config);
 
         RefreshAll();
@@ -185,10 +186,35 @@ public partial class GameRoot : Control
         _actionLog.Clear();
         _actionLog.AddRange(saved.Actions);
 
+        // Same seed as the interrupted game, so it resumes wearing the same two faces -- the
+        // avatars are not in the save file, they are re-derived (see AvatarPicker's header).
+        AssignAvatars(saved.Seed);
         BuildAgents(saved.Seed, config);
 
         RefreshAll();
         RunAiTurns();
+    }
+
+    // Gives each seat a creature's art as its portrait, the two of different resource types
+    // (PLAN.md 5.C-UI) -- see CardArt.AvatarCandidates for why those two filters.
+    //
+    // Seed-derived rather than random, and picked here rather than in BoardView, for the reasons
+    // in AvatarPicker's header -- the short version being that a resumed match must not change
+    // faces, and the game's own IRandomSource must not be touched.
+    //
+    // Called from both StartNewGame and ResumeGame, and before RefreshAll in each, so the very
+    // first Render already has the portraits rather than drawing a frame of bare placeholder.
+    private void AssignAvatars(ulong seed)
+    {
+        if (_cards is null || _boardView is null)
+        {
+            return;
+        }
+
+        var (one, two) = AvatarPicker.Pick(seed, CardArt.AvatarCandidates(_cards));
+        _boardView.SetAvatars(
+            one is null ? null : CardArt.TextureFor(one),
+            two is null ? null : CardArt.TextureFor(two));
     }
 
     // Derived per-seat streams, not one shared source -- two agents drawing from a single
