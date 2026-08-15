@@ -14,12 +14,23 @@ namespace Shapes.Godot.Scripts;
 // any card, edited as two columns -- the whole collection on the left, the current decklist on
 // the right -- with a slot picker above them.
 //
-// TWO LISTS OF DeckRowViews, not a grid of card faces. CardBrowser is the view for READING cards
-// (full detail, paginated because each cell is an expensive real SlotView/HoverDetailPanel); this
-// is the view for COUNTING them, where the question at hand is "how many spike two-drops am I
-// running" and forty full card faces would bury it. The full-detail reading is still one hover
-// away, through the same HoverDetailPanel the board uses -- so this tab adds a card LAYOUT
-// (DeckRowView) without adding a second card-detail RENDERER.
+// TWO DIFFERENT VIEWS, one per column, because the columns ask different questions. The
+// collection (left, and the wider of the two) is a grid of full card FACES -- real
+// HoverDetailPanels, the same renderer the board hover and CardBrowser use -- because choosing
+// what to add is a question about what cards DO. The decklist (right, narrower) stays a column of
+// DeckRowViews, because "what is in this deck" is a counting question and forty full faces would
+// bury it. Neither column adds a card-detail RENDERER: the collection reuses the tooltip scene
+// wholesale, and the decklist is a card LAYOUT over the same CardText/CardArt data.
+//
+// The earlier cut ran DeckRowView down BOTH columns, which made the two sides visually
+// interchangeable -- one wall of near-identical grey bands, where the only way to tell which side
+// you were pointing at was to read the header. Two renderers is what makes the sides tell
+// themselves apart at a glance.
+//
+// PAGINATION, as CardBrowser: a collection cell is now a real HoverDetailPanel instantiation
+// (Panel, StyleBoxFlat, several Labels, move rows, an art pane), not the cheap band it was, and
+// the full card set at once is the same node-count cost CardBrowser's header measures. Filtering
+// computes the whole matching list cheaply and only the current page becomes nodes.
 //
 // Edits write through to disk immediately (DeckStore.Save on every add/remove/rename/delete)
 // rather than behind a Save button -- see DeckStore.Save's own note. That also means there is no
@@ -41,12 +52,24 @@ public partial class Deckbuilder : Control
     [Export] public NodePath CostTypeFilterPath { get; set; } = "Layout/FilterBar/CostTypeFilter";
     [Export] public NodePath KindFilterPath { get; set; } = "Layout/FilterBar/KindFilter";
     [Export] public NodePath CollectionListPath { get; set; } = "Layout/Columns/CollectionColumn/ScrollContainer/CollectionList";
+    [Export] public NodePath CollectionHeaderPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/CollectionHeaderLabel";
+    [Export] public NodePath PageBarPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar";
+    [Export] public NodePath PrevPageButtonPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar/PrevPageButton";
+    [Export] public NodePath NextPageButtonPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar/NextPageButton";
+    [Export] public NodePath PageLabelPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar/PageLabel";
     [Export] public NodePath DeckListPath { get; set; } = "Layout/Columns/DeckColumn/ScrollContainer/DeckList";
     [Export] public NodePath CountLabelPath { get; set; } = "Layout/Columns/DeckColumn/DeckHeader/CountLabel";
     [Export] public NodePath StatsLabelPath { get; set; } = "Layout/Columns/DeckColumn/StatsLabel";
+    [Export] public NodePath CostCurvePath { get; set; } = "Layout/Columns/DeckColumn/CostCurve";
     [Export] public string LobbyScenePath { get; set; } = "res://Scenes/Lobby.tscn";
 
     [Export] public PackedScene? HoverDetailPanelScene { get; set; }
+
+    // A page of collection cells. 15 = 5 columns x 3 rows, matching the grid's own column count
+    // so a full page fills a rectangle rather than ending mid-row (the same reasoning, and the
+    // same arithmetic, as CardBrowser.PageSize). See the class header on why the card-face grid
+    // needs paging at all.
+    private const int PageSize = 15;
 
     // Index-aligned with the OptionButton items PopulateFilters adds -- the same convention
     // CardBrowser and Lobby both use for their pickers.
@@ -62,10 +85,18 @@ public partial class Deckbuilder : Control
     private LineEdit? _searchBar;
     private OptionButton? _costTypeFilter;
     private OptionButton? _kindFilter;
-    private VBoxContainer? _collectionList;
+    private GridContainer? _collectionList;
+    private Label? _collectionHeader;
+    private Control? _pageBar;
+    private Button? _prevPageButton;
+    private Button? _nextPageButton;
+    private Label? _pageLabel;
     private VBoxContainer? _deckList;
     private Label? _countLabel;
     private Label? _statsLabel;
+    private CostCurveChart? _costCurve;
+
+    private int _page;
 
     private CardDatabase? _cards;
     private RuleSet _rules = RuleSet.Default;
@@ -91,10 +122,16 @@ public partial class Deckbuilder : Control
         _searchBar = GetNode<LineEdit>(SearchBarPath);
         _costTypeFilter = GetNode<OptionButton>(CostTypeFilterPath);
         _kindFilter = GetNode<OptionButton>(KindFilterPath);
-        _collectionList = GetNode<VBoxContainer>(CollectionListPath);
+        _collectionList = GetNode<GridContainer>(CollectionListPath);
+        _collectionHeader = GetNode<Label>(CollectionHeaderPath);
+        _pageBar = GetNode<Control>(PageBarPath);
+        _prevPageButton = GetNode<Button>(PrevPageButtonPath);
+        _nextPageButton = GetNode<Button>(NextPageButtonPath);
+        _pageLabel = GetNode<Label>(PageLabelPath);
         _deckList = GetNode<VBoxContainer>(DeckListPath);
         _countLabel = GetNode<Label>(CountLabelPath);
         _statsLabel = GetNode<Label>(StatsLabelPath);
+        _costCurve = GetNode<CostCurveChart>(CostCurvePath);
 
         HoverDetailPanelScene ??= GD.Load<PackedScene>("res://Scenes/HoverDetailPanel.tscn");
 
@@ -110,9 +147,13 @@ public partial class Deckbuilder : Control
         _nameEdit.TextChanged += OnNameChanged;
         _deleteButton.Pressed += OnDeletePressed;
         _backButton.Pressed += () => GetTree().ChangeSceneToFile(LobbyScenePath);
-        _searchBar.TextChanged += _ => RebuildCollection();
-        _costTypeFilter.ItemSelected += _ => RebuildCollection();
-        _kindFilter.ItemSelected += _ => RebuildCollection();
+        // A filter change resets to page one; paging does not. Narrowing the set while sitting on
+        // page 4 would otherwise land on an empty page whose contents the filter just removed.
+        _searchBar.TextChanged += _ => OnFilterChanged();
+        _costTypeFilter.ItemSelected += _ => OnFilterChanged();
+        _kindFilter.ItemSelected += _ => OnFilterChanged();
+        _prevPageButton.Pressed += () => ChangePage(-1);
+        _nextPageButton.Pressed += () => ChangePage(1);
 
         SelectSlot(0);
     }
@@ -220,17 +261,63 @@ public partial class Deckbuilder : Control
 
     // --- The two columns ------------------------------------------------------------------
 
+    private void OnFilterChanged()
+    {
+        _page = 0;
+        RebuildCollection();
+    }
+
+    private void ChangePage(int delta)
+    {
+        _page = Math.Max(0, _page + delta);
+        RebuildCollection();
+    }
+
     // Every card in the set, filtered, each showing how many copies the current deck runs -- so
     // the collection column doubles as the "what have I already got" readout and the player never
-    // has to cross-reference the two lists to answer it.
+    // has to cross-reference the two lists to answer it. That readout is the copies badge AND the
+    // cell's own lifted fill (CollectionCardView), which is what makes it answerable by scanning
+    // rather than by reading every badge.
     private void RebuildCollection()
     {
         ClearChildren(_collectionList!);
 
+        // The cheap pass first -- which cards match, no nodes -- so filtering and paging cost
+        // nothing regardless of set size, and only the visible page pays for card faces. Same
+        // split CardBrowser.OriginalEntries makes, and for the same reason.
+        var matches = FilteredCards();
+
+        var totalPages = Math.Max(1, (matches.Count + PageSize - 1) / PageSize);
+        _page = Math.Clamp(_page, 0, totalPages - 1);
+
+        foreach (var card in matches.Skip(_page * PageSize).Take(PageSize))
+        {
+            var cell = new CollectionCardView();
+            cell.AddRequested += OnAddRequested;
+            cell.RemoveRequested += OnRemoveRequested;
+
+            // Added to the live tree before Render, which instantiates the card face inside it --
+            // a HoverDetailPanel's _Ready resolves its own child references and only runs once it
+            // is in the tree (the ordering CardBrowser.BuildOriginalCell documents).
+            _collectionList!.AddChild(cell);
+            cell.Render(
+                CardText.Of(card), CurrentDeck.CopiesOf(card.Id), MaxCopies, HoverDetailPanelScene!);
+        }
+
+        _collectionHeader!.Text = $"Collection ({matches.Count})";
+        _pageBar!.Visible = matches.Count > PageSize;
+        _pageLabel!.Text = $"Page {_page + 1} / {totalPages}";
+        _prevPageButton!.Disabled = _page == 0;
+        _nextPageButton!.Disabled = _page >= totalPages - 1;
+    }
+
+    private List<CardDefinition> FilteredCards()
+    {
         var search = _searchBar!.Text.Trim();
         var costType = CostTypeOrder[_costTypeFilter!.Selected];
         var wantCreature = KindOrder[_kindFilter!.Selected];
 
+        var results = new List<CardDefinition>();
         foreach (var card in _cards!.All.OrderBy(SortKey))
         {
             if (wantCreature is { } creature && card.IsCreature != creature)
@@ -248,9 +335,10 @@ public partial class Deckbuilder : Control
                 continue;
             }
 
-            var row = BuildRow(CardText.Of(card), CurrentDeck.CopiesOf(card.Id));
-            _collectionList!.AddChild(row);
+            results.Add(card);
         }
+
+        return results;
     }
 
     // The current decklist, one row per distinct card with its copy count. Sorted by the same
@@ -271,11 +359,12 @@ public partial class Deckbuilder : Control
         }
     }
 
-    // Both columns build the same row type with the same handlers: left click adds a copy, right
-    // click removes one, hovering shows the full card. Deliberately identical on both sides --
-    // "click the card to get another, right-click to drop one" is one rule to learn rather than
-    // two column-specific ones, and it means a deck can be trimmed without hunting for the card
-    // in the other list.
+    // The decklist's row. The GESTURE is identical to the collection's card cell -- left click
+    // adds a copy, right click removes one -- even though the two sides no longer share a view
+    // type: "click the card to get another, right-click to drop one" is one rule to learn rather
+    // than two column-specific ones, and it means a deck can be trimmed without hunting for the
+    // card in the other list. Only the decklist rows raise hover, since a collection cell is
+    // already showing the full card face a tooltip would duplicate.
     private DeckRowView BuildRow(CardText card, int copies)
     {
         var row = new DeckRowView();
@@ -350,6 +439,7 @@ public partial class Deckbuilder : Control
         if (total == 0)
         {
             _statsLabel!.Text = "Empty slot -- click cards on the left to add them.";
+            _costCurve!.SetCounts([]);
             return;
         }
 
@@ -359,11 +449,23 @@ public partial class Deckbuilder : Control
 
         var creatures = cardIds.Count(id => _cards![id].IsCreature);
 
+        // The type totals stay in the text even though the chart now shows the same three colors
+        // stacked: a stacked bar answers "where in the curve is my spike" well and "exactly how
+        // much spike" badly, and the second is the number a player checks a deck against.
         _statsLabel!.Text =
             $"Spike {byCost[ResourceType.Spike]}   Anvil {byCost[ResourceType.Anvil]}   "
             + $"Wheel {byCost[ResourceType.Wheel]}      "
             + $"Creatures {creatures}   Spells {cardIds.Count - creatures}      "
             + $"Mean cost {mean:F2}";
+
+        // One entry per card in the deck, copies included -- the curve is about what you will
+        // actually draw (see CostCurveChart.SetCounts).
+        _costCurve!.SetCounts(cardIds.Select(id =>
+        {
+            var card = _cards![id];
+            var type = CardText.SinglePipType(card.Cost);
+            return (type is { } t ? card.Cost[t] : 0, type);
+        }));
     }
 
     private void OnHoverStarted(string cardId)

@@ -36,20 +36,19 @@ public static class MoveButtonFactory
         };
 
         // A Button never lays out its children (it is not a Container), so the content is hosted
-        // in a control that re-applies its own rect on every resize. See ButtonContentHost for
-        // why setting anchors/offsets once at construction does not work here.
+        // in a control that tracks the button's rect itself -- ButtonContentHost anchors to its
+        // parent's full rect, so nothing here has to size it.
+        //
+        // This used to also assign host.Position/Size from a Resized handler, which was how the
+        // host got a size back when it had none of its own. That assignment is now not merely
+        // redundant but WRONG: against non-zero anchors, Godot stores an assigned Size as offsets
+        // measured from the anchored edges, so writing the button's width there made the host
+        // span roughly twice the button. Nothing looked broken on the board except that every
+        // move description wrapped to the inflated width -- i.e. stopped wrapping inside the
+        // card and ran off its right edge.
         var host = new ButtonContentHost();
         button.AddChild(host);
         host.SetContent(MoveRowFactory.CreateContent(text));
-
-        void SyncHost()
-        {
-            host.Position = Vector2.Zero;
-            host.Size = button.Size;
-        }
-
-        button.Resized += SyncHost;
-        SyncHost();
 
         if (!isUsable)
         {

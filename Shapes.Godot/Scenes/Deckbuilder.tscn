@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://c8dkbld0001x"]
+[gd_scene load_steps=4 format=3 uid="uid://c8dkbld0001x"]
 
 [ext_resource type="Script" path="res://Scripts/Deckbuilder.cs" id="1_deckbuilder"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="2_hoverdetail"]
+[ext_resource type="Script" path="res://Scripts/CostCurveChart.cs" id="3_costcurve"]
 
 [node name="Deckbuilder" type="Control"]
 layout_mode = 3
@@ -99,26 +100,59 @@ theme_override_constants/separation = 16
 [node name="CollectionColumn" type="VBoxContainer" parent="Layout/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.4
 theme_override_constants/separation = 6
 
-[node name="CollectionHeader" type="Label" parent="Layout/Columns/CollectionColumn"]
+[node name="CollectionHeader" type="HBoxContainer" parent="Layout/Columns/CollectionColumn"]
 layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="CollectionHeaderLabel" type="Label" parent="Layout/Columns/CollectionColumn/CollectionHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+vertical_alignment = 1
 theme_override_font_sizes/font_size = 17
 text = "Collection"
+
+[node name="PageBar" type="HBoxContainer" parent="Layout/Columns/CollectionColumn/CollectionHeader"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PrevPageButton" type="Button" parent="Layout/Columns/CollectionColumn/CollectionHeader/PageBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 30)
+size_flags_vertical = 4
+text = "< Prev"
+
+[node name="PageLabel" type="Label" parent="Layout/Columns/CollectionColumn/CollectionHeader/PageBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(96, 0)
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "Page 1 / 1"
+
+[node name="NextPageButton" type="Button" parent="Layout/Columns/CollectionColumn/CollectionHeader/PageBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 30)
+size_flags_vertical = 4
+text = "Next >"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Layout/Columns/CollectionColumn"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="CollectionList" type="VBoxContainer" parent="Layout/Columns/CollectionColumn/ScrollContainer"]
+[node name="CollectionList" type="GridContainer" parent="Layout/Columns/CollectionColumn/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 4
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 5
 
 [node name="DeckColumn" type="VBoxContainer" parent="Layout/Columns"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
 theme_override_constants/separation = 6
 
 [node name="DeckHeader" type="HBoxContainer" parent="Layout/Columns/DeckColumn"]
@@ -142,6 +176,12 @@ layout_mode = 2
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 13
 text = "Empty slot -- click cards on the left to add them."
+
+[node name="CostCurve" type="Control" parent="Layout/Columns/DeckColumn"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 84)
+mouse_filter = 2
+script = ExtResource("3_costcurve")
 
 [node name="ScrollContainer" type="ScrollContainer" parent="Layout/Columns/DeckColumn"]
 layout_mode = 2

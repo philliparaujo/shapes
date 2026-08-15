@@ -28,7 +28,10 @@ public static class ResourceIconFactory
     private static readonly Color WheelColor = new(0.25f, 0.45f, 0.9f);
     private static readonly Color NeutralColor = new(0.5f, 0.5f, 0.5f);
 
-    private static Color ColorOf(ResourceType type) => type switch
+    // Public because the type palette is not this factory's private business: CostCurveChart
+    // stacks its bar segments in these exact colors, and a second copy of the mapping there is
+    // how a wheel segment ends up a different blue from a wheel pip on the card beside it.
+    public static Color ColorOf(ResourceType type) => type switch
     {
         ResourceType.Spike => SpikeColor,
         ResourceType.Anvil => AnvilColor,
