@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 14 / 22    |
+| 5 — Godot client                         | 16 / 23    |
 
 951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -21,11 +21,12 @@ content and varies agents; Phase 4 freezes agents and varies content. Phase 2 co
 ends at a *correct* search, not a fast or tuned one.
 
 **In progress: Phase 5** — the Godot client. Milestones A and B are essentially done (only card art
-authoring remains); Milestone C is next, starting with a professional game-screen UI pass. A
-hotseat game is playable end to end in the editor with drag-and-drop, animation, an AI seat, and
-save/resume. Content is settled at `v1.7-final` and the balance record lives in `balance/LOG.md`;
-the one item Phase 4 left open is a small seat-2 edge visible only at large samples (see that
-phase's closing note).
+authoring remains); Milestone C is down to its last item, the C7 rules page, which is deferred into
+D2. A hotseat game is playable end to end in the editor with drag-and-drop, animation, an AI seat,
+and save/resume. What remains is Milestone D: rules page, UI polish, audio, an optional
+friends-only multiplayer step, and export last. Content is settled at `v1.7-final` and the balance
+record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
+at large samples (see that phase's closing note).
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -261,17 +262,21 @@ Phases 1–3 measured on fixed symmetric decks deliberately, so varying decks di
 win-rate with deck-composition effects — and **that is still the default**, so every number in
 `balance/LOG.md` stays comparable to a fresh `--deck default` run.
 
-> **⚠️ Determinizer follow-up (owed, tracked at D1).** IS-MCTS on non-symmetric decks currently
-> works by being handed its opponent's **real decklist** (`Determinizer(cards, opponentDeck)`).
-> Hand contents and deck order are still hidden and sampled, but deck *composition* is not — the
-> agent knows which 40 cards the opponent drew from, which a human would not. This is a deliberate
-> temporary cheat, taken so IS-MCTS stays usable on exactly the deck-diversity runs that need it
-> rather than throwing. **Consequence: treat any `ismcts` win rate measured on `--deck random` or
-> `--deck custom` as an optimistic bound on that agent's true strength, and never compare it
-> against a symmetric-deck run.** The real fix is the belief distribution described in C2/D1
-> (sample a plausible decklist per iteration, constrained to cards demonstrably played and filled
-> uniformly otherwise); it changes only `Determinizer.UnseenCardsOf`, leaving the public surface
-> and everything downstream untouched.
+> **⚠️ Determinizer caveat (permanent, accepted — the migration was cut at D1).** IS-MCTS on
+> non-symmetric decks works by being handed its opponent's **real decklist**
+> (`Determinizer(cards, opponentDeck)`). Hand contents and deck order are still hidden and sampled,
+> but deck *composition* is not — the agent knows which 40 cards the opponent drew from, which a
+> human would not. **Consequence, and it does not expire: treat any `ismcts` win rate measured on
+> `--deck random` or `--deck custom` as an optimistic bound on that agent's true strength, and never
+> compare it against a symmetric-deck run.** Nothing in `balance/LOG.md` is affected — that record is
+> entirely symmetric-deck, where the shared decklist is public information anyway and the cheat is
+> not a cheat.
+>
+> The known fix, if this is ever revisited, is a belief distribution: sample a plausible decklist per
+> iteration, constrained to cards demonstrably played and filled uniformly otherwise. It changes only
+> `Determinizer.UnseenCardsOf`, leaving the public surface and everything downstream untouched — so
+> deferring it costs no architectural flexibility. Revisit only if custom-deck AI *strength* becomes
+> the question being measured; against a human it reads as difficulty, not incorrectness.
 
 **Rules as configuration** — income, scoring, draw, hand limit, win condition, type chart all
 live in a `RuleSet` loaded from JSON, so a balance experiment is just a named ruleset file. Board
@@ -511,7 +516,7 @@ games run ~2 turns shorter; the fix is a ruleset knob, not a card edit, and Phas
 will move it again. **Archetype balance was always out of scope** — not measurable on a symmetric
 deck where both seats hold every card.
 
-### Phase 5 — Godot client (desktop + mobile) — 14/22, in progress
+### Phase 5 — Godot client (desktop + mobile) — 16/23, in progress
 
 Target Windows/macOS/Linux desktop and Android from one codebase. Organised as four milestones:
 A got the full rules onto one screen with no art; B made it feel like a game (interaction model,
@@ -566,7 +571,7 @@ seeded Godot game matching the same seed's console result.
   too high-risk to touch. Two real bugs (scale/position ordering, a same-frame stale-child race)
   found post-playtest and fixed.
 
-#### Milestone C — the other scenes — 7/9 complete
+#### Milestone C — the other scenes — 8/9 complete
 
 - [x] **C1. Lobby / match setup with a working AI seat** — per-seat choice of Human/Random/Greedy/
   IS-MCTS/IS-MCTS-heuristic, mirroring the console's own agent factory. AI turns currently run
@@ -598,41 +603,110 @@ seeded Godot game matching the same seed's console result.
   agent factory had been handing both seats seat one's decklist, which only became wrong once the
   seats could differ — and `SavedMatch` now persists both decklists, without which a resumed
   custom-deck game replays its action log against the wrong deal. The determinizer still reads the
-  opponent's supplied decklist; that migration is tracked under D1.
+  opponent's supplied decklist, and now permanently — that migration was cut at D1; see the Deck
+  model caveat above for what the standing consequence is.
 - [x] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half C6 didn't
   cover. Deck slots persist through `DeckStore` (write-through on every edit, one cached JSON
   document, corrupt-file-tolerant), mirroring `MatchSaveStore`'s pure-adapter/Godot-IO split.
-- [ ] **C4b. Card stats** — win-rate/pick-rate context per card from `balance/LOG.md`, deferred out
-  of C4 since the collection view didn't need it to ship.
-- [ ] **C7. Tutorial / rules surfacing** — nothing about the ruleset (type cycle, merge
-  vulnerability, unopposed-slot scoring, fatigue) is self-evident from the board; the console
-  explained it in text and the Godot client currently explains none of it. *(Moved to Milestone D.)*
+- [x] **C4b. Card stats — cut, deliberately.** Win-rate/pick-rate context per card from
+  `balance/LOG.md` was never going to survive contact with the client: every number in that file is
+  measured against *symmetric* decks (see the caveat below), so showing it beside a card in a
+  deckbuilder that exists to build *asymmetric* ones would be presenting a statistic under exactly
+  the conditions that invalidate it. It would also freeze at whatever the last sweep said and drift
+  silently on the next balance edit — the same failure `EffectText` exists to prevent for card text
+  (A4). Stats stay in `Shapes.Sim`, which is where they can carry their own intervals and
+  provenance. No code.
+- [ ] **C7. Rules info page** — one scrollable page explaining what the board cannot: the type
+  cycle, that merging can *increase* vulnerability, unopposed-slot scoring, and fatigue. **Not a
+  tutorial** — no scripted first game, no guided steps, no progress tracking, all of which are a
+  Milestone-D-sized surface on their own. Reachable from the lobby *and* from the in-game pause menu
+  (`BoardView.OpenPauseMenu`, which already exists), so a player stuck mid-match can read the rule
+  without abandoning the game. Static content: the four rules above are structural and none of them
+  moves under a balance edit, so hand-authored text is safe here in a way per-card text is not.
+  *(Moved to Milestone D.)*
 
-#### Milestone D — ship — 0/5
+#### Milestone D — ship — 1/6
 
-- [ ] **D1. Determinizer migration** (the deckbuilder UI half landed with C2). Migrate off the
-  supplied-decklist cheat onto a real belief distribution: constrain to cards demonstrably played,
-  fill the rest uniformly. A correctness debt, not a nice-to-have — until it lands, `ismcts` numbers
-  on non-default decks are measured with the agent knowing its opponent's decklist, and C2's
-  per-seat decks make that assumption reachable in normal play rather than only in the sim. See the
-  Deck model warning above.
-- [ ] **D2. Tutorial / rules surfacing (C7).** Persistence (C3) landed with C2's deck slots;
-  settings and progress are still unpersisted if either grows a durable surface.
+- [x] **D1. Determinizer migration — cut.** The plan was to migrate IS-MCTS off the supplied-decklist
+  cheat onto a real belief distribution. Dropped because the debt it pays off is **a measurement
+  debt, and measurement is `Shapes.Sim`'s job, not the client's.** Its one real consequence stands
+  unchanged and is already documented at the Deck model warning above: an `ismcts` win rate on
+  `--deck random`/`--deck custom` is an optimistic bound and must never be compared against a
+  symmetric-deck run. That caveat costs nothing to keep honoring, and Phase 4's balance record is
+  entirely symmetric-deck, so nothing in `balance/LOG.md` is affected. Against a human the cheat is
+  a *difficulty* setting, not a correctness bug — and one that makes the AI stronger, which is the
+  direction a solo player wants. Revisit only if custom-deck AI strength is ever itself the
+  question being measured.
+- [ ] **D2. Rules info page (C7).** Persistence (C3) landed with C2's deck slots; settings and
+  progress are still unpersisted if either grows a durable surface.
 - [ ] **D3. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
   consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state
   polish (hover/selected/legal-target states), and card art integration once B1c completes.
 - [ ] **D4. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
   step rather than during it.
-- [ ] **D5. Export pipeline** (desktop + signed Android `.aab`), reusing/re-verifying the step 1.13
-  toolchain: export templates need the .NET 9 SDK alongside .NET 8, Editor Settings needs explicit
-  Java/Android SDK paths, and rebuilds need `adb install -r` or a stale APK silently masks the
-  change.
+- [ ] **D5. Consider small-scale multiplayer** — two installs queueing on a server, scoped to
+  **friends/self only**, not a public release. A decision step first: build it or don't. Sequenced
+  here, after the client is otherwise finished, because the engine work is already done and nothing
+  earlier depends on it.
+
+  **Why this is cheaper than it looks.** Three Phase 1 decisions, taken for unrelated reasons,
+  happen to be exactly what a netcode protocol needs. `GameAction` is flat, immutable, value-equal,
+  and **fully self-describing — nothing asks the player a question at apply time** (a choice is
+  pre-resolved by *being* a distinct legal action), so the wire protocol never needs a mid-resolution
+  round trip. `SavedMatch`'s `ActionDto` is already a serialization of it. Determinism (`IRandomSource`,
+  no `Random.Shared`/`DateTime.Now` in `Shapes.Core`, stable across platforms and .NET versions) means
+  the wire format is **seed + ordered action log**, not board snapshots — and `GameSession.Resume`
+  *is* the reconnect path, already written and already exercised by C6.
+
+  **The real work is client-side, and it is a refactor this codebase wants regardless.**
+  `BoardView.Render` computes `self = state.ActivePlayer` — correct for hotseat, where the screen
+  flips each turn, and wrong for online, where "self" is a fixed local seat no matter whose turn it
+  is. Threading a `LocalSeat` through `BoardView`/`PlayerPanel`/`SideRail` and the targeting paths is
+  the bulk of the effort. Two further pieces: `GameRoot.Submit` assumes submit-then-refresh and must
+  accept actions arriving unprompted (`_aiTurnInProgress` generalizes to "not my turn"), and the
+  failure states — disconnect, timeout, concede, rejected action — which are boring, unavoidable,
+  and always underestimated.
+
+  **Do the seam first, decide on the server second.** Define `IMatchTransport` (queue / send action /
+  receive action / disconnected) with a `LocalTransport` covering today's hotseat and AI games. Every
+  item above is then buildable and testable with **no server running at all**, and the networking
+  becomes the last thing added rather than the first. It also keeps the hosting choice reversible.
+
+  **Server shape, if it gets built:** one ASP.NET Core process with a WebSocket endpoint, matches in
+  memory, `SavedMatch` rows to SQLite so a restart doesn't kill live games. It references
+  `Shapes.Core` directly — the engine is pure BCL and test-enforced to stay that way, so the server
+  runs byte-identical rules code with zero porting. Validation is one line
+  (`LegalActions().Contains(action)`, free because `GameAction` already has value equality), which
+  matters less for anti-cheat among friends than for **having a referee when clients disagree**.
+  Firestore was considered and rejected: it cannot run `Shapes.Core`, so it buys zero validation and
+  costs a second hand-maintained representation of match state.
+
+  **Add state hashing in the same commit as the first networked action, not after.** Both clients
+  deriving state independently from one seed is the whole design; if they ever diverge, nothing
+  detects it and the game silently becomes nonsense several turns later. Server sends a state hash
+  per action, clients assert on it — and assert in `LocalTransport` too, so the check is proven
+  before the network can break it.
+
+  **Explicitly out of scope:** accounts, rating/ladder, chat, spectating, reconnect-to-stranger.
+  Anonymous per-install id, random pairing from one queue. Each excluded item is comparable in size
+  to the whole core system.
+- [ ] **D6. Export pipeline — the last step, after everything above.** Desktop + signed Android
+  `.aab`, reusing/re-verifying the step 1.13 toolchain: export templates need the .NET 9 SDK
+  alongside .NET 8, Editor Settings needs explicit Java/Android SDK paths, and rebuilds need
+  `adb install -r` or a stale APK silently masks the change.
 
 **Exit criteria:** full game playable with visuals on desktop and on a physical Android device;
 a seeded hotseat game matches the console's result for the same seed; deckbuilder validates
-against engine rules; AI plays custom decks without assuming a mirrored opponent decklist; a
-backgrounded game resumes; a new player can learn the type cycle without external explanation;
-`Shapes.Core` unmodified from Phase 4.
+against engine rules; a backgrounded game resumes; a new player can learn the type cycle from the
+in-app rules page without external explanation; `Shapes.Core` unmodified from Phase 4.
+
+**Two criteria were dropped rather than met, both deliberately.** "AI plays custom decks without
+assuming a mirrored opponent decklist" went with D1 — it was a measurement-quality bar, and
+measurement is `Shapes.Sim`'s job; the standing caveat above is the honest version of it. Per-card
+stats in the client (C4b) went for a sharper reason: it would have displayed symmetric-deck numbers
+inside the one screen built for asymmetric decks. If D5's multiplayer is built, add one more:
+a networked game must produce the same result on both clients, asserted by state hash, not by
+watching it look right.
 
 **The console and `Shapes.Sim` remain the card pipeline — permanently, not transitionally.** They
 answer questions Godot structurally cannot. `Shapes.Sim` is where a card is *measured*: Phase 4

@@ -45,6 +45,7 @@ public partial class BoardView : Control
     [Export] public NodePath MenuPanelPath { get; set; } = "MenuPanel";
     [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
     [Export] public NodePath BoardAnimatorPath { get; set; } = "BoardAnimator";
+    [Export] public NodePath TypeCycleChartPath { get; set; } = "TypeCycleChart";
     [Export] public NodePath HandPath { get; set; } = "Hand";
 
     private PlayerPanel? _opponentPanel;
@@ -55,6 +56,7 @@ public partial class BoardView : Control
     private Button? _cancelTargetingButton;
     private MenuPanel? _menuPanel;
     private HoverDetailPanel? _hoverDetailPanel;
+    private TypeCycleChart? _typeCycleChart;
     private BoardAnimator? _boardAnimator;
 
     // Lives here rather than inside a PlayerPanel because the board frame (PLAN.md 5.C-UI) wraps
@@ -91,6 +93,7 @@ public partial class BoardView : Control
         _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
         _boardAnimator = GetNode<BoardAnimator>(BoardAnimatorPath);
         _hand = GetNode<HandFan>(HandPath);
+        _typeCycleChart = GetNode<TypeCycleChart>(TypeCycleChartPath);
 
         foreach (var panel in new[] { _opponentPanel!, _selfPanel! })
         {
@@ -171,6 +174,12 @@ public partial class BoardView : Control
         // each panel is handed the other side's score subtracted from ScoreToWin. Derived from
         // the ruleset rather than hardcoded to 7 so a balance sweep that retunes scoreToWin can
         // not leave this reading a stale maximum.
+        // The always-visible type cycle in the top-left corner. Fed from the LIVE ruleset rather
+        // than drawn from a fixed cycle, so a balance sweep that retunes what beats what (or the
+        // 2x multiplier) cannot leave the diagram confidently contradicting the damage code.
+        // SetChart ignores a repeat of the same instance, so this costs nothing per Render.
+        _typeCycleChart!.SetChart(state.Rules.TypeChart);
+
         var scoreToWin = state.Rules.ScoreToWin;
         _opponentSide!.Render(waitingState, scoreToWin - activeState.Score);
         _selfSide!.Render(activeState, scoreToWin - waitingState.Score);

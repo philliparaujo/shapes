@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dv6q0boardview001"]
+[gd_scene load_steps=12 format=3 uid="uid://dv6q0boardview001"]
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://Scripts/SidePanel.cs" id="9_sidepanel"]
 [ext_resource type="Script" path="res://Scripts/SideRail.cs" id="10_siderail"]
 [ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="11_backdrop"]
+[ext_resource type="Script" path="res://Scripts/TypeCycleChart.cs" id="12_typecycle"]
 
 [node name="BoardView" type="Control"]
 layout_mode = 3
@@ -127,6 +128,16 @@ grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 script = ExtResource("8_handfan")
+
+[node name="TypeCycleChart" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 18.0
+offset_top = 14.0
+offset_right = 182.0
+offset_bottom = 178.0
+mouse_filter = 2
+script = ExtResource("12_typecycle")
 
 [node name="BoardAnimator" type="Control" parent="."]
 layout_mode = 1
