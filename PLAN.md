@@ -11,9 +11,9 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 16 / 23    |
+| 5 — Godot client                         | 17 / 23    |
 
-951 tests passing. **Phases 1, 2, 3, and 4 are complete.**
+1165 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
@@ -23,8 +23,9 @@ ends at a *correct* search, not a fast or tuned one.
 **In progress: Phase 5** — the Godot client. Milestones A, B, and C are done (only card art
 authoring remains outstanding from B). A hotseat game is playable end to end in the editor with
 drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
-and the in-game pause menu. What remains is Milestone D: UI polish, audio, an optional
-friends-only multiplayer step, and export last. Content is settled at `v1.7-final` and the balance
+and the in-game pause menu, and the screen is drawn from a fixed seat when you are playing an AI
+rather than flipping to its side on its turn (D1). What remains in Milestone D: UI polish, audio, an
+optional friends-only multiplayer step, and export last. Content is settled at `v1.7-final` and the balance
 record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
 at large samples (see that phase's closing note).
 
@@ -262,7 +263,12 @@ Phases 1–3 measured on fixed symmetric decks deliberately, so varying decks di
 win-rate with deck-composition effects — and **that is still the default**, so every number in
 `balance/LOG.md` stays comparable to a fresh `--deck default` run.
 
-> **⚠️ Determinizer caveat (permanent, accepted — the migration was cut at D1).** IS-MCTS on
+> **⚠️ Determinizer caveat (permanent, accepted — the migration was cut, and this is where its
+> reasoning lives).** The plan was to migrate IS-MCTS off the supplied-decklist cheat onto a real
+> belief distribution. Dropped because the debt it pays off is **a measurement debt, and measurement
+> is `Shapes.Sim`'s job, not the client's** — against a human the cheat is a *difficulty* setting,
+> not a correctness bug, and one that makes the AI stronger, which is the direction a solo player
+> wants. IS-MCTS on
 > non-symmetric decks works by being handed its opponent's **real decklist**
 > (`Determinizer(cards, opponentDeck)`). Hand contents and deck order are still hidden and sampled,
 > but deck *composition* is not — the agent knows which 40 cards the opponent drew from, which a
@@ -516,7 +522,7 @@ games run ~2 turns shorter; the fix is a ruleset knob, not a card edit, and Phas
 will move it again. **Archetype balance was always out of scope** — not measurable on a symmetric
 deck where both seats hold every card.
 
-### Phase 5 — Godot client (desktop + mobile) — 16/23, in progress
+### Phase 5 — Godot client (desktop + mobile) — 17/23, in progress
 
 Target Windows/macOS/Linux desktop and Android from one codebase. Organised as four milestones:
 A got the full rules onto one screen with no art; B made it feel like a game (interaction model,
@@ -603,8 +609,8 @@ seeded Godot game matching the same seed's console result.
   agent factory had been handing both seats seat one's decklist, which only became wrong once the
   seats could differ — and `SavedMatch` now persists both decklists, without which a resumed
   custom-deck game replays its action log against the wrong deal. The determinizer still reads the
-  opponent's supplied decklist, and now permanently — that migration was cut at D1; see the Deck
-  model caveat above for what the standing consequence is.
+  opponent's supplied decklist, and now permanently — that migration was cut; see the Deck model
+  caveat above for the reasoning and the standing consequence.
 - [x] **C3. Persistence** (`user://`): decks, settings, progress — the durable-data half C6 didn't
   cover. Deck slots persist through `DeckStore` (write-through on every edit, one cached JSON
   document, corrupt-file-tolerant), mirroring `MatchSaveStore`'s pure-adapter/Godot-IO split.
@@ -633,16 +639,78 @@ seeded Godot game matching the same seed's console result.
 
 #### Milestone D — ship — 1/5
 
-- [x] **D1. Determinizer migration — cut.** The plan was to migrate IS-MCTS off the supplied-decklist
-  cheat onto a real belief distribution. Dropped because the debt it pays off is **a measurement
-  debt, and measurement is `Shapes.Sim`'s job, not the client's.** Its one real consequence stands
-  unchanged and is already documented at the Deck model warning above: an `ismcts` win rate on
-  `--deck random`/`--deck custom` is an optimistic bound and must never be compared against a
-  symmetric-deck run. That caveat costs nothing to keep honoring, and Phase 4's balance record is
-  entirely symmetric-deck, so nothing in `balance/LOG.md` is affected. Against a human the cheat is
-  a *difficulty* setting, not a correctness bug — and one that makes the AI stronger, which is the
-  direction a solo player wants. Revisit only if custom-deck AI strength is ever itself the
-  question being measured.
+- [x] **D1. Viewer seat — separate "whose turn" from "whose screen."** Replaced the cut determinizer
+  migration (whose reasoning now lives with the Deck model caveat above, where its standing
+  consequence already was), and took the client-side half of D4 forward: `BoardView.Render` computed
+  `self = state.ActivePlayer`, so the board flipped seats every turn. That is correct for hotseat,
+  which was the only mode that existed when it was written, and wrong for both modes that came after
+  it. **Sequenced first in this milestone because it was a correctness bug in shipped single-player,
+  not preparation for a feature that may never be built** — D4 already identified it as "a refactor
+  this codebase wants regardless," and doing it here leaves D4's decision step about the server and
+  nothing else.
+
+  **What was wrong.** `ActivePlayer` was doing three jobs at once: engine turn order, which row is
+  the bottom row, and whose hand is legible. Hand-hiding was `PlayerPanel.RenderHand` early-returning
+  unless `isActiveHand` — hiding by *not drawing*, the console's step 2.5 precedent, which is sound
+  only while one screen serves both seats. Against an AI seat this fanned the AI's hand face-up at
+  the bottom of the screen and mirrored the board mid-game, once per AI action, held for
+  `MoveDelaySeconds` by `RunAiTurns`' per-action `RefreshAll`. The player watched their opponent's
+  turn from inside their opponent's seat, holding their cards.
+
+  **What landed.** `ViewerMode` in `Shapes.Godot.Adapter`: `FollowsActive` (hotseat, and the right
+  way to watch AI-vs-AI) or `Fixed(PlayerId)` (one human seat, later a network client), with
+  `ViewerMode.For(seatOne, seatTwo)` deriving which — exactly one `AgentKind.Human` seat gives
+  `Fixed(thatSeat)`, otherwise `FollowsActive`, so **local two-player hotseat kept its flipping
+  behaviour unchanged and needed no lobby control**. `MatchConfig.Viewer` is a *derived property*
+  rather than a stored field, which is why resume needed no changes at all: `SavedMatch` already
+  persists both `SeatConfig`s, so a save written before D1 resumes with the correct perspective
+  instead of a defaulted one. `GameRoot` resolves it per read (never cached — under `FollowsActive`
+  the answer changes with the turn) and passes it into `Render`, which stops deriving it; the rail,
+  avatars, identity and hand fan all follow from that one substitution.
+
+  **The load-bearing split was in `PlayerPanel`.** `isActiveHand` conflated "this is my hand" with "I
+  may act"; it became `showHand: player == viewer` and `interactive: showHand && viewer ==
+  state.ActivePlayer`. That is the piece that makes the AI case correct rather than merely stable: on
+  the AI's turn the human keeps seeing their own hand, inert, instead of the board changing sides.
+  One guard on `GameRoot.Submit` makes input outside your turn a no-op — D4's generalization of
+  `_aiTurnInProgress` to "not my turn," arriving early and testable with no transport.
+
+  **Four defects the plan for this step did not name, each found while implementing it.** Move
+  usability was gated on `slot.Owner == state.ActivePlayer`, a correct reading of "is this mine" only
+  while the viewer *was* the active player — under `Fixed` it lit the opponent's move buttons up as
+  usable on their own turn; merge-drag had the identical defect. `playableIds`/`discardableIds` are
+  built from the active player's action list, so applied to the viewer's cards during an opponent
+  turn they highlighted cards by card-id coincidence. And `PlayAnimation` was oriented by
+  `ActivePlayer`, which on a board that no longer turns around plays the AI's attack travelling *away*
+  from the human it is aimed at. All four are the same root cause as the headline bug — a seat
+  identity standing in for a perspective — which is the argument for having done this as one step.
+
+  **One thing added beyond the brief:** the End Turn button now reads "Opponent's turn N" when it is
+  not yours. The old design could leave that implicit because the board itself flipped; once the view
+  stops moving, a disabled button is too subtle to carry the distinction alone.
+
+  **Not in scope, deliberately: redaction.** Clients still hold the full `GameState` including both
+  hands; secrecy remains cosmetic. Fine for local play and *not* fine over a wire, but the fix (a
+  per-seat projection on the wire, for which `Shapes.Ai`'s `ObservedState` is already the right shape
+  and already written) only pays off against a real server — pulling it in would have made this step
+  depend on D4's decision instead of standing free of it. It stays listed under D4.
+
+  **Verified** by two headless harnesses that assert against the live `GameState` and the real
+  `CardFace` nodes rather than eyeballing a screenshot: the vs-AI case held the human's hand on
+  screen for all ~475 frames of the AI's turn with the viewer never moving off seat two (human in
+  seat *two* deliberately — seat one is the case a "just check player one" derivation gets right by
+  accident), and the hotseat case still follows the active seat across a handover. The check was
+  itself checked: reverting `Viewer` to the old expression produced **912 violations** naming the
+  AI's four visible cards, so the assertion can actually go red. 1165 unit tests pass;
+  `Shapes.Core` untouched.
+
+  **Debt:** the two harnesses (`ViewerSeatShotHarness`, `HotseatFlipShotHarness`) are temporary
+  scaffolding on the `UiShotHarness` pattern, and the read-only accessors they need
+  (`CardFace.CardId`/`IsDraggable`, `GameRoot.SessionForTesting`/`ViewerForTesting`) exist only for
+  them — delete together. Their screenshot half is a no-op under `--headless` (the dummy driver has
+  no viewport texture), so **nobody has visually confirmed the new frame reads well** — that the
+  inert hand looks deliberately inert rather than broken. Worth one windowed run during D2's polish
+  pass, which is the step that would act on the answer.
 - [ ] **D2. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
   consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state
   polish (hover/selected/legal-target states), and card art integration once B1c completes.
@@ -662,14 +730,16 @@ seeded Godot game matching the same seed's console result.
   the wire format is **seed + ordered action log**, not board snapshots — and `GameSession.Resume`
   *is* the reconnect path, already written and already exercised by C6.
 
-  **The real work is client-side, and it is a refactor this codebase wants regardless.**
-  `BoardView.Render` computes `self = state.ActivePlayer` — correct for hotseat, where the screen
-  flips each turn, and wrong for online, where "self" is a fixed local seat no matter whose turn it
-  is. Threading a `LocalSeat` through `BoardView`/`PlayerPanel`/`SideRail` and the targeting paths is
-  the bulk of the effort. Two further pieces: `GameRoot.Submit` assumes submit-then-refresh and must
-  accept actions arriving unprompted (`_aiTurnInProgress` generalizes to "not my turn"), and the
-  failure states — disconnect, timeout, concede, rejected action — which are boring, unavoidable,
-  and always underestimated.
+  **The client-side seat refactor is no longer part of this step — D1 took it.** What was the bulk
+  of this item's effort (threading a viewer seat through `BoardView`/`PlayerPanel`/`SideRail` and the
+  targeting paths, and generalizing `_aiTurnInProgress` to "not my turn") is done standalone there,
+  for the single-player reasons in D1's own entry, so a `Fixed(PlayerId)` viewer already exists for a
+  network client to reuse. Three pieces remain here. **Redaction**, which D1 explicitly left alone:
+  clients today hold the full `GameState` including both hands, so hidden information is enforced by
+  what is drawn rather than by what is sent — over a wire it has to become a per-seat projection,
+  and `Shapes.Ai`'s `ObservedState` is already that projection. `GameRoot.Submit` must accept actions
+  arriving unprompted rather than only submit-then-refresh. And the failure states — disconnect,
+  timeout, concede, rejected action — which are boring, unavoidable, and always underestimated.
 
   **Do the seam first, decide on the server second.** Define `IMatchTransport` (queue / send action /
   receive action / disconnected) with a `LocalTransport` covering today's hotseat and AI games. Every
@@ -705,8 +775,9 @@ against engine rules; a backgrounded game resumes; a new player can learn the ty
 in-app rules page without external explanation; `Shapes.Core` unmodified from Phase 4.
 
 **Two criteria were dropped rather than met, both deliberately.** "AI plays custom decks without
-assuming a mirrored opponent decklist" went with D1 — it was a measurement-quality bar, and
-measurement is `Shapes.Sim`'s job; the standing caveat above is the honest version of it. Per-card
+assuming a mirrored opponent decklist" went with the cut determinizer migration — it was a
+measurement-quality bar, and measurement is `Shapes.Sim`'s job; the standing caveat above is the
+honest version of it. Per-card
 stats in the client (C4b) went for a sharper reason: it would have displayed symmetric-deck numbers
 inside the one screen built for asymmetric decks. If D5's multiplayer is built, add one more:
 a networked game must produce the same result on both clients, asserted by state hash, not by

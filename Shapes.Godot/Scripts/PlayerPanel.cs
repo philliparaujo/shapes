@@ -60,13 +60,20 @@ public partial class PlayerPanel : Control
         _slotContainer = GetNode<HBoxContainer>(SlotContainerPath);
     }
 
+    // `showHand` and `interactive` were one flag (`isActiveHand`) until PLAN.md D1 split them.
+    // They answer different questions and only coincided because the board used to flip every
+    // turn: "is this the viewer's own hand, so should its cards be face-up" is a question about
+    // PERSPECTIVE, while "may this seat act right now" is a question about TURN ORDER. Against an
+    // AI seat those come apart for the whole of the opponent's turn, and collapsing them back
+    // together is exactly what would put the AI's hand face-up on screen again.
     public void Render(
-        GameState state, CardDatabase cards, PlayerId player, bool isActiveHand,
+        GameState state, CardDatabase cards, PlayerId player, bool showHand, bool interactive,
         IReadOnlyList<GameAction> legalActions)
     {
-        // A targetless spell can be dropped anywhere on the active player's own panel, not a
-        // specific slot -- only offered on the self panel while it's that player's turn.
-        _acceptsSpellDrop = isActiveHand && legalActions.OfType<PlayCardAction>()
+        // A targetless spell can be dropped anywhere on the player's own panel, not a specific
+        // slot -- offered only on the viewer's own panel, and only while it is actually their
+        // turn, so a drag started during the opponent's turn has nowhere to land.
+        _acceptsSpellDrop = interactive && legalActions.OfType<PlayCardAction>()
             .Any(a => a.TargetSlot is null && a.ChosenTarget is null);
 
         // Neither panel expands any more (PLAN.md 5.C-UI): each is exactly as tall as its slot
@@ -76,11 +83,13 @@ public partial class PlayerPanel : Control
         // The old Spacer went with it: as an expanding child it was the slack that made the
         // frame taller than the slots it wraps.
 
-        RenderSlots(state, cards, player, legalActions);
-        RenderHand(state, cards, player, isActiveHand, legalActions);
+        RenderSlots(state, cards, player, interactive, legalActions);
+        RenderHand(state, cards, player, showHand, interactive, legalActions);
     }
 
-    private void RenderSlots(GameState state, CardDatabase cards, PlayerId player, IReadOnlyList<GameAction> legalActions)
+    private void RenderSlots(
+        GameState state, CardDatabase cards, PlayerId player, bool interactive,
+        IReadOnlyList<GameAction> legalActions)
     {
         // RemoveChild before QueueFree, not QueueFree alone: QueueFree only marks a node for
         // deletion at end of frame, so a bare QueueFree leaves the old SlotViews as children of
@@ -122,10 +131,15 @@ public partial class PlayerPanel : Control
                     .Select(move => MoveText.Of(move, state.CostOfMove(slot.Owner, move.Cost)))
                     .ToList();
 
-                var isOwnCreature = slot.Owner == state.ActivePlayer;
+                // Usable only if this panel is the viewer's own AND it is their turn (PLAN.md D1).
+                // The `slot.Owner == state.ActivePlayer` test this replaces was a correct reading
+                // of "is this my creature" only while the viewer WAS the active player -- under a
+                // Fixed viewer it would light up the opponent's move buttons as usable on the
+                // opponent's turn. `interactive` already carries both halves, and the panel is
+                // rendered for exactly one seat, so no separate ownership test is needed.
                 for (var i = 0; i < moveDefs.Count; i++)
                 {
-                    var isUsable = isOwnCreature && legalActions.OfType<UseMoveAction>()
+                    var isUsable = interactive && legalActions.OfType<UseMoveAction>()
                         .Any(a => a.SourceSlot == slot && a.MoveIndex == i);
                     moves.Add((i, boardMoves[i], isUsable));
                 }
@@ -142,7 +156,9 @@ public partial class PlayerPanel : Control
                     .Select(t => t!)];
             }
 
-            var isDraggable = creature is not null && legalActions.OfType<MergeAction>()
+            // Same gate as the move buttons: a merge drag is an action, so it needs the viewer's
+            // own turn, not merely a creature that has a legal merge somewhere in the list.
+            var isDraggable = interactive && creature is not null && legalActions.OfType<MergeAction>()
                 .Any(a => a.SourceSlot == slot);
 
             slotView.Render(slot, creature, cards, isDraggable, moves, hoverCards);
@@ -157,19 +173,25 @@ public partial class PlayerPanel : Control
     }
 
     private void RenderHand(
-        GameState state, CardDatabase cards, PlayerId player, bool isActiveHand,
+        GameState state, CardDatabase cards, PlayerId player, bool showHand, bool interactive,
         IReadOnlyList<GameAction> legalActions)
     {
-        // Waiting seat's hand renders as nothing here -- PLAN.md's console precedent (step 2.5)
-        // carried over: hiding is done by suppressing what this view shows, not by handing it a
-        // narrowed ObservedState, so --reveal-style debugging stays possible later without
-        // restructuring this method. The card count itself lives in BoardView's status bar now,
-        // next to the opponent's score/resources, not in the hand row.
+        // The seat the viewer is NOT sitting in renders no hand here -- PLAN.md's console
+        // precedent (step 2.5) carried over: hiding is done by suppressing what this view shows,
+        // not by handing it a narrowed ObservedState, so --reveal-style debugging stays possible
+        // later without restructuring this method. The card count itself lives in BoardView's
+        // status bar now, next to the opponent's score/resources, not in the hand row.
         //
-        // Checked before touching _handContainer: the waiting seat is given no fan at all now
-        // that the hand lives outside the panels (see AttachHand), and clearing it here would
-        // wipe the cards the self panel had just laid out into the shared node.
-        if (!isActiveHand || _handContainer is null)
+        // Gated on showHand rather than on "is it this seat's turn" (PLAN.md D1): those were the
+        // same flag until a Fixed viewer made them differ, and this is the line that decides
+        // whether an opponent's hand is face-up on screen. Keying it to perspective means the AI's
+        // hand stays hidden on the AI's own turn -- which under the old flag was precisely when it
+        // was revealed.
+        //
+        // Checked before touching _handContainer: the other seat is given no fan at all now that
+        // the hand lives outside the panels (see AttachHand), and clearing it here would wipe the
+        // cards the viewer's panel had just laid out into the shared node.
+        if (!showHand || _handContainer is null)
         {
             return;
         }
@@ -184,8 +206,17 @@ public partial class PlayerPanel : Control
 
         var hand = state[player].Hand;
 
-        var playableIds = legalActions.OfType<PlayCardAction>().Select(a => a.CardId).ToHashSet();
-        var discardableIds = legalActions.OfType<DiscardAction>().Select(a => a.CardId).ToHashSet();
+        // Empty unless it is actually the viewer's turn (PLAN.md D1). `legalActions` is always the
+        // ACTIVE player's list, so during the opponent's turn these sets would otherwise describe
+        // the OPPONENT's options while being applied to the VIEWER's cards -- lighting up cards as
+        // draggable by card-id coincidence. The viewer's hand stays on screen either way; it just
+        // renders as unplayable, which is what "wait, it's not your turn" should look like.
+        var playableIds = interactive
+            ? legalActions.OfType<PlayCardAction>().Select(a => a.CardId).ToHashSet()
+            : [];
+        var discardableIds = interactive
+            ? legalActions.OfType<DiscardAction>().Select(a => a.CardId).ToHashSet()
+            : [];
 
         // No clearance spacer here any more (it used to push the first cards clear of
         // HoverDetailPanel's fixed bottom-left box): HandFan lays out every child as a card, so a

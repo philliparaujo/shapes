@@ -65,6 +65,12 @@ public partial class GameRoot : Control
     private Dictionary<PlayerId, IAgent?> _agents = new();
     private readonly CancellationTokenSource _aiTurnToken = new();
 
+    // Whose seat the screen is drawn from (PLAN.md D1) -- resolved per Render from the two seat
+    // configs, never stored as a seat, so it cannot drift from the match it describes. Defaults to
+    // hotseat, matching the fallback everywhere else here: a GameRoot.tscn opened directly in the
+    // editor has no MatchConfig and is a two-human game, which is the mode that flips.
+    private ViewerMode _viewerMode = ViewerMode.Hotseat;
+
     // Guards against RunAiTurns being entered twice concurrently -- Submit calls it after every
     // human action, and a fast double-submit (or a human action landing while a prior RunAiTurns
     // call is still mid-await) would otherwise start a second loop racing the first over the same
@@ -245,6 +251,14 @@ public partial class GameRoot : Control
     // agent's own RNG stream is derived from the match seed.
     private void BuildAgents(ulong seed, MatchConfig? config)
     {
+        // Perspective is decided from the same config, in the same place, as the agents (PLAN.md
+        // D1) -- the two answer one question between them ("which seats are human, and which of
+        // them is looking at this screen"), and deriving them apart is how they would drift. A
+        // null config is the direct-from-editor case: two humans, hotseat, board flips.
+        _viewerMode = config is null
+            ? ViewerMode.Hotseat
+            : ViewerMode.For(config.PlayerOne, config.PlayerTwo);
+
         // The deck each agent's OPPONENT is playing -- asked for PER SEAT, because the two seats
         // can now be playing different decklists (PLAN.md C2). It must be passed, because an
         // IS-MCTS agent without it determinizes against the ruleset's SYMMETRIC decklist instead,
@@ -365,6 +379,19 @@ public partial class GameRoot : Control
         MatchSaveStore.Save(saved);
     }
 
+    // The seat the screen is currently drawn from (PLAN.md D1). Resolved on each read rather than
+    // cached, because under FollowsActive the answer changes with the turn -- caching it would
+    // reintroduce the stale-perspective bug in a new place.
+    private PlayerId Viewer =>
+        _viewerMode.Resolve(_session?.State.ActivePlayer ?? PlayerId.One);
+
+    // Read-only access for the in-editor harnesses (ViewerSeatShotHarness), which need to compare
+    // what is drawn against what the engine actually holds. Deliberately not a general seam: this
+    // node stays the only thing that submits actions, and nothing here lets a caller do that.
+    public GameSession? SessionForTesting => _session;
+
+    public PlayerId ViewerForTesting => Viewer;
+
     private void RefreshAll()
     {
         if (_session is null || _cards is null || _boardView is null)
@@ -373,7 +400,7 @@ public partial class GameRoot : Control
         }
 
         var legalActions = _session.LegalActions();
-        _boardView.Render(_session.State, _cards, legalActions);
+        _boardView.Render(_session.State, _cards, legalActions, Viewer);
 
         if (_session.State.IsOver)
         {
@@ -433,7 +460,12 @@ public partial class GameRoot : Control
                 _actionLog.Add(action);
                 SaveProgress();
                 RefreshAll();
-                _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
+
+                // Oriented to the VIEWER, not the active player (PLAN.md D1): BoardAnimator mirrors
+                // its cues about the seat it is given, so passing the acting seat here would play
+                // the AI's attack travelling up the screen -- away from the human it is aimed at --
+                // now that the board no longer turns around to match.
+                _boardView.PlayAnimation(diff, Viewer);
 
                 // Paces every agent uniformly, not just the fast ones -- an IS-MCTS search that
                 // already took visible time still gets the same beat before the next action, so
@@ -661,6 +693,20 @@ public partial class GameRoot : Control
             return;
         }
 
+        // Nothing may be submitted on a seat the viewer is not sitting in (PLAN.md D1). Every
+        // handler that reaches here already filtered against `LegalActions()`, but that list
+        // belongs to the ACTIVE player, so during an AI turn a stray click could match a legal
+        // action and submit it on the AI's behalf. Under FollowsActive the viewer IS the active
+        // player and this never fires; under Fixed it is the whole of "wait your turn."
+        //
+        // This is also D4's generalization of `_aiTurnInProgress` to "not my turn," arriving early:
+        // an action from a remote seat will be applied by a different path than local input, and
+        // this guard is what keeps local input out of it.
+        if (Viewer != _session.State.ActivePlayer)
+        {
+            return;
+        }
+
         // The StateDiff A2 built this whole adapter to produce, finally consumed (PLAN.md B1d).
         // Captured BEFORE RefreshAll, because it describes the transition into the state that
         // RefreshAll is about to draw -- and played after, so the cues land over the new board.
@@ -669,7 +715,10 @@ public partial class GameRoot : Control
         SaveProgress();
         _boardView!.ClearSelection();
         RefreshAll();
-        _boardView.PlayAnimation(diff, _session.State.ActivePlayer);
+
+        // The viewer's own seat, same as RunAiTurns -- see its note on why the animation is
+        // oriented to who is WATCHING rather than to who acted.
+        _boardView.PlayAnimation(diff, Viewer);
 
         // A human action can hand the turn straight to an AI seat (or all the way back to the
         // same human, if the action didn't end the turn) -- RunAiTurns is the one place that

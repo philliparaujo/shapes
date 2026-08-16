@@ -82,6 +82,60 @@ public class MatchConfigTests
         Assert.Contains(chosenTwo, contextTwo.LegalActions);
     }
 
+    // PLAN.md D1: the viewer seat is derived from the seat configs, never picked in the lobby, so
+    // these cases ARE the feature -- every one of them is a mode the UI has to render correctly,
+    // and getting the derivation wrong is how the AI's hand ends up face-up on screen again.
+    private static SeatConfig Ai(AgentKind kind = AgentKind.Greedy) => new(kind, Iterations: 50);
+
+    [Fact]
+    public void Human_versus_ai_pins_the_view_to_the_human_seat()
+    {
+        // The bug D1 exists to fix: this configuration used to flip the board on the AI's turn.
+        var seatOne = ViewerMode.For(SeatConfig.Human, Ai());
+        Assert.Equal(PlayerId.One, seatOne.Resolve(PlayerId.One));
+        Assert.Equal(PlayerId.One, seatOne.Resolve(PlayerId.Two));
+    }
+
+    [Fact]
+    public void Ai_versus_human_pins_the_view_to_the_human_in_seat_two()
+    {
+        // The mirror case, which is the one a "just check seat one" implementation gets wrong.
+        var seatTwo = ViewerMode.For(Ai(), SeatConfig.Human);
+        Assert.Equal(PlayerId.Two, seatTwo.Resolve(PlayerId.One));
+        Assert.Equal(PlayerId.Two, seatTwo.Resolve(PlayerId.Two));
+    }
+
+    [Fact]
+    public void Two_humans_keep_the_hotseat_flip()
+    {
+        // D1's compatibility bar: local two-player must behave exactly as it always has, since
+        // one screen passed between two people is the case where flipping is correct.
+        var hotseat = ViewerMode.For(SeatConfig.Human, SeatConfig.Human);
+        Assert.Equal(PlayerId.One, hotseat.Resolve(PlayerId.One));
+        Assert.Equal(PlayerId.Two, hotseat.Resolve(PlayerId.Two));
+    }
+
+    [Fact]
+    public void An_all_ai_match_follows_whichever_agent_is_acting()
+    {
+        // No human seat to anchor to, so following the active player is what makes a spectated
+        // game readable -- each agent's hand is shown as it acts.
+        var spectating = ViewerMode.For(Ai(AgentKind.Random), Ai(AgentKind.IsMcts));
+        Assert.Equal(PlayerId.One, spectating.Resolve(PlayerId.One));
+        Assert.Equal(PlayerId.Two, spectating.Resolve(PlayerId.Two));
+    }
+
+    [Fact]
+    public void MatchConfig_derives_its_viewer_from_its_seats()
+    {
+        // Derived, not stored: a resumed match re-derives the right viewer from the SeatConfigs
+        // SavedMatch already persists, so a save written before D1 resumes with the correct
+        // perspective rather than a defaulted one.
+        var config = new MatchConfig(SeatConfig.Human, Ai(), Seed: 42);
+
+        Assert.Equal(PlayerId.One, config.Viewer.Resolve(PlayerId.Two));
+    }
+
     [Fact]
     public void An_all_ai_match_runs_to_completion()
     {

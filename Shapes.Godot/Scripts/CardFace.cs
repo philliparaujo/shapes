@@ -62,6 +62,14 @@ public partial class CardFace : Button
     private bool _isDraggable;
     private CardText? _text;
 
+    // Which card this face is showing, and whether it can currently be picked up. Read-only
+    // projections of the two fields above, for harnesses that need to assert on what is actually
+    // on screen (PLAN.md D1's check that the fan holds the VIEWER's hand, and that it goes inert
+    // on the opponent's turn) -- a screenshot cannot answer either question by itself.
+    public string? CardId => _cardId;
+
+    public bool IsDraggable => _isDraggable;
+
     // A CardFace is a fixed-size object: exactly CardMetrics.HandCardSize, never larger. Godot's
     // default is the opposite -- a Control reports its content's combined minimum and the parent
     // grows it to fit -- which is what let a card with a long move description stand taller than

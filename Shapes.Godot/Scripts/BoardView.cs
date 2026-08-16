@@ -209,24 +209,39 @@ public partial class BoardView : Control
         return $"Player {player.ToIndex() + 1} - {display}";
     }
 
-    public void Render(GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions)
+    // `viewer` is the seat this screen is drawn from -- NOT necessarily the seat whose turn it is
+    // (PLAN.md D1). This method used to compute `self = state.ActivePlayer` itself, which made the
+    // board flip sides every turn; that is right for hotseat and wrong against an AI, so the
+    // decision moved up to GameRoot's ViewerMode and arrives here as a parameter.
+    //
+    // Everything below keys off these two locals, so this substitution is the whole perspective
+    // change: the panels, the rail, the avatars, the identities and the hand fan all follow.
+    public void Render(
+        GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions, PlayerId viewer)
     {
-        var active = state.ActivePlayer;
-        var waiting = active.Opponent();
+        var self = viewer;
+        var other = self.Opponent();
 
-        // Only the self panel ever draws a hand, so it is the only one given the shared fan --
+        // Whether the viewer may actually ACT this frame -- distinct from whose board is on the
+        // bottom. Under FollowsActive these coincide (the viewer is always the active player) and
+        // nothing changes; under Fixed they come apart exactly when the opponent is thinking, which
+        // is the case the split exists for: the human keeps their own hand on screen, inert, rather
+        // than the board turning around to show the AI's.
+        var isViewersTurn = self == state.ActivePlayer;
+
+        // Only the viewer's panel ever draws a hand, so it is the only one given the shared fan --
         // the opponent panel must not hold a reference to it, or its own (hidden-hand) render
         // would clear the cards the self panel just laid out.
         _opponentPanel!.AttachHand(null);
         _selfPanel!.AttachHand(_hand!);
 
-        _opponentPanel.Render(state, cards, waiting, isActiveHand: false, legalActions);
-        _selfPanel.Render(state, cards, active, isActiveHand: true, legalActions);
+        _opponentPanel.Render(state, cards, other, showHand: false, interactive: false, legalActions);
+        _selfPanel.Render(state, cards, self, showHand: true, interactive: isViewersTurn, legalActions);
 
         // Counts/resources/health live on the right rail now (PLAN.md 5.C-UI), not in the removed
         // top status bar. Read straight off GameState, the same way the status bar did.
-        var waitingState = state[waiting];
-        var activeState = state[active];
+        var otherState = state[other];
+        var selfState = state[self];
 
         // A seat's health is what is left of the win condition its OPPONENT is racing toward, so
         // each panel is handed the other side's score subtracted from ScoreToWin. Derived from
@@ -239,21 +254,22 @@ public partial class BoardView : Control
         _typeCycleChart!.SetChart(state.Rules.TypeChart);
 
         var scoreToWin = state.Rules.ScoreToWin;
-        _opponentSide!.Render(waitingState, scoreToWin - activeState.Score);
-        _selfSide!.Render(activeState, scoreToWin - waitingState.Score);
+        _opponentSide!.Render(otherState, scoreToWin - selfState.Score);
+        _selfSide!.Render(selfState, scoreToWin - otherState.Score);
 
-        // Re-applied per Render because the two panels change hands every turn -- the seat that
-        // was "self" last turn is "opponent" now, so the portraits must follow their players
-        // across. Setting the same texture twice is free: PlayerBadge.Portrait ignores a write
-        // that does not change the value, so this only redraws on an actual swap.
-        _opponentSide.SetAvatar(AvatarOf(waiting));
-        _selfSide.SetAvatar(AvatarOf(active));
+        // Re-applied per Render because under FollowsActive the two panels change hands every turn
+        // -- the seat that was "self" last turn is "opponent" now, so the portraits must follow
+        // their players across. Under Fixed the mapping never moves and these are all no-ops:
+        // setting the same texture twice is free, since PlayerBadge.Portrait ignores a write that
+        // does not change the value, so this only redraws on an actual swap.
+        _opponentSide.SetAvatar(AvatarOf(other));
+        _selfSide.SetAvatar(AvatarOf(self));
 
-        // Same "re-applied every Render because the panel/player mapping swaps" reasoning as the
-        // avatars just above -- whichever seat is "opponent" this turn shows THAT player's name,
-        // not a name fixed to the rail position.
-        _opponentSide.SetIdentity(IdentityOf(waiting));
-        _selfSide.SetIdentity(IdentityOf(active));
+        // Same "re-applied every Render because the panel/player mapping can swap" reasoning as
+        // the avatars just above -- whichever seat is "opponent" this frame shows THAT player's
+        // name, not a name fixed to the rail position.
+        _opponentSide.SetIdentity(IdentityOf(other));
+        _selfSide.SetIdentity(IdentityOf(self));
 
         // RenderSlots rebuilds every SlotView from scratch, which would silently drop
         // targeting highlights applied by BeginTargeting -- reapply them here so a Render
@@ -269,13 +285,25 @@ public partial class BoardView : Control
         // the End Turn button's enabled state and the rail's two panels, so the button carries
         // the turn NUMBER -- the one piece that had nowhere else to live -- and takes over the
         // label's job of announcing a discard/targeting prompt.
-        _endTurnButton!.Text = state.AwaitingDiscard
+        //
+        // Under a Fixed viewer the button also has to say whose turn it is OUTRIGHT (PLAN.md D1).
+        // The old design could leave that implicit because the board itself flipped -- the fact
+        // that you were looking at your own hand meant it was your turn. Once the view stops
+        // moving, a disabled End Turn button is the only thing distinguishing "your turn" from
+        // "theirs", which is too subtle to carry the distinction alone.
+        var prompt = state.AwaitingDiscard
             ? $"Discard {state.PendingDiscards}"
             : IsTargeting
                 ? "Choose a target"
                 : $"End Turn {state.TurnNumber}";
 
-        _endTurnButton.Disabled = !legalActions.OfType<EndTurnAction>().Any();
+        _endTurnButton!.Text = isViewersTurn ? prompt : $"Opponent's turn {state.TurnNumber}";
+
+        // Gated on the viewer's turn as well as legality: `legalActions` is always the ACTIVE
+        // player's list (GameSession.LegalActions has no seat parameter), so on the opponent's
+        // turn it still contains their EndTurnAction -- without this check the button would sit
+        // enabled and let the viewer end a turn that isn't theirs.
+        _endTurnButton.Disabled = !isViewersTurn || !legalActions.OfType<EndTurnAction>().Any();
 
         // The menu is NOT hidden here. It used to be -- the old game-over panel was re-hidden on
         // every Render and re-shown by GameRoot afterwards -- but the pause menu can be open over
