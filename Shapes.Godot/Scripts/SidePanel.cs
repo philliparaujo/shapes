@@ -41,6 +41,7 @@ public partial class SidePanel : Control
     private Label? _handCount;
     private Label? _deckCount;
     private HBoxContainer? _resourceRow;
+    private Label? _nameLabel;
 
     // Which side the badge hangs off is fixed, but the vertical order of the two rows mirrors
     // between seats in the reference: the opponent's counts sit above its resources, the
@@ -86,8 +87,25 @@ public partial class SidePanel : Control
 
         var counts = BuildCountsRow();
 
+        // "Player N - Deck Name" (SetIdentity), positioned nearest the End Turn button -- one
+        // slot further in than the resources row, which was already the row nearest the button
+        // for both seats (see the comment above on why resources/counts mirror). Between the
+        // panels and the button is exactly what was asked for, and it is the row every seat swap
+        // relabels: BoardView.Render assigns this panel to a different PlayerId each turn, so the
+        // text changes with it rather than being fixed to a rail position.
+        _nameLabel = new Label
+        {
+            MouseFilter = MouseFilterEnum.Ignore,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+            ClipText = true,
+        };
+        _nameLabel.AddThemeFontSizeOverride("font_size", 12);
+        _nameLabel.AddThemeColorOverride("font_color", LabelColor);
+
         if (_resourcesFirst)
         {
+            column.AddChild(_nameLabel);
             column.AddChild(_resourceRow);
             column.AddChild(counts);
         }
@@ -95,6 +113,7 @@ public partial class SidePanel : Control
         {
             column.AddChild(counts);
             column.AddChild(_resourceRow);
+            column.AddChild(_nameLabel);
         }
 
         // The badge is added AFTER the panel so it draws on top, and anchored rather than added
@@ -296,6 +315,12 @@ public partial class SidePanel : Control
     // This seat's avatar art. Set once per match by BoardView rather than passed through Render,
     // which runs on every hover and targeting refresh -- see PlayerBadge.Portrait.
     public void SetAvatar(Texture2D? portrait) => _badge!.Portrait = portrait;
+
+    // "Player N - Deck Name". Called every Render, same as SetAvatar just below it in BoardView --
+    // which PLAYER this text names is fixed for the whole match, but which SEAT (opponent/self
+    // panel) shows it swaps every turn, so the assignment has to be re-applied each time even
+    // though the string itself rarely changes.
+    public void SetIdentity(string text) => _nameLabel!.Text = text;
 
     // health is passed in rather than derived here: it is scoreToWin minus the OPPONENT's score,
     // which is a rule this view has no business knowing (see BoardView.Render).

@@ -181,6 +181,34 @@ public partial class BoardView : Control
     private Texture2D? AvatarOf(PlayerId player) =>
         _avatars.TryGetValue(player, out var texture) ? texture : null;
 
+    // Each seat's deck NAME (not the Deck itself -- this view has no business touching GameSession,
+    // per PLAN.md A2's boundary; GameRoot resolves the name once via GameSession.DeckOne/DeckTwo
+    // and hands it down, the same split SetAvatars already uses). Stored rather than formatted into
+    // "Player N - ..." here, so IdentityOf can reuse it against whichever PlayerId a panel is
+    // showing this Render -- the panel/player mapping swaps every turn, the deck name does not.
+    private readonly Dictionary<PlayerId, string> _deckNames = [];
+
+    public void SetDeckNames(string one, string two)
+    {
+        _deckNames[PlayerId.One] = one;
+        _deckNames[PlayerId.Two] = two;
+    }
+
+    // "Player N - Deck Name", shown between the rail panels and the End Turn button (the request's
+    // own wording). 1-based to match ShowGameOver's "Player N wins!" -- the same player-facing
+    // numbering everywhere else on this screen.
+    private string IdentityOf(PlayerId player)
+    {
+        var deckName = _deckNames.TryGetValue(player, out var name) ? name : DeckBuilder.DefaultDeckName;
+
+        // DeckBuilder.Default names the engine Deck "default" (lowercase, an id-shaped string
+        // meant for logs/reports -- see Deck.Name's own header). Lobby.PopulateDeckPicker never
+        // shows that literal string to a player; it hardcodes the friendlier "Default deck" label
+        // for the same slot instead, so this mirrors that rather than leaking the internal name.
+        var display = deckName == DeckBuilder.DefaultDeckName ? "Default deck" : deckName;
+        return $"Player {player.ToIndex() + 1} - {display}";
+    }
+
     public void Render(GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions)
     {
         var active = state.ActivePlayer;
@@ -220,6 +248,12 @@ public partial class BoardView : Control
         // that does not change the value, so this only redraws on an actual swap.
         _opponentSide.SetAvatar(AvatarOf(waiting));
         _selfSide.SetAvatar(AvatarOf(active));
+
+        // Same "re-applied every Render because the panel/player mapping swaps" reasoning as the
+        // avatars just above -- whichever seat is "opponent" this turn shows THAT player's name,
+        // not a name fixed to the rail position.
+        _opponentSide.SetIdentity(IdentityOf(waiting));
+        _selfSide.SetIdentity(IdentityOf(active));
 
         // RenderSlots rebuilds every SlotView from scratch, which would silently drop
         // targeting highlights applied by BeginTargeting -- reapply them here so a Render

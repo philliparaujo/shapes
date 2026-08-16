@@ -23,6 +23,12 @@ public sealed class DeckBuildException : Exception
 // caller still want it); this is the layer that turns a ruleset plus an intent into a Deck.
 public static class DeckBuilder
 {
+    // The internal name Default() gives its Deck -- an id meant for logs/reports (see Deck.Name's
+    // own header), not player-facing text. Named here so a caller that needs to recognize "this
+    // is the default deck" (e.g. Godot's BoardView, choosing a friendlier display label) checks
+    // against this constant rather than the literal string "default" recurring at every call site.
+    public const string DefaultDeckName = "default";
+
     // The default deck: exactly ONE copy of every card in the set.
     //
     // Deliberately exempt from RuleSet.DeckSize -- it is however many cards exist, currently ~36,
@@ -37,7 +43,7 @@ public static class DeckBuilder
     {
         ArgumentNullException.ThrowIfNull(cards);
 
-        return new Deck("default", cards.All.Select(c => c.Id));
+        return new Deck(DefaultDeckName, cards.All.Select(c => c.Id));
     }
 
     // An explicit decklist, validated against the ruleset's size and copy limits.

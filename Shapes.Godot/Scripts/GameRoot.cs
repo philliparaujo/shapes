@@ -151,6 +151,7 @@ public partial class GameRoot : Control
         _actionLog.Clear();
 
         AssignAvatars(seed);
+        AssignDeckNames();
         BuildAgents(seed, config);
 
         RefreshAll();
@@ -189,6 +190,7 @@ public partial class GameRoot : Control
         // Same seed as the interrupted game, so it resumes wearing the same two faces -- the
         // avatars are not in the save file, they are re-derived (see AvatarPicker's header).
         AssignAvatars(saved.Seed);
+        AssignDeckNames();
         BuildAgents(saved.Seed, config);
 
         RefreshAll();
@@ -215,6 +217,25 @@ public partial class GameRoot : Control
         _boardView.SetAvatars(
             one is null ? null : CardArt.TextureFor(one),
             two is null ? null : CardArt.TextureFor(two));
+    }
+
+    // Reads each seat's deck NAME off the live session, not off MatchConfig -- the config's deck
+    // is null for "default" (the same null-means-default convention GameSession.Start uses), so
+    // its Name would need re-deriving here; GameSession already resolved that null the moment
+    // Start/Resume ran (GameSession.DeckOne/DeckTwo fall back to DeckBuilder.Default internally),
+    // which is the one place this project wants that fallback decided. Called after _session
+    // exists in both StartNewGame and ResumeGame, alongside AssignAvatars, so the very first
+    // Render already has both names rather than a blank label for one frame.
+    private void AssignDeckNames()
+    {
+        if (_session is null || _boardView is null)
+        {
+            return;
+        }
+
+        _boardView.SetDeckNames(
+            _session.DeckOne?.Name ?? DeckBuilder.DefaultDeckName,
+            _session.DeckTwo?.Name ?? DeckBuilder.DefaultDeckName);
     }
 
     // Derived per-seat streams, not one shared source -- two agents drawing from a single
