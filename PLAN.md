@@ -20,10 +20,10 @@ comparison needs cards/rules **frozen**; balancing needs them **variable**. So P
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**In progress: Phase 5** — the Godot client. Milestones A and B are essentially done (only card art
-authoring remains); Milestone C is down to its last item, the C7 rules page, which is deferred into
-D2. A hotseat game is playable end to end in the editor with drag-and-drop, animation, an AI seat,
-and save/resume. What remains is Milestone D: rules page, UI polish, audio, an optional
+**In progress: Phase 5** — the Godot client. Milestones A, B, and C are done (only card art
+authoring remains outstanding from B). A hotseat game is playable end to end in the editor with
+drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
+and the in-game pause menu. What remains is Milestone D: UI polish, audio, an optional
 friends-only multiplayer step, and export last. Content is settled at `v1.7-final` and the balance
 record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
 at large samples (see that phase's closing note).
@@ -571,7 +571,7 @@ seeded Godot game matching the same seed's console result.
   too high-risk to touch. Two real bugs (scale/position ordering, a same-frame stale-child race)
   found post-playtest and fixed.
 
-#### Milestone C — the other scenes — 8/9 complete
+#### Milestone C — the other scenes — 9/9 complete
 
 - [x] **C1. Lobby / match setup with a working AI seat** — per-seat choice of Human/Random/Greedy/
   IS-MCTS/IS-MCTS-heuristic, mirroring the console's own agent factory. AI turns currently run
@@ -616,16 +616,22 @@ seeded Godot game matching the same seed's console result.
   silently on the next balance edit — the same failure `EffectText` exists to prevent for card text
   (A4). Stats stay in `Shapes.Sim`, which is where they can carry their own intervals and
   provenance. No code.
-- [ ] **C7. Rules info page** — one scrollable page explaining what the board cannot: the type
-  cycle, that merging can *increase* vulnerability, unopposed-slot scoring, and fatigue. **Not a
-  tutorial** — no scripted first game, no guided steps, no progress tracking, all of which are a
-  Milestone-D-sized surface on their own. Reachable from the lobby *and* from the in-game pause menu
-  (`BoardView.OpenPauseMenu`, which already exists), so a player stuck mid-match can read the rule
-  without abandoning the game. Static content: the four rules above are structural and none of them
-  moves under a balance edit, so hand-authored text is safe here in a way per-card text is not.
-  *(Moved to Milestone D.)*
+- [x] **C7. Rules info page** — a paginated overlay (`TutorialOverlay`) covering the full rule set,
+  not just the four board-can't-show items originally scoped: objective, economy, cards, the board,
+  type effectiveness (with the cycle diagram), scoring, merging (including that it can *increase*
+  vulnerability), and fatigue. **Not a tutorial** — no scripted first game, no guided steps, no
+  progress tracking; it is prose-and-pictures, paged with Prev/Next, closed by an X button or ESC.
+  Reachable from both the lobby (`Lobby`'s Rules button) and the in-game pause menu
+  (`BoardView.OpenPauseMenu` → `MenuPanel`'s Rules button), so a player stuck mid-match can read a
+  rule without abandoning the game, and a new player can read them before ever starting one. Content
+  is static hand-authored data (`TutorialContent`) rendered by pushing per-run font/color state onto
+  the same `RichTextLabel` formatting stack `InlineResourceIcons` already uses for card text — no
+  BBCode parsing, matching this project's rule that rules/card text is never markup. Images and two
+  cropped, autoplaying/looping gifs (converted to sprite sheets at import time; Godot has no native
+  .gif importer) live under `Art/rules/`, fit into a shared per-page image box so the panel reads as
+  one consistent layout across very different source aspect ratios.
 
-#### Milestone D — ship — 1/6
+#### Milestone D — ship — 1/5
 
 - [x] **D1. Determinizer migration — cut.** The plan was to migrate IS-MCTS off the supplied-decklist
   cheat onto a real belief distribution. Dropped because the debt it pays off is **a measurement
@@ -637,14 +643,12 @@ seeded Godot game matching the same seed's console result.
   a *difficulty* setting, not a correctness bug — and one that makes the AI stronger, which is the
   direction a solo player wants. Revisit only if custom-deck AI strength is ever itself the
   question being measured.
-- [ ] **D2. Rules info page (C7).** Persistence (C3) landed with C2's deck slots; settings and
-  progress are still unpersisted if either grows a durable surface.
-- [ ] **D3. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
+- [ ] **D2. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
   consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state
   polish (hover/selected/legal-target states), and card art integration once B1c completes.
-- [ ] **D4. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
+- [ ] **D3. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
   step rather than during it.
-- [ ] **D5. Consider small-scale multiplayer** — two installs queueing on a server, scoped to
+- [ ] **D4. Consider small-scale multiplayer** — two installs queueing on a server, scoped to
   **friends/self only**, not a public release. A decision step first: build it or don't. Sequenced
   here, after the client is otherwise finished, because the engine work is already done and nothing
   earlier depends on it.
@@ -690,7 +694,7 @@ seeded Godot game matching the same seed's console result.
   **Explicitly out of scope:** accounts, rating/ladder, chat, spectating, reconnect-to-stranger.
   Anonymous per-install id, random pairing from one queue. Each excluded item is comparable in size
   to the whole core system.
-- [ ] **D6. Export pipeline — the last step, after everything above.** Desktop + signed Android
+- [ ] **D5. Export pipeline — the last step, after everything above.** Desktop + signed Android
   `.aab`, reusing/re-verifying the step 1.13 toolchain: export templates need the .NET 9 SDK
   alongside .NET 8, Editor Settings needs explicit Java/Android SDK paths, and rebuilds need
   `adb install -r` or a stale APK silently masks the change.

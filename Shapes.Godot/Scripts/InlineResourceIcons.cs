@@ -208,7 +208,11 @@ public static class InlineResourceIcons
         }
     }
 
-    private static ImageTexture TextureFor(ResourceType type, int size)
+    // Internal rather than private: TutorialOverlay is a second caller that wants the same cached
+    // glyph texture directly (not through AppendTo's sentinel-string flow), for resource mentions
+    // on the Economy/Type Effectiveness pages that pair an icon with already-styled prose built
+    // from TutorialRun data rather than a card's EffectText string.
+    internal static ImageTexture TextureFor(ResourceType type, int size)
     {
         if (Cache.TryGetValue((type, size), out var cached) && GodotObject.IsInstanceValid(cached))
         {

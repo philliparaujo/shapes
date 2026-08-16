@@ -270,10 +270,34 @@ public partial class GameRoot : Control
             return;
         }
 
-        // Never over a finished game: its menu has no Resume, so re-opening would be a no-op that
-        // still swallowed the keypress.
-        if (_session is null || _session.State.IsOver || _boardView!.IsMenuOpen)
+        if (_session is null)
         {
+            return;
+        }
+
+        // The Rules overlay opens OVER the pause menu, so ESC closes just the overlay first --
+        // otherwise a press meant to back out of the tutorial would fall straight through to
+        // whatever OpenPauseMenu's re-entry guard below decides, punching past the menu beneath it.
+        if (_boardView!.IsTutorialOpen)
+        {
+            _boardView.CloseTutorial();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        // Never over a finished game: its menu has no Resume, so a second ESC has nothing to
+        // toggle back to and must stay a no-op rather than dismissing the game-over screen.
+        if (_session.State.IsOver)
+        {
+            return;
+        }
+
+        // A second ESC while paused closes the menu, same as pressing Resume -- ESC toggles
+        // rather than only ever opening.
+        if (_boardView.IsMenuOpen)
+        {
+            _boardView.ClosePauseMenu();
+            GetViewport().SetInputAsHandled();
             return;
         }
 

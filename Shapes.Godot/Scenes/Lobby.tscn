@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://dv6q0lobby001"]
+[gd_scene load_steps=3 format=3 uid="uid://dv6q0lobby001"]
 
 [ext_resource type="Script" path="res://Scripts/Lobby.cs" id="1_lobby"]
+[ext_resource type="PackedScene" path="res://Scenes/TutorialOverlay.tscn" id="2_tutorialoverlay"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
@@ -98,7 +99,14 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 text = "Card Browser"
 
+[node name="RulesButton" type="Button" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "Rules"
+
 [node name="ExitButton" type="Button" parent="Layout"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 text = "Exit Game"
+
+[node name="TutorialOverlay" parent="." instance=ExtResource("2_tutorialoverlay")]

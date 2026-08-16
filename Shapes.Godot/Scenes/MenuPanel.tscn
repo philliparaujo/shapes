@@ -62,6 +62,11 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Resume"
 
+[node name="RulesButton" type="Button" parent="Backdrop/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Rules"
+
 [node name="LobbyButton" type="Button" parent="Backdrop/Panel/Margin/Layout"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2

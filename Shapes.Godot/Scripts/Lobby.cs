@@ -24,8 +24,10 @@ public partial class Lobby : Control
     [Export] public NodePath ResumeButtonPath { get; set; } = "Layout/ResumeButton";
     [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/CardBrowserButton";
     [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Layout/DeckbuilderButton";
+    [Export] public NodePath RulesButtonPath { get; set; } = "Layout/RulesButton";
     [Export] public NodePath ErrorLabelPath { get; set; } = "Layout/ErrorLabel";
     [Export] public NodePath ExitButtonPath { get; set; } = "Layout/ExitButton";
+    [Export] public NodePath TutorialOverlayPath { get; set; } = "TutorialOverlay";
     [Export] public string GameScenePath { get; set; } = "res://Scenes/GameRoot.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
     [Export] public string DeckbuilderScenePath { get; set; } = "res://Scenes/Deckbuilder.tscn";
@@ -46,8 +48,10 @@ public partial class Lobby : Control
     private Button? _resumeButton;
     private Button? _cardBrowserButton;
     private Button? _deckbuilderButton;
+    private Button? _rulesButton;
     private Label? _errorLabel;
     private Button? _exitButton;
+    private TutorialOverlay? _tutorialOverlay;
 
     // The deck slots the two dropdowns offer, loaded once here so both pickers list the same
     // decks in the same order and a selected index means the same slot in each.
@@ -71,8 +75,10 @@ public partial class Lobby : Control
         _resumeButton = GetNode<Button>(ResumeButtonPath);
         _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
         _deckbuilderButton = GetNode<Button>(DeckbuilderButtonPath);
+        _rulesButton = GetNode<Button>(RulesButtonPath);
         _errorLabel = GetNode<Label>(ErrorLabelPath);
         _exitButton = GetNode<Button>(ExitButtonPath);
+        _tutorialOverlay = GetNode<TutorialOverlay>(TutorialOverlayPath);
 
         PopulateKindPicker(_playerOneKind);
         PopulateKindPicker(_playerTwoKind);
@@ -112,6 +118,32 @@ public partial class Lobby : Control
         // on the next launch -- same reasoning as OnBackToLobbyRequested in GameRoot: only
         // game-over clears the save, walking away never does.
         _exitButton.Pressed += () => GetTree().Quit();
+
+        // PLAN.md C7: the rules page is reachable from the lobby as well as the in-game pause
+        // menu (BoardView.OpenPauseMenu), so a player can read the rules before ever starting a
+        // match, not only when stuck mid-game. Same overlay scene both places instantiate --
+        // there is exactly one Rules page, not a lobby copy and a board copy that could drift.
+        _rulesButton.Pressed += _tutorialOverlay!.Open;
+        _tutorialOverlay.CloseRequested += _tutorialOverlay.Close;
+    }
+
+    // ESC closes the rules overlay when it's open. The lobby has no pause menu for ESC to
+    // otherwise mean anything, so unlike GameRoot's handler this never has a second thing to
+    // fall through to -- it only ever has the overlay to dismiss, or nothing to do at all.
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            return;
+        }
+
+        if (_tutorialOverlay is not { Visible: true })
+        {
+            return;
+        }
+
+        _tutorialOverlay.Close();
+        GetViewport().SetInputAsHandled();
     }
 
     private static void PopulateKindPicker(OptionButton picker)

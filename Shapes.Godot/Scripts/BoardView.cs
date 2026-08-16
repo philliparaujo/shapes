@@ -43,9 +43,11 @@ public partial class BoardView : Control
     [Export] public NodePath EndTurnButtonPath { get; set; } = "SideRail/MiddleColumn/EndTurnButton";
     [Export] public NodePath CancelTargetingButtonPath { get; set; } = "SideRail/MiddleColumn/CancelTargetingButton";
     [Export] public NodePath MenuPanelPath { get; set; } = "MenuPanel";
+    [Export] public NodePath TutorialOverlayPath { get; set; } = "TutorialOverlay";
     [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
     [Export] public NodePath BoardAnimatorPath { get; set; } = "BoardAnimator";
     [Export] public NodePath TypeCycleChartPath { get; set; } = "TypeCycleChart";
+    [Export] public NodePath SettingsButtonPath { get; set; } = "SettingsButton";
     [Export] public NodePath HandPath { get; set; } = "Hand";
 
     private PlayerPanel? _opponentPanel;
@@ -55,8 +57,10 @@ public partial class BoardView : Control
     private Button? _endTurnButton;
     private Button? _cancelTargetingButton;
     private MenuPanel? _menuPanel;
+    private TutorialOverlay? _tutorialOverlay;
     private HoverDetailPanel? _hoverDetailPanel;
     private TypeCycleChart? _typeCycleChart;
+    private Button? _settingsButton;
     private BoardAnimator? _boardAnimator;
 
     // Lives here rather than inside a PlayerPanel because the board frame (PLAN.md 5.C-UI) wraps
@@ -90,10 +94,12 @@ public partial class BoardView : Control
         _endTurnButton = GetNode<Button>(EndTurnButtonPath);
         _cancelTargetingButton = GetNode<Button>(CancelTargetingButtonPath);
         _menuPanel = GetNode<MenuPanel>(MenuPanelPath);
+        _tutorialOverlay = GetNode<TutorialOverlay>(TutorialOverlayPath);
         _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
         _boardAnimator = GetNode<BoardAnimator>(BoardAnimatorPath);
         _hand = GetNode<HandFan>(HandPath);
         _typeCycleChart = GetNode<TypeCycleChart>(TypeCycleChartPath);
+        _settingsButton = GetNode<Button>(SettingsButtonPath);
 
         foreach (var panel in new[] { _opponentPanel!, _selfPanel! })
         {
@@ -127,17 +133,41 @@ public partial class BoardView : Control
         _menuPanel.BackToLobbyRequested += () => BackToLobbyRequested?.Invoke();
         _menuPanel.ExitRequested += () => ExitRequested?.Invoke();
         _menuPanel.ResumeRequested += () => _menuPanel.Close();
+        _menuPanel.RulesRequested += () => _tutorialOverlay!.Open();
 
         _menuPanel.Visible = false;
+
+        _tutorialOverlay.CloseRequested += () => _tutorialOverlay.Close();
+        _tutorialOverlay.Visible = false;
+
+        // Opens the same panel ESC does -- the button is a discoverable, mouse-only entry point
+        // to the pause menu, not a second menu with its own behaviour.
+        _settingsButton!.Pressed += OpenPauseMenu;
     }
 
     // True while the pause/game-over overlay is up. GameRoot checks this so ESC cannot reopen a
     // menu that is already showing, and so a finished game's menu cannot be dismissed.
     public bool IsMenuOpen => _menuPanel?.Visible ?? false;
 
+    // True while the Rules/Tutorial overlay is up. Checked separately from IsMenuOpen so GameRoot
+    // can make ESC close the topmost thing first: the tutorial opens OVER the pause menu (PLAN.md
+    // 5.C-UI's "Rules" entry), so a bare IsMenuOpen check would leave ESC unable to dismiss it
+    // without also punching through to the menu underneath.
+    public bool IsTutorialOpen => _tutorialOverlay?.Visible ?? false;
+
     // PLAN.md 5.C-UI: ESC opens the same panel the game-over screen uses, minus the finality --
     // a paused game keeps its Resume button, a finished one does not.
     public void OpenPauseMenu() => _menuPanel!.Open("Paused", canResume: true);
+
+    // ESC's toggle-closed half: a second ESC press while paused dismisses the menu exactly like
+    // pressing Resume would. Never called over a finished game's menu -- GameRoot only reaches
+    // for this when the game is still live, so there's no case here where "close" would mean
+    // discarding a game-over screen that has nothing to resume to.
+    public void ClosePauseMenu() => _menuPanel!.Close();
+
+    // ESC's other job while the Rules overlay is on top: close just the overlay, revealing the
+    // pause menu it was opened over rather than falling all the way back to the board.
+    public void CloseTutorial() => _tutorialOverlay!.Close();
 
     // The portraits for the two seats, chosen once per match by GameRoot. Stored rather than
     // applied here: the panels are assigned per SEAT on every Render, so the mapping from player

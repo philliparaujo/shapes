@@ -1,0 +1,115 @@
+[gd_scene load_steps=4 format=3 uid="uid://jnjoa11ofn3e"]
+
+[ext_resource type="Script" path="res://Scripts/TutorialOverlay.cs" id="1_tutorialoverlay"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dim"]
+bg_color = Color(0, 0, 0, 0.62)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.169, 0.192, 0.22, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.067, 0.082, 0.102, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="TutorialOverlay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+z_index = 90
+script = ExtResource("1_tutorialoverlay")
+
+[node name="Backdrop" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_dim")
+
+[node name="Panel" type="PanelContainer" parent="Backdrop"]
+custom_minimum_size = Vector2(820, 680)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Backdrop/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Backdrop/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Header" type="HBoxContainer" parent="Backdrop/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Backdrop/Panel/Margin/Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 0
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 24
+text = "Rules"
+
+[node name="CloseButton" type="Button" parent="Backdrop/Panel/Margin/Layout/Header"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+size_flags_horizontal = 0
+tooltip_text = "Close"
+text = "✕"
+
+[node name="ImageRow" type="HBoxContainer" parent="Backdrop/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 260)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="BodyScroll" type="ScrollContainer" parent="Backdrop/Panel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="BodyLabel" type="RichTextLabel" parent="Backdrop/Panel/Margin/Layout/BodyScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/normal_font_size = 17
+autowrap_mode = 3
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
+text = ""
+
+[node name="Footer" type="HBoxContainer" parent="Backdrop/Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PrevButton" type="Button" parent="Backdrop/Panel/Margin/Layout/Footer"]
+custom_minimum_size = Vector2(96, 40)
+layout_mode = 2
+text = "< Prev"
+
+[node name="PageLabel" type="Label" parent="Backdrop/Panel/Margin/Layout/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "1 / 1"
+
+[node name="NextButton" type="Button" parent="Backdrop/Panel/Margin/Layout/Footer"]
+custom_minimum_size = Vector2(96, 40)
+layout_mode = 2
+text = "Next >"

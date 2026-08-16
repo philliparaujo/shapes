@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
 [ext_resource type="PackedScene" path="res://Scenes/MenuPanel.tscn" id="4_menupanel"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="5_hoverdetail"]
+[ext_resource type="PackedScene" path="res://Scenes/TutorialOverlay.tscn" id="13_tutorialoverlay"]
 [ext_resource type="Script" path="res://Scripts/BoardAnimator.cs" id="6_boardanimator"]
 [ext_resource type="Script" path="res://Scripts/BoardFrame.cs" id="7_boardframe"]
 [ext_resource type="Script" path="res://Scripts/HandFan.cs" id="8_handfan"]
@@ -139,6 +140,20 @@ offset_bottom = 178.0
 mouse_filter = 2
 script = ExtResource("12_typecycle")
 
+[node name="SettingsButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -58.0
+offset_top = 14.0
+offset_right = -14.0
+offset_bottom = 58.0
+grow_horizontal = 0
+theme_override_font_sizes/font_size = 22
+text = "⚙"
+tooltip_text = "Settings"
+
 [node name="BoardAnimator" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -148,5 +163,7 @@ mouse_filter = 2
 script = ExtResource("6_boardanimator")
 
 [node name="MenuPanel" parent="." instance=ExtResource("4_menupanel")]
+
+[node name="TutorialOverlay" parent="." instance=ExtResource("13_tutorialoverlay")]
 
 [node name="HoverDetailPanel" parent="." instance=ExtResource("5_hoverdetail")]
