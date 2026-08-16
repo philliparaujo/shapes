@@ -31,14 +31,24 @@ public partial class TypeCycleChart : Control
     // Overall footprint, including the enclosing panel's padding. Big enough that the small
     // dual-type shapes stay legible, small enough to sit in the corner without competing with
     // the board.
-    private const float ChartSize = 164f;
+    //
+    // 164 -> 140 to free room in the left column (PLAN.md D2). That column stacks four things
+    // between the top of the screen and the hand: this chart, the action recap, the hover tooltip,
+    // and the tooltip's keyword explainer stack -- and the worst case (a played-card recap above a
+    // hovered Guardian, whose two moves grant reflect and stun) did not fit. Shrinking the chart is
+    // the right giver: it is static reference material a player consults occasionally, whereas the
+    // other three are live and change with the game. Verified by measuring all four rects in a
+    // windowed run, not by eye.
+    private const float ChartSize = 140f;
 
     // Padding between the panel's edge and the diagram inside it.
     private const float PanelPadding = 10f;
 
-    // Diameter of the three main type shapes, and of the small dual-type ones beside them.
-    private const float ShapeDiameter = 40f;
-    private const float SmallShapeDiameter = 19f;
+    // Diameter of the three main type shapes, and of the small dual-type ones beside them. Scaled
+    // with ChartSize (were 40 and 19 at 164) so the diagram keeps its proportions at the smaller
+    // panel rather than the shapes crowding each other.
+    private const float ShapeDiameter = 34f;
+    private const float SmallShapeDiameter = 16f;
 
     // Per-type size correction, so the three shapes carry equal VISUAL weight.
     //
@@ -60,8 +70,9 @@ public partial class TypeCycleChart : Control
         _ => 1f,
     };
 
-    // How far the three main shapes sit from the chart's centre.
-    private const float OrbitRadius = 50f;
+    // How far the three main shapes sit from the chart's centre. Scaled with ChartSize (was 50 at
+    // 164) so shrinking the panel moves the diagram in rather than clipping it against the edges.
+    private const float OrbitRadius = 43f;
 
     // How far the arrows are pushed outward from the straight line between two shapes. The draft
     // bows them away from the centre, which is also what keeps an arc clear of the dual-type

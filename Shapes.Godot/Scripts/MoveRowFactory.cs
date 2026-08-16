@@ -14,10 +14,25 @@ namespace Shapes.Godot.Scripts;
 // single font size in one view but not another.
 public static class MoveRowFactory
 {
+    // The amber a spent move's text takes (PLAN.md D2 item 3). Unused anywhere else on a move row --
+    // costs are type-coloured and text is otherwise near-white -- so the hue shift alone says
+    // "spent" without adding anything to the layout. Paired with SpentMoveOverlay's scrim.
+    public static readonly Color SpentTextColor = new(0.65f, 0.42f, 0.10f);
+
+    // Slightly deeper for the description, mirroring the normal row's own name-brighter-than-
+    // description relationship so a spent row keeps its internal hierarchy instead of flattening
+    // into one block of colour.
+    private static readonly Color SpentDescriptionColor = new(0.52f, 0.37f, 0.08f);
+
+    private static readonly Color DescriptionColor = new(0.82f, 0.82f, 0.82f);
+
     // Builds the icon + (name over description) content. Returned as a Control the caller parents
     // wherever it needs -- MoveButtonFactory drops it inside a Button, the tooltip adds it
     // straight to its move list.
-    public static Control CreateContent(MoveText text)
+    //
+    // `isSpent` recolours the text rather than adding a marker beside it; see SpentMoveOverlay's
+    // header for why an added element was tried twice and dropped both times.
+    public static Control CreateContent(MoveText text, bool isSpent = false)
     {
         var row = new HBoxContainer
         {
@@ -52,6 +67,11 @@ public static class MoveRowFactory
             ClipText = true,
         };
         nameLabel.AddThemeFontSizeOverride("font_size", CardMetrics.MoveNameFontSize);
+        if (isSpent)
+        {
+            nameLabel.AddThemeColorOverride("font_color", SpentTextColor);
+        }
+
         lines.AddChild(nameLabel);
 
         // A RichTextLabel, not a Label, because the description embeds real resource icons where
@@ -68,7 +88,8 @@ public static class MoveRowFactory
             BbcodeEnabled = false,
         };
         descriptionLabel.AddThemeFontSizeOverride("normal_font_size", CardMetrics.MoveDescriptionFontSize);
-        descriptionLabel.AddThemeColorOverride("default_color", new Color(0.82f, 0.82f, 0.82f));
+        descriptionLabel.AddThemeColorOverride(
+            "default_color", isSpent ? SpentDescriptionColor : DescriptionColor);
         lines.AddChild(descriptionLabel);
         InlineResourceIcons.AppendTo(
             descriptionLabel, text.Effects, CardMetrics.MoveDescriptionFontSize);

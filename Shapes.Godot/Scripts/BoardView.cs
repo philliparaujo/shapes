@@ -49,6 +49,9 @@ public partial class BoardView : Control
     [Export] public NodePath TypeCycleChartPath { get; set; } = "TypeCycleChart";
     [Export] public NodePath SettingsButtonPath { get; set; } = "SettingsButton";
     [Export] public NodePath HandPath { get; set; } = "Hand";
+    [Export] public NodePath ActionRecapPanelPath { get; set; } = "ActionRecapPanel";
+    [Export] public NodePath ActionLogOverlayPath { get; set; } = "ActionLogOverlay";
+    [Export] public NodePath LogButtonPath { get; set; } = "LogButton";
 
     private PlayerPanel? _opponentPanel;
     private PlayerPanel? _selfPanel;
@@ -62,6 +65,15 @@ public partial class BoardView : Control
     private TypeCycleChart? _typeCycleChart;
     private Button? _settingsButton;
     private BoardAnimator? _boardAnimator;
+    private ActionRecapPanel? _actionRecapPanel;
+    private ActionLogOverlay? _actionLogOverlay;
+    private Button? _logButton;
+
+    // Supplies the log's entries at the moment it opens (PLAN.md D2 item 5). A callback rather
+    // than a stored list because GameRoot owns the log -- it is the only thing that sees every
+    // action, human and AI alike -- and this view should not hold a second reference that could
+    // fall out of date with it.
+    public Func<IReadOnlyList<ActionLogEntry>>? ActionLogSource { get; set; }
 
     // Lives here rather than inside a PlayerPanel because the board frame (PLAN.md 5.C-UI) wraps
     // the six slots only, so the fanned hand has to sit outside it. Handed to whichever panel is
@@ -100,6 +112,16 @@ public partial class BoardView : Control
         _hand = GetNode<HandFan>(HandPath);
         _typeCycleChart = GetNode<TypeCycleChart>(TypeCycleChartPath);
         _settingsButton = GetNode<Button>(SettingsButtonPath);
+        _actionRecapPanel = GetNode<ActionRecapPanel>(ActionRecapPanelPath);
+        _actionLogOverlay = GetNode<ActionLogOverlay>(ActionLogOverlayPath);
+        _logButton = GetNode<Button>(LogButtonPath);
+
+        // NO YIELDING BETWEEN THE RECAP AND THE HOVER TOOLTIP. An earlier cut had the recap hide
+        // whenever the tooltip appeared, which fixed the overlap and broke the common case: playing
+        // a card yourself moves the cursor over the hand, so your own recap flashed up and vanished
+        // immediately. The left edge has room for both once the recap is sized honestly -- a played
+        // card shows only the card (no caption above it) and a used move shows a 60px strip rather
+        // than a whole card face -- so the fix is the sizing, not a visibility rule.
 
         foreach (var panel in new[] { _opponentPanel!, _selfPanel! })
         {
@@ -143,7 +165,28 @@ public partial class BoardView : Control
         // Opens the same panel ESC does -- the button is a discoverable, mouse-only entry point
         // to the pause menu, not a second menu with its own behaviour.
         _settingsButton!.Pressed += OpenPauseMenu;
+
+        // PLAN.md D2 item 5. Bottom-RIGHT because the hover detail panel and the recap both own the
+        // bottom-left; the corner is otherwise unused (the settings gear is top-right) and HandFan
+        // spans that band with mouse_filter = ignore, so nothing swallows the click.
+        _logButton!.Pressed += OpenActionLog;
+        _actionLogOverlay!.CloseRequested += () => _actionLogOverlay.Close();
+        _actionLogOverlay.Visible = false;
     }
+
+    // True while the match log is up -- checked separately from the menu and tutorial for the same
+    // reason those two are separate: ESC closes the topmost overlay, so each needs its own answer.
+    public bool IsActionLogOpen => _actionLogOverlay?.Visible ?? false;
+
+    public void OpenActionLog() => _actionLogOverlay!.Open(ActionLogSource?.Invoke() ?? []);
+
+    public void CloseActionLog() => _actionLogOverlay!.Close();
+
+    // PLAN.md D2 items 2/4: shows one action on the recap panel. Called for BOTH seats -- see
+    // ActionRecap's header for why that was chosen rather than restricting it to the opponent.
+    public void ShowRecap(ActionRecap recap) => _actionRecapPanel!.ShowRecap(recap);
+
+    public void ClearRecap() => _actionRecapPanel?.Clear();
 
     // True while the pause/game-over overlay is up. GameRoot checks this so ESC cannot reopen a
     // menu that is already showing, and so a finished game's menu cannot be dismissed.
@@ -216,8 +259,13 @@ public partial class BoardView : Control
     //
     // Everything below keys off these two locals, so this substitution is the whole perspective
     // change: the panels, the rail, the avatars, the identities and the hand fan all follow.
+    // `spentMoves` carries which moves to mark as already used (PLAN.md D2 item 3). Supplied by
+    // GameRoot rather than read off the creatures here, because the engine's own flag clears at the
+    // owner's turn end and the marking is meant to persist through the opponent's turn -- see
+    // SpentMoveTracker's header.
     public void Render(
-        GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions, PlayerId viewer)
+        GameState state, CardDatabase cards, IReadOnlyList<GameAction> legalActions, PlayerId viewer,
+        SpentMoveTracker spentMoves)
     {
         var self = viewer;
         var other = self.Opponent();
@@ -235,8 +283,10 @@ public partial class BoardView : Control
         _opponentPanel!.AttachHand(null);
         _selfPanel!.AttachHand(_hand!);
 
-        _opponentPanel.Render(state, cards, other, showHand: false, interactive: false, legalActions);
-        _selfPanel.Render(state, cards, self, showHand: true, interactive: isViewersTurn, legalActions);
+        _opponentPanel.Render(
+            state, cards, other, showHand: false, interactive: false, legalActions, spentMoves);
+        _selfPanel.Render(
+            state, cards, self, showHand: true, interactive: isViewersTurn, legalActions, spentMoves);
 
         // Counts/resources/health live on the right rail now (PLAN.md 5.C-UI), not in the removed
         // top status bar. Read straight off GameState, the same way the status bar did.

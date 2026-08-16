@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://dv6q0boardview001"]
+[gd_scene load_steps=16 format=3 uid="uid://dv6q0boardview001"]
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
@@ -12,6 +12,8 @@
 [ext_resource type="Script" path="res://Scripts/SideRail.cs" id="10_siderail"]
 [ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="11_backdrop"]
 [ext_resource type="Script" path="res://Scripts/TypeCycleChart.cs" id="12_typecycle"]
+[ext_resource type="Script" path="res://Scripts/ActionRecapPanel.cs" id="14_actionrecap"]
+[ext_resource type="PackedScene" path="res://Scenes/ActionLogOverlay.tscn" id="15_actionlog"]
 
 [node name="BoardView" type="Control"]
 layout_mode = 3
@@ -135,8 +137,8 @@ layout_mode = 1
 anchors_preset = 0
 offset_left = 18.0
 offset_top = 14.0
-offset_right = 182.0
-offset_bottom = 178.0
+offset_right = 158.0
+offset_bottom = 154.0
 mouse_filter = 2
 script = ExtResource("12_typecycle")
 
@@ -162,8 +164,37 @@ anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("6_boardanimator")
 
+[node name="ActionRecapPanel" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 18.0
+offset_top = 176.0
+offset_right = 258.0
+offset_bottom = 516.0
+mouse_filter = 2
+script = ExtResource("14_actionrecap")
+
+[node name="LogButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -58.0
+offset_top = -58.0
+offset_right = -14.0
+offset_bottom = -14.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 20
+text = "☰"
+tooltip_text = "Match log"
+
 [node name="MenuPanel" parent="." instance=ExtResource("4_menupanel")]
 
 [node name="TutorialOverlay" parent="." instance=ExtResource("13_tutorialoverlay")]
+
+[node name="ActionLogOverlay" parent="." instance=ExtResource("15_actionlog")]
 
 [node name="HoverDetailPanel" parent="." instance=ExtResource("5_hoverdetail")]

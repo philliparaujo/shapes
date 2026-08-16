@@ -24,7 +24,17 @@ public static class MoveButtonFactory
 
     public static float Height => CardMetrics.SlotMoveHeight;
 
-    public static Button Create(MoveText text, bool isUsable, Action onChosen)
+    // PLAN.md D2 item 3. `wasUsedThisTurn` splits one of the four reasons a move renders disabled
+    // out of the single grey the other three share.
+    //
+    // Before this, "used already", "condition unmet", "unaffordable" and "not your turn" all
+    // produced the identical dimmed button -- so the board could not answer the one question a
+    // player asks most while planning a turn: what have I already spent? That is worst on a merged
+    // creature, which fields up to four moves at once.
+    //
+    // The engine already knows (CreatureInstance.HasUsedMove), so this needs no new state and no
+    // change to Shapes.Core -- which the milestone requires stay untouched.
+    public static Button Create(MoveText text, bool isUsable, Action onChosen, bool wasUsedThisTurn = false)
     {
         var button = new Button
         {
@@ -46,11 +56,25 @@ public static class MoveButtonFactory
         // span roughly twice the button. Nothing looked broken on the board except that every
         // move description wrapped to the inflated width -- i.e. stopped wrapping inside the
         // card and ran off its right edge.
+        // The scrim goes in BEFORE the content host, so it draws under the row rather than over it
+        // -- the marking's other half is the text's own amber, and veiling that with its own wash
+        // would undo the recolouring it depends on.
+        if (wasUsedThisTurn)
+        {
+            button.AddChild(new SpentMoveOverlay());
+        }
+
         var host = new ButtonContentHost();
         button.AddChild(host);
-        host.SetContent(MoveRowFactory.CreateContent(text));
+        host.SetContent(MoveRowFactory.CreateContent(text, wasUsedThisTurn));
 
-        if (!isUsable)
+        // SPENT TAKES PRECEDENCE OVER UNAFFORDABLE, deliberately. A move can be both at once, and
+        // the two answers are not equally useful: "you already used this" is final until your next
+        // turn, while "you cannot afford this" may stop being true a moment later. So the spent
+        // marking is applied INSTEAD of the disabled fade rather than on top of it -- fading first
+        // would wash the amber toward the same grey every other unusable move already wears, which
+        // is exactly the distinction being drawn.
+        if (!wasUsedThisTurn && !isUsable)
         {
             button.Modulate = new Color(1f, 1f, 1f, 0.55f);
         }

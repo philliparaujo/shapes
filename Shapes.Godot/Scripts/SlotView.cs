@@ -248,7 +248,8 @@ public partial class SlotView : Button
     public void Render(
         SlotIndex slot, CreatureInstance? creature, CardDatabase cards, bool isDraggable,
         IReadOnlyList<(int Index, MoveText Text, bool IsUsable)> moves,
-        IReadOnlyList<CardText>? hoverCards = null)
+        IReadOnlyList<CardText>? hoverCards = null,
+        SpentMoveTracker? spentMoves = null)
     {
         _slot = slot;
         _hasFriendlyDraggableCreature = creature is not null && isDraggable;
@@ -374,9 +375,17 @@ public partial class SlotView : Button
         _hoverCards = hoverCards;
         _hoveredCardIndex = -1;
 
+        // "Used since this seat's last turn" comes from the tracker, not from
+        // CreatureInstance.HasUsedMove (PLAN.md D2 item 3). The engine flag is the right source for
+        // LEGALITY but the wrong one for DISPLAY: it clears at the owner's turn end, so reading it
+        // here made the marking vanish for the whole of the opponent's turn -- which is exactly
+        // when someone watching wants to see what was just spent. Falls back to the engine flag
+        // when no tracker is supplied, so a caller without one still shows the within-turn case.
         foreach (var (index, text, isUsable) in moves)
         {
-            _moveList.AddChild(MoveButtonFactory.Create(text, isUsable, () => MoveChosen?.Invoke(index)));
+            var spent = spentMoves?.WasUsed(slot, index) ?? creature.HasUsedMove(index);
+            _moveList.AddChild(
+                MoveButtonFactory.Create(text, isUsable, () => MoveChosen?.Invoke(index), spent));
         }
     }
 

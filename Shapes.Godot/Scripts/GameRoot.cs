@@ -55,15 +55,35 @@ public partial class GameRoot : Control
     [Export] public NodePath BoardViewPath { get; set; } = "BoardView";
     [Export] public ulong Seed { get; set; }
 
-    // Doubled from the original 0.6s (still comfortably past BoardAnimator's longest cue,
-    // FloatSeconds at 0.55s) per explicit direction -- 0.6s read as too fast to actually follow
-    // an AI-v-AI game action by action.
-    private const double MoveDelaySeconds = 1.2;
+    // The beat between two AI actions. 0.6 -> 1.2 -> 2.4, each step per explicit direction after
+    // watching a game: 0.6s read as too fast to follow an AI-v-AI game action by action, and 1.2s
+    // was still too fast once D2 gave each action something to READ (the recap panel below holds a
+    // card for RecapHoldSeconds, and a beat shorter than that would replace an entry before it had
+    // been looked at).
+    //
+    // An [Export] rather than a const (PLAN.md D2 item 1): this is a feel value, and the only way
+    // to tune feel is to watch it, so it is settable from the editor's inspector without a rebuild.
+    // Still applied uniformly across every agent -- see RunAiTurns on why the rhythm of watching
+    // must not change with which agent happens to be playing.
+    [Export] public double MoveDelaySeconds { get; set; } = 2.4;
 
     private GameSession? _session;
     private CardDatabase? _cards;
     private Dictionary<PlayerId, IAgent?> _agents = new();
     private readonly CancellationTokenSource _aiTurnToken = new();
+
+    // PLAN.md D2 item 5. Distinct from `_actionLog` below, which is C6's REPLAY log -- a bare list
+    // of GameActions that GameSession.Resume re-applies to rebuild a match. This one is for
+    // READING: it pairs each action with the StateDiff it produced, which is the only place the
+    // effects (damage, scoring, resource spend) exist in a form anything can render. Keeping them
+    // separate rather than widening the replay log matters because SavedMatch serializes that one,
+    // and a save file must not grow a rendering concern it has no use for.
+    private readonly ActionLog _readableLog = new();
+
+    // PLAN.md D2 item 3. Keeps a used move marked until that seat's OWN next turn, which the
+    // engine's own flag cannot do -- it clears at the owner's turn END, so the marking would
+    // disappear precisely while the opponent is acting. See SpentMoveTracker's header.
+    private readonly SpentMoveTracker _spentMoves = new();
 
     // Whose seat the screen is drawn from (PLAN.md D1) -- resolved per Render from the two seat
     // configs, never stored as a seat, so it cannot drift from the match it describes. Defaults to
@@ -106,6 +126,11 @@ public partial class GameRoot : Control
         _boardView.DiscardRequested += OnDiscardRequested;
         _boardView.BackToLobbyRequested += OnBackToLobbyRequested;
         _boardView.ExitRequested += OnExitRequested;
+
+        // Pulled on open rather than pushed on every action (PLAN.md D2 item 5): the overlay is
+        // closed for nearly the whole match, so nothing should be spent keeping its nodes current
+        // while nobody is looking at it.
+        _boardView.ActionLogSource = () => _readableLog.Entries;
 
         // PLAN.md C6: Resume takes priority over a fresh MatchConfig -- Lobby only ever sets one
         // of the two before changing scene (see Lobby.OnResumePressed/OnStartPressed), but
@@ -192,6 +217,18 @@ public partial class GameRoot : Control
         _matchConfig = config;
         _actionLog.Clear();
         _actionLog.AddRange(saved.Actions);
+
+        // The READABLE log (PLAN.md D2 item 5) starts empty on a resume, and deliberately so.
+        // GameSession.Resume replays the saved actions internally, below both submit seams, so no
+        // StateDiff is produced for any of them -- and a diff is the only place an action's EFFECTS
+        // exist. Reconstructing them would mean replaying the match a second time out here purely
+        // to observe it, which is real work to recover a scrollback nobody was reading at the
+        // moment they were interrupted. The log fills from the resumed game's next action onward.
+        _readableLog.Clear();
+
+        // Same reasoning: the replayed actions never pass the seams that feed this, and a resumed
+        // game starts on a fresh turn anyway, so there is nothing legitimate to still be marking.
+        _spentMoves.Clear();
 
         // Same seed as the interrupted game, so it resumes wearing the same two faces -- the
         // avatars are not in the save file, they are re-derived (see AvatarPicker's header).
@@ -320,6 +357,17 @@ public partial class GameRoot : Control
             return;
         }
 
+        // Same topmost-first rule for the match log (PLAN.md D2 item 5). Unlike the tutorial it
+        // opens straight from the board rather than over the pause menu, so closing it reveals the
+        // board -- but it still has to be tested BEFORE the menu, or ESC would open the pause menu
+        // behind an already-open log.
+        if (_boardView.IsActionLogOpen)
+        {
+            _boardView.CloseActionLog();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // Never over a finished game: its menu has no Resume, so a second ESC has nothing to
         // toggle back to and must stay a no-op rather than dismissing the game-over screen.
         if (_session.State.IsOver)
@@ -400,7 +448,12 @@ public partial class GameRoot : Control
         }
 
         var legalActions = _session.LegalActions();
-        _boardView.Render(_session.State, _cards, legalActions, Viewer);
+        // Drops markings for slots whose creature is gone (killed, merged away, replaced) -- done
+        // here on the live state rather than modelled through destruction events, since a board
+        // read covers all three routes at once.
+        _spentMoves.ForgetEmptySlots(_session.State);
+
+        _boardView.Render(_session.State, _cards, legalActions, Viewer, _spentMoves);
 
         if (_session.State.IsOver)
         {
@@ -456,8 +509,18 @@ public partial class GameRoot : Control
                     return;
                 }
 
+                // Cloned BEFORE Submit (PLAN.md D2 items 2/4/5): both the recap and the log name
+                // things the action may destroy -- a lethal move's own creature, a played card
+                // that has left the hand -- so describing against the post-action state would
+                // silently lose exactly the names worth showing. Same before/after reasoning
+                // StateDiff itself is built on.
+                var before = _session.State.Clone();
+
                 var diff = _session.Submit(action);
                 _actionLog.Add(action);
+                _readableLog.Add(action, diff, before, _session.State, _cards);
+                _spentMoves.Observe(action, before, _session.State);
+                ShowRecapFor(action, before);
                 SaveProgress();
                 RefreshAll();
 
@@ -686,6 +749,22 @@ public partial class GameRoot : Control
         }
     }
 
+    // PLAN.md D2 items 2/4. Not every action earns a recap -- ActionRecap.For returns null for
+    // EndTurn/Discard, which are either already obvious from the board or not worth interrupting
+    // the panel for. Shown for both seats; see ActionRecap's header for that decision.
+    private void ShowRecapFor(GameAction action, GameState before)
+    {
+        if (_cards is null || _boardView is null)
+        {
+            return;
+        }
+
+        if (ActionRecap.For(action, before, _cards) is { } recap)
+        {
+            _boardView.ShowRecap(recap);
+        }
+    }
+
     private void Submit(GameAction action)
     {
         if (_session is null)
@@ -710,8 +789,16 @@ public partial class GameRoot : Control
         // The StateDiff A2 built this whole adapter to produce, finally consumed (PLAN.md B1d).
         // Captured BEFORE RefreshAll, because it describes the transition into the state that
         // RefreshAll is about to draw -- and played after, so the cues land over the new board.
+        //
+        // The pre-action clone serves the recap and the readable log -- see RunAiTurns' copy of
+        // this for why they cannot be built from the state Submit leaves behind.
+        var before = _session.State.Clone();
+
         var diff = _session.Submit(action);
         _actionLog.Add(action);
+        _readableLog.Add(action, diff, before, _session.State, _cards!);
+        _spentMoves.Observe(action, before, _session.State);
+        ShowRecapFor(action, before);
         SaveProgress();
         _boardView!.ClearSelection();
         RefreshAll();

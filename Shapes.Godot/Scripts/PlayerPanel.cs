@@ -68,7 +68,7 @@ public partial class PlayerPanel : Control
     // together is exactly what would put the AI's hand face-up on screen again.
     public void Render(
         GameState state, CardDatabase cards, PlayerId player, bool showHand, bool interactive,
-        IReadOnlyList<GameAction> legalActions)
+        IReadOnlyList<GameAction> legalActions, SpentMoveTracker spentMoves)
     {
         // A targetless spell can be dropped anywhere on the player's own panel, not a specific
         // slot -- offered only on the viewer's own panel, and only while it is actually their
@@ -83,13 +83,13 @@ public partial class PlayerPanel : Control
         // The old Spacer went with it: as an expanding child it was the slack that made the
         // frame taller than the slots it wraps.
 
-        RenderSlots(state, cards, player, interactive, legalActions);
+        RenderSlots(state, cards, player, interactive, legalActions, spentMoves);
         RenderHand(state, cards, player, showHand, interactive, legalActions);
     }
 
     private void RenderSlots(
         GameState state, CardDatabase cards, PlayerId player, bool interactive,
-        IReadOnlyList<GameAction> legalActions)
+        IReadOnlyList<GameAction> legalActions, SpentMoveTracker spentMoves)
     {
         // RemoveChild before QueueFree, not QueueFree alone: QueueFree only marks a node for
         // deletion at end of frame, so a bare QueueFree leaves the old SlotViews as children of
@@ -161,7 +161,7 @@ public partial class PlayerPanel : Control
             var isDraggable = interactive && creature is not null && legalActions.OfType<MergeAction>()
                 .Any(a => a.SourceSlot == slot);
 
-            slotView.Render(slot, creature, cards, isDraggable, moves, hoverCards);
+            slotView.Render(slot, creature, cards, isDraggable, moves, hoverCards, spentMoves);
             slotView.Tapped += () => SlotTapped?.Invoke(slot);
             slotView.MoveChosen += index => MoveChosen?.Invoke(slot, index);
             slotView.HandCardDropped += cardId => CardDroppedOnSlot?.Invoke(cardId, slot);
