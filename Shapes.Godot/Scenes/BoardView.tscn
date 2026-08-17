@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://dv6q0boardview001"]
+[gd_scene load_steps=18 format=3 uid="uid://dv6q0boardview001"]
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
@@ -14,6 +14,8 @@
 [ext_resource type="Script" path="res://Scripts/TypeCycleChart.cs" id="12_typecycle"]
 [ext_resource type="Script" path="res://Scripts/ActionRecapPanel.cs" id="14_actionrecap"]
 [ext_resource type="PackedScene" path="res://Scenes/ActionLogOverlay.tscn" id="15_actionlog"]
+[ext_resource type="Script" path="res://Scripts/MenuBackdrop.cs" id="16_menubackdrop"]
+[ext_resource type="Texture2D" uid="uid://bmdu02bva732o" path="res://Art/backgrounds/greenfocus3.jpg" id="17_background"]
 
 [node name="BoardView" type="Control"]
 layout_mode = 3
@@ -22,7 +24,19 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_boardview")
 
+[node name="MenuBackdrop" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("16_menubackdrop")
+Background = ExtResource("17_background")
+ExtraDim = 0.52
+Panning = false
+
 [node name="TableBackdrop" type="Control" parent="."]
+modulate = Color(1, 1, 1, 0.45)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

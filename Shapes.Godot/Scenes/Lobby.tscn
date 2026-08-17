@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://dv6q0lobby001"]
+[gd_scene load_steps=5 format=3 uid="uid://dv6q0lobby001"]
 
 [ext_resource type="Script" path="res://Scripts/Lobby.cs" id="1_lobby"]
 [ext_resource type="PackedScene" path="res://Scenes/TutorialOverlay.tscn" id="2_tutorialoverlay"]
-[ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="3_backdrop"]
+[ext_resource type="Script" path="res://Scripts/MenuBackdrop.cs" id="4_menubackdrop"]
+[ext_resource type="Texture2D" uid="uid://bmdu02bva732o" path="res://Art/backgrounds/greenfocus3.jpg" id="5_background"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
@@ -11,13 +12,15 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_lobby")
 
-[node name="TableBackdrop" type="Control" parent="."]
+[node name="MenuBackdrop" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-script = ExtResource("3_backdrop")
+script = ExtResource("4_menubackdrop")
+Background = ExtResource("5_background")
+ExtraDim = 0.20
 
 [node name="Home" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -27,20 +30,27 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -180.0
-offset_top = -210.0
+offset_top = -240.0
 offset_right = 180.0
-offset_bottom = 210.0
+offset_bottom = 240.0
 theme_override_constants/separation = 14
 
 [node name="TitleLabel" type="Label" parent="Home"]
 layout_mode = 2
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 44
+theme_override_font_sizes/font_size = 68
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 4
+theme_override_constants/shadow_outline_size = 14
+theme_override_colors/font_outline_color = Color(0.05, 0.06, 0.08, 0.95)
+theme_override_constants/outline_size = 10
 text = "Shapes"
 
 [node name="TitleSpacer" type="Control" parent="Home"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 24)
+custom_minimum_size = Vector2(0, 40)
 mouse_filter = 2
 
 [node name="PlayButton" type="Button" parent="Home"]

@@ -32,6 +32,10 @@ public partial class TableBackdrop : Control
     private const int RampBands = 48;
     private const int VignetteRings = 20;
 
+    // Angular resolution of each vignette ring. 64 was the old DrawArc point count and is plenty --
+    // at this radius the facets are well under a pixel of chord deviation.
+    private const int VignetteSegments = 64;
+
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Ignore;
@@ -45,35 +49,61 @@ public partial class TableBackdrop : Control
         DrawVignette();
     }
 
-    // A vertical gradient as horizontal bands. Godot's immediate-mode API has no gradient-fill
-    // primitive, and a GradientTexture2D would mean carrying a resource for two stops -- banding
-    // is invisible at this contrast because adjacent bands differ by well under one 8-bit step.
+    // A vertical gradient, interpolated PER PIXEL by the renderer via vertex-coloured quads.
+    //
+    // THIS USED TO BE 48 FLAT BANDS THAT OVERLAPPED BY A PIXEL, and that was fine for as long as
+    // this node was opaque: the overlap row was simply painted twice with the same solid colour and
+    // nothing showed. It stopped being fine the moment the node was given a modulate alpha so the
+    // menu artwork could sit behind it (PLAN.md D3) -- a translucent band drawn twice over the same
+    // row composites twice, so every one of the 48 boundaries became a visibly darker line.
+    //
+    // The lesson worth keeping: overlap-to-hide-seams is a technique that silently depends on
+    // opacity, and this project has now been bitten by it twice. Interpolating instead removes the
+    // seams rather than covering them, so it holds at any alpha.
     private void DrawRamp()
     {
-        var bandHeight = Size.Y / RampBands;
-
         for (var i = 0; i < RampBands; i++)
         {
-            var t = i / (float)(RampBands - 1);
+            var y0 = Size.Y * i / RampBands;
+            var y1 = Size.Y * (i + 1) / RampBands;
 
-            // Two-segment ramp so the light pools at FocusY rather than at the midpoint: top
-            // colour up to the focus, bottom colour below it.
-            var color = t < FocusY
-                ? TopColor.Lerp(MidColor, t / FocusY)
-                : MidColor.Lerp(BottomColor, (t - FocusY) / (1f - FocusY));
+            var points = new[]
+            {
+                new Vector2(0f, y0),
+                new Vector2(Size.X, y0),
+                new Vector2(Size.X, y1),
+                new Vector2(0f, y1),
+            };
 
-            // Bands overlap by a pixel: exact abutment leaves hairline seams when the height
-            // does not divide evenly into RampBands.
-            DrawRect(new Rect2(0f, i * bandHeight, Size.X, bandHeight + 1f), color);
+            var top = RampColourAt(y0 / Size.Y);
+            var bottom = RampColourAt(y1 / Size.Y);
+
+            DrawPolygon(points, [top, top, bottom, bottom]);
         }
+    }
+
+    // Two-segment ramp so the light pools at FocusY rather than at the midpoint: top colour up to
+    // the focus, bottom colour below it.
+    private static Color RampColourAt(float t)
+    {
+        t = Mathf.Clamp(t, 0f, 1f);
+
+        return t < FocusY
+            ? TopColor.Lerp(MidColor, t / FocusY)
+            : MidColor.Lerp(BottomColor, (t - FocusY) / (1f - FocusY));
     }
 
     // Darkens the screen's edges while leaving the focus clear.
     //
-    // Drawn as concentric ANNULI (thick arc strokes), not filled circles: a filled circle paints
-    // its whole interior, so stacking them darkens the centre most -- the opposite of a vignette.
-    // An arc stroked at width w only covers the band at that radius, so each successive ring adds
-    // shade further out and the focus is never painted at all.
+    // Built as a RING MESH -- each annulus is a strip of quads whose inner vertices carry one alpha
+    // and outer vertices the next -- so the darkening interpolates smoothly across each band and
+    // exactly abuts the next.
+    //
+    // The previous version stroked concentric arcs at 1.5x band width to hide the seams between
+    // them. Same trap as DrawRamp above, and worse: these bands are translucent BY DESIGN (each ring
+    // adds shade on top of the last), so a 1.5x overlap composited three deep at every boundary and
+    // drew a ring at each. Invisible against a flat gradient, obvious the moment artwork sits
+    // behind it.
     private void DrawVignette()
     {
         var centre = new Vector2(Size.X / 2f, Size.Y * FocusY);
@@ -83,19 +113,41 @@ public partial class TableBackdrop : Control
         var maxRadius = Size.Length() * 0.80f;
         var clearRadius = maxRadius * 0.30f;
         var span = maxRadius - clearRadius;
-        var bandWidth = span / VignetteRings;
 
         for (var i = 0; i < VignetteRings; i++)
         {
-            var t = (i + 0.5f) / VignetteRings;
+            var tInner = i / (float)VignetteRings;
+            var tOuter = (i + 1) / (float)VignetteRings;
 
-            // Radius of this band's centre-line, and a squared ramp so the darkening starts
-            // imperceptibly near the focus and deepens toward the corners.
-            var radius = clearRadius + span * t;
-            var alpha = VignetteColor.A * t * t;
+            // Squared ramp so the darkening starts imperceptibly near the focus and deepens toward
+            // the corners.
+            var inner = new Color(0f, 0f, 0f, VignetteColor.A * tInner * tInner);
+            var outer = new Color(0f, 0f, 0f, VignetteColor.A * tOuter * tOuter);
 
-            // Overlap each band slightly (x1.5) so no seam shows between them.
-            DrawArc(centre, radius, 0f, Mathf.Tau, 64, new Color(0f, 0f, 0f, alpha), bandWidth * 1.5f);
+            DrawRing(centre, clearRadius + (span * tInner), clearRadius + (span * tOuter), inner, outer);
+        }
+    }
+
+    // One annulus as a quad strip, with the inner and outer edges each carrying their own colour.
+    private void DrawRing(Vector2 centre, float innerRadius, float outerRadius, Color inner, Color outer)
+    {
+        for (var s = 0; s < VignetteSegments; s++)
+        {
+            var a0 = Mathf.Tau * s / VignetteSegments;
+            var a1 = Mathf.Tau * (s + 1) / VignetteSegments;
+
+            var d0 = new Vector2(Mathf.Cos(a0), Mathf.Sin(a0));
+            var d1 = new Vector2(Mathf.Cos(a1), Mathf.Sin(a1));
+
+            var points = new[]
+            {
+                centre + (d0 * innerRadius),
+                centre + (d1 * innerRadius),
+                centre + (d1 * outerRadius),
+                centre + (d0 * outerRadius),
+            };
+
+            DrawPolygon(points, [inner, inner, outer, outer]);
         }
     }
 }
