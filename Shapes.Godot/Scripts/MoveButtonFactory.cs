@@ -24,6 +24,28 @@ public static class MoveButtonFactory
 
     public static float Height => CardMetrics.SlotMoveHeight;
 
+    // A move row's own panel, per Button state. Quiet by design: the pip and the text are what a
+    // player reads here, so the container behind them stays a shade off the card stock rather than
+    // competing. Hover is the only state that brightens, and only slightly.
+    // "focus" is deliberately absent -- it is set to an empty box below instead. Godot keeps focus
+    // on a button after a click, so a visible focus style leaves the last move you used outlined for
+    // the rest of the turn, which reads as a state the game does not have. Same reasoning as
+    // UiTheme.StyleButtonStates.
+    private static readonly (string State, Color Fill)[] MoveButtonStates =
+    [
+        ("normal", new Color(0.13f, 0.15f, 0.18f, 0.55f)),
+        ("hover", new Color(0.20f, 0.24f, 0.28f, 0.85f)),
+        ("pressed", new Color(0.10f, 0.12f, 0.15f, 0.9f)),
+        ("disabled", new Color(0.13f, 0.15f, 0.18f, 0.45f)),
+    ];
+
+    private static StyleBoxFlat MoveBox(Color fill)
+    {
+        var box = new StyleBoxFlat { BgColor = fill };
+        box.SetCornerRadiusAll(4);
+        return box;
+    }
+
     // PLAN.md D2 item 3. `wasUsedThisTurn` splits one of the four reasons a move renders disabled
     // out of the single grey the other three share.
     //
@@ -44,6 +66,18 @@ public static class MoveButtonFactory
             Disabled = !isUsable,
             ClipContents = true,
         };
+
+        // Styled explicitly, NOT left to the project theme (PLAN.md D3 phase 3). A move button is
+        // part of a card's printed face, not app chrome -- once UiTheme gave every Button the
+        // board's felt-and-gold treatment, these turned green inside a dark card and the six of
+        // them on a board read as a control panel bolted over the art. They take a quiet inset
+        // panel instead, so the row's own cost pip and text stay the things that carry colour.
+        foreach (var (state, fill) in MoveButtonStates)
+        {
+            button.AddThemeStyleboxOverride(state, MoveBox(fill));
+        }
+
+        button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
 
         // A Button never lays out its children (it is not a Container), so the content is hosted
         // in a control that tracks the button's rect itself -- ButtonContentHost anchors to its

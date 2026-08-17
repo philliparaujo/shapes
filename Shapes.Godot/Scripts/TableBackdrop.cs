@@ -15,9 +15,11 @@ public partial class TableBackdrop : Control
 {
     // Deep desaturated slate. Cool and dark so the warm board and the bright card art both read
     // as sitting ON something rather than blending into it.
-    private static readonly Color TopColor = new("23272e");
-    private static readonly Color MidColor = new("2e343d");
-    private static readonly Color BottomColor = new("191c21");
+    // From Palette (PLAN.md D3 phase 1): these three ARE the app's background, so they belong to
+    // the scheme rather than to this one file.
+    private static readonly Color TopColor = Palette.BackdropTop;
+    private static readonly Color MidColor = Palette.BackdropMid;
+    private static readonly Color BottomColor = Palette.BackdropBottom;
 
     // How dark the corners get. Subtle on purpose -- a heavy vignette reads as a photo filter
     // rather than as lighting.

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://c8dkbld0001x"]
+[gd_scene load_steps=5 format=3 uid="uid://c8dkbld0001x"]
 
 [ext_resource type="Script" path="res://Scripts/Deckbuilder.cs" id="1_deckbuilder"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="2_hoverdetail"]
 [ext_resource type="Script" path="res://Scripts/CostCurveChart.cs" id="3_costcurve"]
+[ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="4_backdrop"]
 
 [node name="Deckbuilder" type="Control"]
 layout_mode = 3
@@ -12,11 +13,23 @@ anchor_bottom = 1.0
 script = ExtResource("1_deckbuilder")
 HoverDetailPanelScene = ExtResource("2_hoverdetail")
 
+[node name="TableBackdrop" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("4_backdrop")
+
 [node name="Layout" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 16.0
+offset_right = -20.0
+offset_bottom = -16.0
 theme_override_constants/separation = 8
 
 [node name="TopBar" type="HBoxContainer" parent="Layout"]
@@ -34,6 +47,13 @@ layout_mode = 2
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 20
 text = "Deckbuilding"
+
+[node name="CardBrowserButton" type="Button" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 36)
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 15
+text = "Card Browser →"
 
 [node name="SlotLabel" type="Label" parent="Layout/TopBar"]
 layout_mode = 2

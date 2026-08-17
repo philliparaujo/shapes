@@ -48,6 +48,7 @@ public partial class Deckbuilder : Control
     [Export] public NodePath NameEditPath { get; set; } = "Layout/TopBar/NameEdit";
     [Export] public NodePath DeleteButtonPath { get; set; } = "Layout/TopBar/DeleteButton";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
+    [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/TopBar/CardBrowserButton";
     [Export] public NodePath SearchBarPath { get; set; } = "Layout/FilterBar/SearchBar";
     [Export] public NodePath CostTypeFilterPath { get; set; } = "Layout/FilterBar/CostTypeFilter";
     [Export] public NodePath KindFilterPath { get; set; } = "Layout/FilterBar/KindFilter";
@@ -62,6 +63,7 @@ public partial class Deckbuilder : Control
     [Export] public NodePath StatsLabelPath { get; set; } = "Layout/Columns/DeckColumn/StatsLabel";
     [Export] public NodePath CostCurvePath { get; set; } = "Layout/Columns/DeckColumn/CostCurve";
     [Export] public string LobbyScenePath { get; set; } = "res://Scenes/Lobby.tscn";
+    [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
 
     [Export] public PackedScene? HoverDetailPanelScene { get; set; }
 
@@ -82,6 +84,7 @@ public partial class Deckbuilder : Control
     private LineEdit? _nameEdit;
     private Button? _deleteButton;
     private Button? _backButton;
+    private Button? _cardBrowserButton;
     private LineEdit? _searchBar;
     private OptionButton? _costTypeFilter;
     private OptionButton? _kindFilter;
@@ -113,12 +116,16 @@ public partial class Deckbuilder : Control
 
     public override void _Ready()
     {
+        // PLAN.md D3 phase 1 -- the project theme, inherited by everything below this root.
+        UiTheme.ApplyTo(this);
+
         GodotTextFormat.Ensure();
 
         _slotPicker = GetNode<OptionButton>(SlotPickerPath);
         _nameEdit = GetNode<LineEdit>(NameEditPath);
         _deleteButton = GetNode<Button>(DeleteButtonPath);
         _backButton = GetNode<Button>(BackButtonPath);
+        _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
         _searchBar = GetNode<LineEdit>(SearchBarPath);
         _costTypeFilter = GetNode<OptionButton>(CostTypeFilterPath);
         _kindFilter = GetNode<OptionButton>(KindFilterPath);
@@ -147,6 +154,11 @@ public partial class Deckbuilder : Control
         _nameEdit.TextChanged += OnNameChanged;
         _deleteButton.Pressed += OnDeletePressed;
         _backButton.Pressed += () => GetTree().ChangeSceneToFile(LobbyScenePath);
+
+        // The return leg of the browser's own link (PLAN.md D3 phase 3). Safe as an unconditional
+        // scene change for the reason this class's header already gives about Back: every edit is
+        // written through to DeckStore immediately, so there is no unsaved state to guard.
+        _cardBrowserButton.Pressed += () => GetTree().ChangeSceneToFile(CardBrowserScenePath);
         // A filter change resets to page one; paging does not. Narrowing the set while sitting on
         // page 4 would otherwise land on an empty page whose contents the filter just removed.
         _searchBar.TextChanged += _ => OnFilterChanged();

@@ -142,6 +142,18 @@ public partial class SlotView : Button
         HoverStarted?.Invoke(cards[index], line);
     }
 
+    // The status band's own panel: darker than card stock, borderless, and rounded only at the
+    // bottom so it reads as part of the card's foot rather than as a panel sitting on top of it.
+    private static readonly StyleBoxFlat StatusBandStyle = BuildStatusBandStyle();
+
+    private static StyleBoxFlat BuildStatusBandStyle()
+    {
+        var box = new StyleBoxFlat { BgColor = Palette.SurfaceInset };
+        box.CornerRadiusBottomLeft = CardStyle.CornerRadius - CardStyle.BorderWidth;
+        box.CornerRadiusBottomRight = CardStyle.CornerRadius - CardStyle.BorderWidth;
+        return box;
+    }
+
     // An OCCUPIED slot is a card, so it takes the same stock/edge/radius CardFace and the tooltip
     // use (CardStyle). An EMPTY one is not a card but a recess cut into the board's felt, so it
     // keeps the inset treatment -- same shape, darker palette.
@@ -151,6 +163,14 @@ public partial class SlotView : Button
             this,
             isEmpty ? CardStyle.EmptySlotFill : CardStyle.StockColor,
             isEmpty ? CardStyle.EmptySlotBorder : CardStyle.EdgeColor);
+
+        // The HP/status band along the card's foot. Styled EXPLICITLY rather than left to inherit:
+        // it is a bare PanelContainer, so before the project theme existed it drew Godot's default
+        // panel, and once the theme gave every PanelContainer card stock plus a 2px border it
+        // suddenly read as a second card nested inside the first (PLAN.md D3 phase 3). A band on a
+        // card is not itself a card -- it takes a darker fill, no border, and only the bottom
+        // corners rounded so it sits flush into the card's own foot.
+        _statusBar?.AddThemeStyleboxOverride("panel", StatusBandStyle);
 
         if (_castsShadow == !isEmpty)
         {

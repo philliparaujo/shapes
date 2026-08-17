@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://dv6q0lobby001"]
+[gd_scene load_steps=4 format=3 uid="uid://dv6q0lobby001"]
 
 [ext_resource type="Script" path="res://Scripts/Lobby.cs" id="1_lobby"]
 [ext_resource type="PackedScene" path="res://Scenes/TutorialOverlay.tscn" id="2_tutorialoverlay"]
+[ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="3_backdrop"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
@@ -10,66 +11,123 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_lobby")
 
-[node name="Layout" type="VBoxContainer" parent="."]
+[node name="TableBackdrop" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("3_backdrop")
+
+[node name="Home" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -300.0
-offset_right = 220.0
-offset_bottom = 300.0
+offset_left = -180.0
+offset_top = -210.0
+offset_right = 180.0
+offset_bottom = 210.0
 theme_override_constants/separation = 14
 
-[node name="TitleLabel" type="Label" parent="Layout"]
+[node name="TitleLabel" type="Label" parent="Home"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 44
+text = "Shapes"
+
+[node name="TitleSpacer" type="Control" parent="Home"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 24)
+mouse_filter = 2
+
+[node name="PlayButton" type="Button" parent="Home"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 68)
+theme_override_font_sizes/font_size = 24
+text = "Play"
+
+[node name="DeckbuildingButton" type="Button" parent="Home"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+text = "Deckbuilding"
+
+[node name="RulesButton" type="Button" parent="Home"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+text = "Rules"
+
+[node name="ExitButton" type="Button" parent="Home"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+text = "Exit Game"
+
+[node name="Play" type="VBoxContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -320.0
+offset_right = 260.0
+offset_bottom = 320.0
+theme_override_constants/separation = 12
+
+[node name="PlayTitle" type="Label" parent="Play"]
 layout_mode = 2
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 28
-text = "Shapes"
+text = "New Match"
 
-[node name="PlayerOne" type="VBoxContainer" parent="Layout"]
+[node name="PlayerOne" type="VBoxContainer" parent="Play"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="Label" type="Label" parent="Layout/PlayerOne"]
+[node name="Label" type="Label" parent="Play/PlayerOne"]
 layout_mode = 2
 text = "Player 1"
 
-[node name="KindPicker" type="OptionButton" parent="Layout/PlayerOne"]
+[node name="KindPicker" type="OptionButton" parent="Play/PlayerOne"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DifficultyPicker" type="OptionButton" parent="Layout/PlayerOne"]
+[node name="DifficultyPicker" type="OptionButton" parent="Play/PlayerOne"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DeckPicker" type="OptionButton" parent="Layout/PlayerOne"]
+[node name="DeckPicker" type="OptionButton" parent="Play/PlayerOne"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
-[node name="PlayerTwo" type="VBoxContainer" parent="Layout"]
+[node name="PlayerTwo" type="VBoxContainer" parent="Play"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="Label" type="Label" parent="Layout/PlayerTwo"]
+[node name="Label" type="Label" parent="Play/PlayerTwo"]
 layout_mode = 2
 text = "Player 2"
 
-[node name="KindPicker" type="OptionButton" parent="Layout/PlayerTwo"]
+[node name="KindPicker" type="OptionButton" parent="Play/PlayerTwo"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DifficultyPicker" type="OptionButton" parent="Layout/PlayerTwo"]
+[node name="DifficultyPicker" type="OptionButton" parent="Play/PlayerTwo"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DeckPicker" type="OptionButton" parent="Layout/PlayerTwo"]
+[node name="DeckPicker" type="OptionButton" parent="Play/PlayerTwo"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
 
-[node name="ErrorLabel" type="Label" parent="Layout"]
+[node name="ErrorLabel" type="Label" parent="Play"]
 visible = false
 layout_mode = 2
 autowrap_mode = 3
@@ -78,35 +136,35 @@ theme_override_colors/font_color = Color(0.839216, 0.560784, 0.560784, 1)
 theme_override_font_sizes/font_size = 13
 text = ""
 
-[node name="ResumeButton" type="Button" parent="Layout"]
+[node name="ResumeButton" type="Button" parent="Play"]
 visible = false
 layout_mode = 2
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
 text = "Resume Game"
 
-[node name="StartButton" type="Button" parent="Layout"]
+[node name="StartButton" type="Button" parent="Play"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 68)
+theme_override_font_sizes/font_size = 24
 text = "Start Game"
 
-[node name="DeckbuilderButton" type="Button" parent="Layout"]
+[node name="PlayFooter" type="HBoxContainer" parent="Play"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-text = "Deckbuilding"
+theme_override_constants/separation = 12
 
-[node name="CardBrowserButton" type="Button" parent="Layout"]
+[node name="PlayBackButton" type="Button" parent="Play/PlayFooter"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-text = "Card Browser"
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+text = "Back"
 
-[node name="RulesButton" type="Button" parent="Layout"]
+[node name="PlayDeckbuilderButton" type="Button" parent="Play/PlayFooter"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-text = "Rules"
-
-[node name="ExitButton" type="Button" parent="Layout"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-text = "Exit Game"
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+text = "Edit Decks"
 
 [node name="TutorialOverlay" parent="." instance=ExtResource("2_tutorialoverlay")]

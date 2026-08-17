@@ -25,11 +25,12 @@ public partial class BoardFrame : Control
     // the cards for attention instead of receding behind them; a table surface should be the
     // quietest thing on screen. The rail stays warm wood, which frames the felt without joining
     // the contest.
-    private static readonly Color SurfaceLight = new("3f5a48");
-    private static readonly Color SurfaceDark = new("2b4033");
-    private static readonly Color FrameBodyColor = new("6b5335");
-    private static readonly Color FrameLightColor = new("9b7f52");
-    private static readonly Color FrameDarkColor = new("38281a");
+    // From Palette (PLAN.md D3 phase 1) -- the felt and its gold frame are part of the scheme.
+    private static readonly Color SurfaceLight = Palette.BoardFelt;
+    private static readonly Color SurfaceDark = Palette.BoardFeltDark;
+    private static readonly Color FrameBodyColor = Palette.BoardFrameBody;
+    private static readonly Color FrameLightColor = Palette.BoardFrameLight;
+    private static readonly Color FrameDarkColor = Palette.BoardFrameDark;
 
     // The divider is a seam in the surface, not a rail: darker than the felt, with a thin
     // highlight under it so it reads as an inset groove rather than a drawn stroke.

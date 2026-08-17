@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://bcetpispq5cwu"]
+[gd_scene load_steps=4 format=3 uid="uid://bcetpispq5cwu"]
 
 [ext_resource type="Script" path="res://Scripts/CardBrowser.cs" id="1_cardbrowser"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="2_hoverdetail"]
+[ext_resource type="Script" path="res://Scripts/TableBackdrop.cs" id="3_backdrop"]
 
 [node name="CardBrowser" type="Control"]
 layout_mode = 3
@@ -10,11 +11,23 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_cardbrowser")
 
+[node name="TableBackdrop" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("3_backdrop")
+
 [node name="Layout" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 16.0
+offset_right = -20.0
+offset_bottom = -16.0
 theme_override_constants/separation = 8
 
 [node name="TopBar" type="HBoxContainer" parent="Layout"]
@@ -27,13 +40,24 @@ layout_mode = 2
 custom_minimum_size = Vector2(120, 44)
 text = "Back"
 
-[node name="TitleLabel" type="Label" parent="Layout/TopBar"]
+[node name="TitleGroup" type="HBoxContainer" parent="Layout/TopBar"]
 layout_mode = 2
 size_flags_horizontal = 3
-horizontal_alignment = 1
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="Layout/TopBar/TitleGroup"]
+layout_mode = 2
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 20
 text = "Card Browser"
+
+[node name="DeckbuilderButton" type="Button" parent="Layout/TopBar/TitleGroup"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 36)
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 15
+text = "Deckbuilding →"
 
 [node name="SearchBar" type="LineEdit" parent="Layout/TopBar"]
 layout_mode = 2

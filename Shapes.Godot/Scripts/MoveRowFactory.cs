@@ -17,12 +17,12 @@ public static class MoveRowFactory
     // The amber a spent move's text takes (PLAN.md D2 item 3). Unused anywhere else on a move row --
     // costs are type-coloured and text is otherwise near-white -- so the hue shift alone says
     // "spent" without adding anything to the layout. Paired with SpentMoveOverlay's scrim.
-    public static readonly Color SpentTextColor = new(0.65f, 0.42f, 0.10f);
+    public static readonly Color SpentTextColor = Palette.Spent;
 
     // Slightly deeper for the description, mirroring the normal row's own name-brighter-than-
     // description relationship so a spent row keeps its internal hierarchy instead of flattening
     // into one block of colour.
-    private static readonly Color SpentDescriptionColor = new(0.52f, 0.37f, 0.08f);
+    private static readonly Color SpentDescriptionColor = Palette.SpentDim;
 
     private static readonly Color DescriptionColor = new(0.82f, 0.82f, 0.82f);
 

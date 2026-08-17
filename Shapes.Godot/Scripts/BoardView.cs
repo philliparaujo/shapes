@@ -92,6 +92,12 @@ public partial class BoardView : Control
 
     public override void _Ready()
     {
+        // PLAN.md D3 phase 1. Applied here rather than on GameRoot because this is the node that
+        // owns the visual tree -- the overlays (menu, rules, log) are its children, so they inherit
+        // too. C-UI already styled most of this screen by hand, so the theme mainly reaches the
+        // controls that were left stock: the pause menu's buttons and the log overlay's chrome.
+        UiTheme.ApplyTo(this);
+
         _opponentPanel = GetNode<PlayerPanel>(OpponentPanelPath);
         _selfPanel = GetNode<PlayerPanel>(SelfPanelPath);
         _opponentSide = GetNode<SidePanel>(OpponentSidePath);

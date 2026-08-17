@@ -14,19 +14,24 @@ namespace Shapes.Godot.Scripts;
 // pickers, not a separate mode switch.
 public partial class Lobby : Control
 {
-    [Export] public NodePath PlayerOneKindPath { get; set; } = "Layout/PlayerOne/KindPicker";
-    [Export] public NodePath PlayerOneDifficultyPath { get; set; } = "Layout/PlayerOne/DifficultyPicker";
-    [Export] public NodePath PlayerOneDeckPath { get; set; } = "Layout/PlayerOne/DeckPicker";
-    [Export] public NodePath PlayerTwoKindPath { get; set; } = "Layout/PlayerTwo/KindPicker";
-    [Export] public NodePath PlayerTwoDifficultyPath { get; set; } = "Layout/PlayerTwo/DifficultyPicker";
-    [Export] public NodePath PlayerTwoDeckPath { get; set; } = "Layout/PlayerTwo/DeckPicker";
-    [Export] public NodePath StartButtonPath { get; set; } = "Layout/StartButton";
-    [Export] public NodePath ResumeButtonPath { get; set; } = "Layout/ResumeButton";
-    [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/CardBrowserButton";
-    [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Layout/DeckbuilderButton";
-    [Export] public NodePath RulesButtonPath { get; set; } = "Layout/RulesButton";
-    [Export] public NodePath ErrorLabelPath { get; set; } = "Layout/ErrorLabel";
-    [Export] public NodePath ExitButtonPath { get; set; } = "Layout/ExitButton";
+    [Export] public NodePath PlayerOneKindPath { get; set; } = "Play/PlayerOne/KindPicker";
+    [Export] public NodePath PlayerOneDifficultyPath { get; set; } = "Play/PlayerOne/DifficultyPicker";
+    [Export] public NodePath PlayerOneDeckPath { get; set; } = "Play/PlayerOne/DeckPicker";
+    [Export] public NodePath PlayerTwoKindPath { get; set; } = "Play/PlayerTwo/KindPicker";
+    [Export] public NodePath PlayerTwoDifficultyPath { get; set; } = "Play/PlayerTwo/DifficultyPicker";
+    [Export] public NodePath PlayerTwoDeckPath { get; set; } = "Play/PlayerTwo/DeckPicker";
+    [Export] public NodePath StartButtonPath { get; set; } = "Play/StartButton";
+    [Export] public NodePath ResumeButtonPath { get; set; } = "Play/ResumeButton";
+    [Export] public NodePath ErrorLabelPath { get; set; } = "Play/ErrorLabel";
+    [Export] public NodePath PlayBackButtonPath { get; set; } = "Play/PlayFooter/PlayBackButton";
+    [Export] public NodePath PlayDeckbuilderButtonPath { get; set; } = "Play/PlayFooter/PlayDeckbuilderButton";
+
+    [Export] public NodePath HomePath { get; set; } = "Home";
+    [Export] public NodePath PlayPath { get; set; } = "Play";
+    [Export] public NodePath PlayButtonPath { get; set; } = "Home/PlayButton";
+    [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Home/DeckbuildingButton";
+    [Export] public NodePath RulesButtonPath { get; set; } = "Home/RulesButton";
+    [Export] public NodePath ExitButtonPath { get; set; } = "Home/ExitButton";
     [Export] public NodePath TutorialOverlayPath { get; set; } = "TutorialOverlay";
     [Export] public string GameScenePath { get; set; } = "res://Scenes/GameRoot.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
@@ -46,12 +51,21 @@ public partial class Lobby : Control
     private OptionButton? _playerTwoDeck;
     private Button? _startButton;
     private Button? _resumeButton;
-    private Button? _cardBrowserButton;
     private Button? _deckbuilderButton;
     private Button? _rulesButton;
     private Label? _errorLabel;
     private Button? _exitButton;
     private TutorialOverlay? _tutorialOverlay;
+
+    // The two panels this scene switches between (PLAN.md D3 phase 3). One scene rather than two,
+    // because everything the Play panel needs -- the loaded CardDatabase, the deck slots, the
+    // PendingMatch handoff and the deck-legality check -- is already owned here, and splitting it
+    // into its own scene would mean either duplicating that or inventing a way to share it.
+    private Control? _home;
+    private Control? _play;
+    private Button? _playButton;
+    private Button? _playBackButton;
+    private Button? _playDeckbuilderButton;
 
     // The deck slots the two dropdowns offer, loaded once here so both pickers list the same
     // decks in the same order and a selected index means the same slot in each.
@@ -65,6 +79,11 @@ public partial class Lobby : Control
 
     public override void _Ready()
     {
+        // PLAN.md D3 phase 1. The whole subtree inherits, so this one call is what stops the lobby
+        // rendering in Godot's stock theme -- it carried six theme_overrides, all of them spacing
+        // and font size, and not one colour or panel between them.
+        UiTheme.ApplyTo(this);
+
         _playerOneKind = GetNode<OptionButton>(PlayerOneKindPath);
         _playerOneDifficulty = GetNode<OptionButton>(PlayerOneDifficultyPath);
         _playerOneDeck = GetNode<OptionButton>(PlayerOneDeckPath);
@@ -73,27 +92,27 @@ public partial class Lobby : Control
         _playerTwoDeck = GetNode<OptionButton>(PlayerTwoDeckPath);
         _startButton = GetNode<Button>(StartButtonPath);
         _resumeButton = GetNode<Button>(ResumeButtonPath);
-        _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
         _deckbuilderButton = GetNode<Button>(DeckbuilderButtonPath);
         _rulesButton = GetNode<Button>(RulesButtonPath);
         _errorLabel = GetNode<Label>(ErrorLabelPath);
         _exitButton = GetNode<Button>(ExitButtonPath);
         _tutorialOverlay = GetNode<TutorialOverlay>(TutorialOverlayPath);
 
+        _home = GetNode<Control>(HomePath);
+        _play = GetNode<Control>(PlayPath);
+        _playButton = GetNode<Button>(PlayButtonPath);
+        _playBackButton = GetNode<Button>(PlayBackButtonPath);
+        _playDeckbuilderButton = GetNode<Button>(PlayDeckbuilderButtonPath);
+
         PopulateKindPicker(_playerOneKind);
         PopulateKindPicker(_playerTwoKind);
         PopulateDifficultyPicker(_playerOneDifficulty);
         PopulateDifficultyPicker(_playerTwoDifficulty);
 
-        // Re-read every time the lobby is shown, not cached across scenes: returning here from
-        // the deckbuilder is the single most likely moment for the slots to have changed, and a
-        // dropdown still listing the decks as they were before that edit is exactly the stale
-        // read the Resume button's own re-check exists to avoid.
+        // The card set is loaded once here; the DECK SLOTS are re-read on every entry to the Play
+        // panel instead (see ShowPlay), since those are what an excursion to the deckbuilder
+        // changes.
         _cards = LoadCards();
-        _decks = DeckStore.Load();
-        PopulateDeckPicker(_playerOneDeck);
-        PopulateDeckPicker(_playerTwoDeck);
-        _errorLabel.Visible = false;
 
         // Default to the common case: player one human, player two a mid-strength AI -- the
         // "start a game against the computer" path needs zero clicks beyond Start.
@@ -103,16 +122,20 @@ public partial class Lobby : Control
         _playerTwoKind.ItemSelected += _ => UpdateDifficultyVisibility();
         UpdateDifficultyVisibility();
 
-        // PLAN.md C6: only offered when a save actually exists -- re-checked every time the
-        // lobby is shown (not just once at process start) so returning here after a game ends
-        // normally (which clears the save) hides the button again rather than leaving a stale
-        // "Resume" that would fail to load.
-        _resumeButton.Visible = MatchSaveStore.Exists();
-
         _startButton.Pressed += OnStartPressed;
         _resumeButton.Pressed += OnResumePressed;
-        _cardBrowserButton.Pressed += () => GetTree().ChangeSceneToFile(CardBrowserScenePath);
         _deckbuilderButton.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
+
+        // HOME -> PLAY is a panel swap, not a scene change (PLAN.md D3 phase 3): the two share this
+        // scene's loaded cards and deck slots, and a scene change would reload both to show the
+        // same data. It also keeps Back instant, which matters because backing out of match setup
+        // is a common, low-commitment action.
+        _playButton!.Pressed += () => ShowPlay(true);
+        _playBackButton!.Pressed += () => ShowPlay(false);
+
+        // Reached from inside match setup, where "these decks are wrong, let me fix one" is the
+        // natural next thought -- so the deckbuilder is one click away rather than back-then-out.
+        _playDeckbuilderButton!.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
 
         // Quitting from the lobby leaves any save alone, so an interrupted match is still there
         // on the next launch -- same reasoning as OnBackToLobbyRequested in GameRoot: only
@@ -125,11 +148,36 @@ public partial class Lobby : Control
         // there is exactly one Rules page, not a lobby copy and a board copy that could drift.
         _rulesButton.Pressed += _tutorialOverlay!.Open;
         _tutorialOverlay.CloseRequested += _tutorialOverlay.Close;
+
+        ShowPlay(false);
     }
 
-    // ESC closes the rules overlay when it's open. The lobby has no pause menu for ESC to
-    // otherwise mean anything, so unlike GameRoot's handler this never has a second thing to
-    // fall through to -- it only ever has the overlay to dismiss, or nothing to do at all.
+    // Swaps between the home menu and match setup.
+    //
+    // The deck pickers are repopulated on the way IN rather than only in _Ready, for the reason
+    // _Ready's own note gives: the deckbuilder is the most likely thing to have changed the slots,
+    // and here that edit can happen without this scene ever being rebuilt (Play -> Edit Decks ->
+    // Back lands on Home, and the next Play must not list the decks as they were).
+    private void ShowPlay(bool playing)
+    {
+        if (playing)
+        {
+            _decks = DeckStore.Load();
+            PopulateDeckPicker(_playerOneDeck!);
+            PopulateDeckPicker(_playerTwoDeck!);
+            _errorLabel!.Visible = false;
+
+            // Re-checked here, not just at _Ready: a game finished since this scene loaded would
+            // otherwise leave a Resume button that fails to load. Same reasoning as C6's own check.
+            _resumeButton!.Visible = MatchSaveStore.Exists();
+        }
+
+        _home!.Visible = !playing;
+        _play!.Visible = playing;
+    }
+
+    // ESC backs out one level: the rules overlay first if it is open, then match setup to the home
+    // menu. Topmost-first, the same ordering GameRoot's own handler uses for its three overlays.
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
@@ -137,12 +185,21 @@ public partial class Lobby : Control
             return;
         }
 
-        if (_tutorialOverlay is not { Visible: true })
+        if (_tutorialOverlay is { Visible: true })
+        {
+            _tutorialOverlay.Close();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        // On Home there is nothing left to back out to, so ESC is simply a no-op rather than
+        // quitting -- exiting is a deliberate button press, never a stray keystroke.
+        if (_play is not { Visible: true })
         {
             return;
         }
 
-        _tutorialOverlay.Close();
+        ShowPlay(false);
         GetViewport().SetInputAsHandled();
     }
 

@@ -926,7 +926,7 @@ seeded Godot game matching the same seed's console result.
   question (the human's hand renders identically whether or not it is actionable), but the fix is a
   panel-level restyle rather than a legibility mechanism, so it belongs with D3's feedback-state pass
   alongside the "Opponent's turn N" button it sits next to.
-- [ ] **D3. Professional UI pass** — a full visual/UX polish beyond C-UI's board-screen HUD:
+- [~] **D3. Professional UI pass — IN PROGRESS, phases 1–2 of 4 done.** A full visual/UX polish beyond C-UI's board-screen HUD:
   consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state
   polish (hover/selected/legal-target states), and card art integration once B1c completes.
   **The lobby is the priority and is not a uniform pass**: a windowed screenshot tour of all five
@@ -937,6 +937,102 @@ seeded Godot game matching the same seed's console result.
   their root `Layout` full-rect with no `MarginContainer`, so the deck count renders as `40 / 4` and
   the browser's search field truncates) — one root cause, one fix. Full findings in
   `d3-checklist.md`.
+
+  **Scoped as four phases, so the foundation lands before the per-screen work rather than during
+  it.** 1: `Palette` + `Theme`. 2: the clipping bugs. 3: per-screen passes (lobby hierarchy, then
+  the checklist residuals). 4: hover/pressed/selected feedback states, which are cheap once a theme
+  exists and near-impossible before. **Concept art was considered and dropped from scope** — the art
+  pipeline already succeeded (48 cards, rules images, avatars), and these screens are not failing
+  for want of art direction.
+
+  **Phases 1–2 done.** `Palette` is the single source for colour and `UiTheme` builds the project
+  Theme from it in code — **not** an authored `.tres`, which would have restated every value as a
+  literal and drifted from `Palette` the first time one moved (the same reasoning `CardStyle` and
+  `MoveRowFactory` each already carry). **Deliberately not a redesign**: every value is one already
+  in use, moved rather than re-picked, so the styled screens stay put and only the lobby moves. The
+  theme is applied at four scene roots and inherited by everything beneath; `CardStyle`,
+  `TableBackdrop`, `BoardFrame` and `MoveRowFactory` now read from `Palette` rather than holding
+  their own literals. The lobby and both collection screens also gained the `TableBackdrop` only the
+  board had, which was the other half of why they read as flat grey. Phase 2 was one line per scene
+  (offsets on the root `Layout`), and `40 / 4` now reads `40 / 40`.
+
+  **Verified by a before/after screenshot pass over all five screens**, taken windowed because
+  `--headless` cannot see any of this. That baseline earned itself immediately: it caught a
+  regression the change had introduced but nobody would have gone looking for — the first disabled
+  style sat so close to the resting one that the rules overlay's disabled `< Prev` and enabled
+  `Next >` became indistinguishable. Fixed by dropping `ControlDisabled` clearly below the resting
+  surface. **66 colour literals remain** in component-local files (badges, charts, animator cues);
+  those are phase 3's business, and the structural sources are consolidated.
+
+  **A follow-up pass then fixed three things the theme itself caused or left undone**, two of them
+  regressions it introduced — which is the argument for treating "apply a theme" as a change needing
+  the same scrutiny as a feature, not a free win:
+
+  - **Scrollbars vanished on both collection screens.** A `ScrollBar` has no minimum size of its
+    own: it is exactly as wide as its stylebox's content margins make it. Godot's default boxes
+    carry those margins, a bare `StyleBoxFlat` does not, so styling the bar without restoring them
+    collapsed it to a hairline. Now sized explicitly from a `ScrollThickness` constant.
+  - **Buttons were felt-and-gold, not grey.** The board is the game's signature surface, and a grey
+    button beside it reads as generic UI bolted onto a themed game. `Control`/`ControlHover`/
+    `ControlPressed` are now the felt darkened toward the backdrop, with the board's own frame gold
+    arriving on the border at hover and on the label when pressed.
+  - **In-play creatures had been damaged by the theme.** `SlotView`'s HP/status band is a bare
+    `PanelContainer`, so giving *every* `PanelContainer` card stock plus a 2px border turned it into
+    a second card nested inside the first; the move buttons likewise inherited the new green and made
+    each creature read as a control panel bolted over its art. Both are now styled explicitly at the
+    component — a band on a card is not a card, and a move row is part of a printed face, not app
+    chrome. **The general lesson: a theme sets the floor for chrome, and anything that is really
+    *artwork* has to opt out of it deliberately** rather than inherit and hope.
+
+  Then two more, from reading the result again:
+
+  - **Enabled buttons lightened** so "can I press this" needs no second look — the felt-vs-disabled
+    contrast ratio went 1.40 → 1.85, with the label at 5.64 on an enabled control and 2.40 on a
+    disabled one.
+  - **Focus draws nothing at all.** Godot leaves focus on a button after a click, so a visible focus
+    style is not a focus indicator — it is a permanent marker on the last thing you pressed, which
+    reads as "this is selected" when nothing is. Worst on a spent move, which kept an outline for the
+    rest of the turn on top of its amber. Hover already answers "what is under the cursor", which is
+    the question a mouse player asks. **The tradeoff is explicit**: keyboard/gamepad navigation loses
+    its position indicator, accepted because nothing here is keyboard-driven, and the fix if that
+    changes is to show focus only when it arrived from a key — not to restore it unconditionally.
+
+  **Phase 3 (structure) then reorganised navigation**, which was the half of P0 that theming could
+  not reach: the lobby had five peer buttons in one stack, so "Start Game" and "Exit Game" carried
+  identical weight. Now **Home** is a title screen of four — Play (primary, larger), Deckbuilding,
+  Rules, Exit — and match setup moved to its own **Play** panel holding both seats, Resume vs. Start,
+  and a direct "Edit Decks" link, since "these decks are wrong" is the thought a player has *inside*
+  match setup. **Deckbuilder and Card Browser now link to each other** rather than routing through
+  the menu; they render cards with the same components and answer the same question, so the round
+  trip was friction with nothing behind it. The browser consequently left the home menu — it is
+  reached from the deckbuilder, where looking cards up is what you are already doing.
+
+  **Home and Play are one scene, not two.** Everything Play needs — the loaded `CardDatabase`, the
+  deck slots, the `PendingMatch` handoff, the deck-legality check — is already owned by `Lobby`, so a
+  second scene would mean duplicating that or inventing a way to share it. The deck pickers are
+  repopulated on entry to Play rather than only in `_Ready`, because Play → Edit Decks → Back lands
+  on Home without rebuilding the scene, and the next Play must not list decks as they were.
+
+  **Verified by WALKING the graph, not photographing it.** A harness pressed the six real buttons in
+  sequence (Home → Play → back → Deckbuilding → Card Browser → Deckbuilding), failing loudly on any
+  button that was missing, disabled, or invisible — which is what actually proves the wiring after
+  moving every control into two new panels. It found its own bug first: `ChangeSceneToFile` replaces
+  the scene root, so a harness that instantiated the lobby as its own child was freed at the first
+  scene change and the walk stopped silently. **Driving a multi-scene flow requires an autoload**,
+  which sits outside the swapped tree.
+
+  **Two follow-ups then settled the visual grammar.** The cross-link moved to sit **beside each page
+  title** rather than out among that screen's own controls — on the deckbuilder it had landed next to
+  "Delete Deck", pairing a navigation link with the one destructive action on the screen. Title and
+  link now travel together as a unit on both screens, with a `→` marking it as an exit rather than a
+  control that acts on the current page.
+
+  **Button sizing collapsed to two tiers.** It had drifted to four heights (44/48/52/62) across three
+  font sizes with no rule, so "tall" and "short" were not reliably distinguishable and the tiers
+  carried no meaning. Now **primary is 68px/24pt and secondary is 40px/15pt** — a 1.7× height and
+  1.6× font ratio, wide enough that the distinction survives a glance. Exactly one primary per screen
+  (Play on Home, Start Game on Play); the seat dropdowns stay at 44px because they are inputs, not
+  actions, and should not read as either tier.
 - [ ] **D4. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
   step rather than during it.
 - [ ] **D5. Consider small-scale multiplayer** — two installs queueing on a server, scoped to

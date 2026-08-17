@@ -32,6 +32,8 @@ public partial class CardBrowser : Control
 {
     [Export] public NodePath GridContainerPath { get; set; } = "Layout/ScrollContainer/CardGrid";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
+    [Export] public NodePath DeckbuilderButtonPath { get; set; } =
+        "Layout/TopBar/TitleGroup/DeckbuilderButton";
     [Export] public NodePath SearchBarPath { get; set; } = "Layout/TopBar/SearchBar";
     [Export] public NodePath CostTypeFilterPath { get; set; } = "Layout/FilterBar/CostTypeFilter";
     [Export] public NodePath CostAmountFilterPath { get; set; } = "Layout/FilterBar/CostAmountFilter";
@@ -48,6 +50,7 @@ public partial class CardBrowser : Control
     [Export] public NodePath NextPageButtonPath { get; set; } = "Layout/PageBar/NextPageButton";
     [Export] public NodePath PageLabelPath { get; set; } = "Layout/PageBar/PageLabel";
     [Export] public string LobbyScenePath { get; set; } = "res://Scenes/Lobby.tscn";
+    [Export] public string DeckbuilderScenePath { get; set; } = "res://Scenes/Deckbuilder.tscn";
 
     [Export] public PackedScene? SlotViewScene { get; set; }
     [Export] public PackedScene? HoverDetailPanelScene { get; set; }
@@ -96,6 +99,7 @@ public partial class CardBrowser : Control
 
     private GridContainer? _grid;
     private Button? _backButton;
+    private Button? _deckbuilderButton;
     private LineEdit? _searchBar;
     private OptionButton? _costTypeFilter;
     private OptionButton? _costAmountFilter;
@@ -122,9 +126,13 @@ public partial class CardBrowser : Control
 
     public override void _Ready()
     {
+        // PLAN.md D3 phase 1 -- the project theme, inherited by everything below this root.
+        UiTheme.ApplyTo(this);
+
         GodotTextFormat.Ensure();
         _grid = GetNode<GridContainer>(GridContainerPath);
         _backButton = GetNode<Button>(BackButtonPath);
+        _deckbuilderButton = GetNode<Button>(DeckbuilderButtonPath);
         _searchBar = GetNode<LineEdit>(SearchBarPath);
         _costTypeFilter = GetNode<OptionButton>(CostTypeFilterPath);
         _costAmountFilter = GetNode<OptionButton>(CostAmountFilterPath);
@@ -145,6 +153,12 @@ public partial class CardBrowser : Control
         HoverDetailPanelScene ??= GD.Load<PackedScene>("res://Scenes/HoverDetailPanel.tscn");
 
         _backButton.Pressed += () => GetTree().ChangeSceneToFile(LobbyScenePath);
+
+        // Straight across to the deckbuilder (PLAN.md D3 phase 3). The two screens render cards
+        // with the same components and are used for the same question -- "what is in this set" --
+        // so making a player route back through the menu to switch between them was friction with
+        // nothing behind it.
+        _deckbuilderButton.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
 
         var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
         _cards = CardLoader.FromDirectory(cardsDir);

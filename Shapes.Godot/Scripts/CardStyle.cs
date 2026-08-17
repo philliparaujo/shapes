@@ -16,8 +16,12 @@ public static class CardStyle
 {
     // Card stock and its edge. Dark because every card's art and text are authored against a dark
     // face -- the tan board changed what sits AROUND a card, not the card itself.
-    public static readonly Color StockColor = new("2b3138");
-    public static readonly Color EdgeColor = new("11151a");
+    //
+    // Aliases onto Palette (PLAN.md D3 phase 1) rather than holding its own literals, so a card and
+    // a themed panel cannot disagree about what "card stock" is. Kept as names here because these
+    // two are what the card-drawing code has always called them.
+    public static readonly Color StockColor = Palette.Surface;
+    public static readonly Color EdgeColor = Palette.SurfaceEdge;
 
     // A recess cut into the board's surface rather than a card lying on it. Darker than the felt
     // it sits in, so an empty slot reads as a hole rather than as a lighter tile placed on top.
@@ -59,8 +63,8 @@ public static class CardStyle
         }
     }
 
-    public const int BorderWidth = 2;
-    public const int CornerRadius = 8;
+    public const int BorderWidth = Palette.BorderWidth;
+    public const int CornerRadius = Palette.CornerRadius;
 
     // Every Button state. Godot picks a different StyleBox per state, so overriding only "normal"
     // lets the default theme flash back the moment the cursor crosses the control.
