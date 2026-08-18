@@ -1,7 +1,10 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Godot;
 using Shapes.Core.Cards;
+using Shapes.Core.Primitives;
 using Shapes.Core.Rules;
 using Shapes.Godot.Adapter;
 
@@ -29,6 +32,7 @@ public partial class Lobby : Control
     [Export] public NodePath HomePath { get; set; } = "Home";
     [Export] public NodePath PlayPath { get; set; } = "Play";
     [Export] public NodePath PlayButtonPath { get; set; } = "Home/PlayButton";
+    [Export] public NodePath PlayOnlineButtonPath { get; set; } = "Home/PlayOnlineButton";
     [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Home/DeckbuildingButton";
     [Export] public NodePath RulesButtonPath { get; set; } = "Home/RulesButton";
     [Export] public NodePath ExitButtonPath { get; set; } = "Home/ExitButton";
@@ -36,6 +40,29 @@ public partial class Lobby : Control
     [Export] public string GameScenePath { get; set; } = "res://Scenes/GameRoot.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
     [Export] public string DeckbuilderScenePath { get; set; } = "res://Scenes/Deckbuilder.tscn";
+
+    // PLAN.md D5: Online panel (Host/Join). RelayUrl is an [Export] rather than a const for the
+    // same reason MoveDelaySeconds is (GameRoot's own note) -- a deployment-shaped value someone
+    // will want to change without a rebuild, here "which relay to dial" instead of "how fast to
+    // watch." Defaults to localhost for same-machine testing; point it at a real host once one
+    // exists (see Shapes.Relay/Program.cs's deployment note).
+    [Export] public string RelayUrl { get; set; } = "ws://localhost:5080/ws";
+
+    [Export] public NodePath OnlinePath { get; set; } = "Online";
+    [Export] public NodePath HostTabButtonPath { get; set; } = "Online/ModeTabs/HostTabButton";
+    [Export] public NodePath JoinTabButtonPath { get; set; } = "Online/ModeTabs/JoinTabButton";
+    [Export] public NodePath HostPanelPath { get; set; } = "Online/HostPanel";
+    [Export] public NodePath JoinPanelPath { get; set; } = "Online/JoinPanel";
+    [Export] public NodePath OnlineSeatPickerPath { get; set; } = "Online/HostPanel/SeatPicker";
+    [Export] public NodePath OnlineHostDeckPickerPath { get; set; } = "Online/HostPanel/DeckPicker";
+    [Export] public NodePath HostButtonPath { get; set; } = "Online/HostPanel/HostButton";
+    [Export] public NodePath CodeLabelPath { get; set; } = "Online/HostPanel/CodeLabel";
+    [Export] public NodePath CodeEntryPath { get; set; } = "Online/JoinPanel/CodeEntry";
+    [Export] public NodePath OnlineJoinDeckPickerPath { get; set; } = "Online/JoinPanel/DeckPicker";
+    [Export] public NodePath JoinButtonPath { get; set; } = "Online/JoinPanel/JoinButton";
+    [Export] public NodePath OnlineStatusLabelPath { get; set; } = "Online/StatusLabel";
+    [Export] public NodePath OnlineErrorLabelPath { get; set; } = "Online/ErrorLabel";
+    [Export] public NodePath OnlineBackButtonPath { get; set; } = "Online/OnlineFooter/OnlineBackButton";
 
     // Index-aligned with the OptionButton items added in _Ready -- see PopulateKindPicker.
     private static readonly AgentKind[] KindOrder =
@@ -77,6 +104,38 @@ public partial class Lobby : Control
     // lobby did before decks existed. Slot N is therefore at item index N+1.
     private const int DefaultDeckItemIndex = 0;
 
+    // PLAN.md D5: Online panel (Host/Join). A third top-level panel alongside Home/Play, same
+    // "swap visibility, don't change scene" pattern ShowPlay already uses.
+    private Control? _online;
+    private Button? _playOnlineButton;
+    private Button? _hostTabButton;
+    private Button? _joinTabButton;
+    private Control? _hostPanel;
+    private Control? _joinPanel;
+    private OptionButton? _onlineSeatPicker;
+    private OptionButton? _onlineHostDeck;
+    private Button? _hostButton;
+    private Label? _codeLabel;
+    private LineEdit? _codeEntry;
+    private OptionButton? _onlineJoinDeck;
+    private Button? _joinButton;
+    private Label? _onlineStatusLabel;
+    private Label? _onlineErrorLabel;
+    private Button? _onlineBackButton;
+
+    // "First" / "Second" / "Random" -- index-aligned with SeatPicker's items, same convention as
+    // KindOrder above. Only meaningful when hosting: the joiner's seat is whatever the host didn't
+    // take (or rolled), delivered over the wire in MatchStart rather than chosen locally.
+    private static readonly string[] SeatChoiceOrder = ["First", "Second", "Random"];
+
+    // The relay connection this screen currently owns, from HostButton/JoinButton press until
+    // either the handshake completes (control moves to GameRoot, which takes ownership from here)
+    // or the player cancels/an error occurs (disposed here). Null whenever the Online panel isn't
+    // mid-handshake -- including while it's simply visible and idle, since nothing is opened until
+    // a button is actually pressed.
+    private RelayMatchTransport? _pendingTransport;
+    private CancellationTokenSource? _pendingCts;
+
     public override void _Ready()
     {
         // PLAN.md D3 phase 1. The whole subtree inherits, so this one call is what stops the lobby
@@ -104,10 +163,28 @@ public partial class Lobby : Control
         _playBackButton = GetNode<Button>(PlayBackButtonPath);
         _playDeckbuilderButton = GetNode<Button>(PlayDeckbuilderButtonPath);
 
+        _online = GetNode<Control>(OnlinePath);
+        _playOnlineButton = GetNode<Button>(PlayOnlineButtonPath);
+        _hostTabButton = GetNode<Button>(HostTabButtonPath);
+        _joinTabButton = GetNode<Button>(JoinTabButtonPath);
+        _hostPanel = GetNode<Control>(HostPanelPath);
+        _joinPanel = GetNode<Control>(JoinPanelPath);
+        _onlineSeatPicker = GetNode<OptionButton>(OnlineSeatPickerPath);
+        _onlineHostDeck = GetNode<OptionButton>(OnlineHostDeckPickerPath);
+        _hostButton = GetNode<Button>(HostButtonPath);
+        _codeLabel = GetNode<Label>(CodeLabelPath);
+        _codeEntry = GetNode<LineEdit>(CodeEntryPath);
+        _onlineJoinDeck = GetNode<OptionButton>(OnlineJoinDeckPickerPath);
+        _joinButton = GetNode<Button>(JoinButtonPath);
+        _onlineStatusLabel = GetNode<Label>(OnlineStatusLabelPath);
+        _onlineErrorLabel = GetNode<Label>(OnlineErrorLabelPath);
+        _onlineBackButton = GetNode<Button>(OnlineBackButtonPath);
+
         PopulateKindPicker(_playerOneKind);
         PopulateKindPicker(_playerTwoKind);
         PopulateDifficultyPicker(_playerOneDifficulty);
         PopulateDifficultyPicker(_playerTwoDifficulty);
+        PopulateSeatPicker(_onlineSeatPicker);
 
         // The card set is loaded once here; the DECK SLOTS are re-read on every entry to the Play
         // panel instead (see ShowPlay), since those are what an excursion to the deckbuilder
@@ -136,6 +213,15 @@ public partial class Lobby : Control
         // Reached from inside match setup, where "these decks are wrong, let me fix one" is the
         // natural next thought -- so the deckbuilder is one click away rather than back-then-out.
         _playDeckbuilderButton!.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
+
+        // PLAN.md D5: HOME -> ONLINE is the same panel-swap pattern as HOME -> PLAY, for the same
+        // reason -- the card set and deck slots are already loaded here.
+        _playOnlineButton!.Pressed += () => ShowOnline(true);
+        _onlineBackButton!.Pressed += () => ShowOnline(false);
+        _hostTabButton!.Pressed += () => ShowOnlineTab(hosting: true);
+        _joinTabButton!.Pressed += () => ShowOnlineTab(hosting: false);
+        _hostButton!.Pressed += OnHostPressed;
+        _joinButton!.Pressed += OnJoinPressed;
 
         // Quitting from the lobby leaves any save alone, so an interrupted match is still there
         // on the next launch -- same reasoning as OnBackToLobbyRequested in GameRoot: only
@@ -174,10 +260,54 @@ public partial class Lobby : Control
 
         _home!.Visible = !playing;
         _play!.Visible = playing;
+
+        if (playing)
+        {
+            _online!.Visible = false;
+        }
     }
 
-    // ESC backs out one level: the rules overlay first if it is open, then match setup to the home
-    // menu. Topmost-first, the same ordering GameRoot's own handler uses for its three overlays.
+    // PLAN.md D5: HOME <-> ONLINE, the same panel-swap ShowPlay uses for HOME <-> PLAY. The deck
+    // pickers are repopulated on the way in for the same reason ShowPlay's are.
+    private void ShowOnline(bool online)
+    {
+        if (online)
+        {
+            _decks = DeckStore.Load();
+            PopulateDeckPicker(_onlineHostDeck!);
+            PopulateDeckPicker(_onlineJoinDeck!);
+            ResetOnlineStatus();
+            ShowOnlineTab(hosting: true);
+        }
+        else
+        {
+            // Backing out of an in-flight host/join abandons it -- there is no "keep waiting in
+            // the background" mode, so the transport this screen was holding must be torn down
+            // rather than leaked (an open socket plus its receive loop, per RelayMatchTransport's
+            // own DisposeAsync).
+            _ = CancelPendingAsync();
+        }
+
+        _home!.Visible = !online;
+        if (online)
+        {
+            _play!.Visible = false;
+        }
+
+        _online!.Visible = online;
+    }
+
+    private void ShowOnlineTab(bool hosting)
+    {
+        _hostTabButton!.ButtonPressed = hosting;
+        _joinTabButton!.ButtonPressed = !hosting;
+        _hostPanel!.Visible = hosting;
+        _joinPanel!.Visible = !hosting;
+    }
+
+    // ESC backs out one level: the rules overlay first if it is open, then match setup (or the
+    // Online panel) to the home menu. Topmost-first, the same ordering GameRoot's own handler
+    // uses for its overlays.
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
@@ -192,6 +322,13 @@ public partial class Lobby : Control
             return;
         }
 
+        if (_online is { Visible: true })
+        {
+            ShowOnline(false);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // On Home there is nothing left to back out to, so ESC is simply a no-op rather than
         // quitting -- exiting is a deliberate button press, never a stray keystroke.
         if (_play is not { Visible: true })
@@ -201,6 +338,24 @@ public partial class Lobby : Control
 
         ShowPlay(false);
         GetViewport().SetInputAsHandled();
+    }
+
+    // Torn down whenever this screen stops owning an in-flight transport for a reason other than
+    // "handed off to GameRoot" -- backing out, a scene change, or the node itself going away.
+    // Godot's own _ExitTree can't be async-awaited meaningfully (the node is gone by the time
+    // DisposeAsync would complete), so this is deliberately fire-and-forget from every caller;
+    // the socket still closes, just not necessarily before the next frame.
+    private async Task CancelPendingAsync()
+    {
+        _pendingCts?.Cancel();
+        _pendingCts?.Dispose();
+        _pendingCts = null;
+
+        if (_pendingTransport is { } transport)
+        {
+            _pendingTransport = null;
+            await transport.DisposeAsync();
+        }
     }
 
     private static void PopulateKindPicker(OptionButton picker)
@@ -245,6 +400,17 @@ public partial class Lobby : Control
     {
         var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
         return CardLoader.FromDirectory(cardsDir);
+    }
+
+    private static void PopulateSeatPicker(OptionButton picker)
+    {
+        picker.Clear();
+        foreach (var choice in SeatChoiceOrder)
+        {
+            picker.AddItem(choice);
+        }
+
+        picker.Selected = 0;
     }
 
     private static void PopulateDifficultyPicker(OptionButton picker)
@@ -338,5 +504,230 @@ public partial class Lobby : Control
         return kind == AgentKind.Human
             ? SeatConfig.Human
             : new SeatConfig(kind, MatchConfig.DifficultyPresets[difficultyPicker.Selected]);
+    }
+
+    private void ResetOnlineStatus()
+    {
+        _onlineErrorLabel!.Visible = false;
+        _onlineStatusLabel!.Visible = false;
+        _codeLabel!.Visible = false;
+        _codeLabel.Text = "";
+        SetOnlineBusy(false);
+    }
+
+    // Disables the two action buttons and both deck/seat pickers for the duration of a
+    // host/join attempt -- a second press mid-handshake would open a second socket this screen
+    // has no slot to track (_pendingTransport is a single field), and a picker changed after
+    // Host/Join was pressed would silently stop matching what was already sent.
+    private void SetOnlineBusy(bool busy)
+    {
+        _hostButton!.Disabled = busy;
+        _joinButton!.Disabled = busy;
+        _onlineSeatPicker!.Disabled = busy;
+        _onlineHostDeck!.Disabled = busy;
+        _codeEntry!.Editable = !busy;
+        _onlineJoinDeck!.Disabled = busy;
+    }
+
+    private void ShowOnlineError(string message)
+    {
+        _onlineStatusLabel!.Visible = false;
+        _onlineErrorLabel!.Text = message;
+        _onlineErrorLabel.Visible = true;
+        SetOnlineBusy(false);
+    }
+
+    private void ShowOnlineStatus(string message)
+    {
+        _onlineErrorLabel!.Visible = false;
+        _onlineStatusLabel!.Text = message;
+        _onlineStatusLabel.Visible = true;
+    }
+
+    // PLAN.md D5: opens a relay connection, asks to host, and once a peer joins sends MatchStart
+    // (this process is the seed/seat authority -- see RelayMatchTransport's own header) before
+    // handing off to GameRoot exactly like OnStartPressed does for a local match. async void is
+    // the same shape GameRoot's own event-loop entry points use (RunAiTurns) -- a Button.Pressed
+    // handler has no caller to await it.
+    private async void OnHostPressed()
+    {
+        Deck? hostDeck;
+        try
+        {
+            hostDeck = ReadDeck(_onlineHostDeck!);
+        }
+        catch (DeckBuildException ex)
+        {
+            ShowOnlineError(ex.Message);
+            return;
+        }
+
+        ResetOnlineStatus();
+        SetOnlineBusy(true);
+        ShowOnlineStatus("Connecting...");
+
+        _pendingCts = new CancellationTokenSource();
+        var ct = _pendingCts.Token;
+
+        RelayMatchTransport transport;
+        try
+        {
+            transport = await RelayMatchTransport.HostAsync(new Uri(RelayUrl), ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ShowOnlineError($"Could not reach the relay: {ex.Message}");
+            return;
+        }
+
+        if (ct.IsCancellationRequested)
+        {
+            await transport.DisposeAsync();
+            return;
+        }
+
+        _pendingTransport = transport;
+        _codeLabel!.Text = transport.Code;
+        _codeLabel.Visible = true;
+        ShowOnlineStatus("Waiting for opponent...");
+
+        bool joined;
+        try
+        {
+            joined = await transport.Joined.WaitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (ct.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (!joined)
+        {
+            _pendingTransport = null;
+            ShowOnlineError("The connection closed before anyone joined.");
+            return;
+        }
+
+        var hostSeat = SeatChoiceOrder[_onlineSeatPicker!.Selected] switch
+        {
+            "First" => PlayerId.One,
+            "Second" => PlayerId.Two,
+            _ => Random.Shared.Next(2) == 0 ? PlayerId.One : PlayerId.Two,
+        };
+        var joinerSeat = hostSeat.Opponent();
+        var seed = (ulong)DateTime.UtcNow.Ticks;
+
+        var deckOneList = hostSeat == PlayerId.One && hostDeck is not null ? SavedDeckList.Of(hostDeck).ToDto() : null;
+        var deckTwoList = hostSeat == PlayerId.Two && hostDeck is not null ? SavedDeckList.Of(hostDeck).ToDto() : null;
+
+        // Only the HOST's own deck is known here -- MatchStart's DeckOne/DeckTwo carries whichever
+        // slot the host landed in and leaves the other null. The joiner never reads its own deck
+        // off MatchStart (see OnJoinPressed): it already knows its own choice locally, the same
+        // way two local hotseat players each only ever choose their own deck.
+        try
+        {
+            await transport.SendMatchStartAsync(seed, joinerSeat, deckOneList, deckTwoList, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ShowOnlineError($"Could not reach your opponent: {ex.Message}");
+            return;
+        }
+
+        var deckOne = hostSeat == PlayerId.One ? hostDeck : null;
+        var deckTwo = hostSeat == PlayerId.Two ? hostDeck : null;
+
+        PendingMatch.Transport = transport;
+        _pendingTransport = null;
+        PendingMatch.Config = new MatchConfig(
+            SeatConfig.Human, SeatConfig.Human, seed, deckOne, deckTwo, ViewerOverride: hostSeat);
+        GetTree().ChangeSceneToFile(GameScenePath);
+    }
+
+    // PLAN.md D5: opens a relay connection, asks to join a given code, then waits for the host's
+    // MatchStart before handing off to GameRoot. Mirrors OnHostPressed's shape; the joiner is
+    // never the seed/seat authority (RelayMatchTransport's own header explains why: exactly one
+    // side has to be, and the host -- the one who picked "First/Second/Random" -- is it).
+    private async void OnJoinPressed()
+    {
+        var code = _codeEntry!.Text?.Trim() ?? "";
+        if (code.Length == 0)
+        {
+            ShowOnlineError("Enter the code your host gave you.");
+            return;
+        }
+
+        Deck? joinDeck;
+        try
+        {
+            joinDeck = ReadDeck(_onlineJoinDeck!);
+        }
+        catch (DeckBuildException ex)
+        {
+            ShowOnlineError(ex.Message);
+            return;
+        }
+
+        ResetOnlineStatus();
+        SetOnlineBusy(true);
+        ShowOnlineStatus("Connecting...");
+
+        _pendingCts = new CancellationTokenSource();
+        var ct = _pendingCts.Token;
+
+        RelayMatchTransport transport;
+        try
+        {
+            transport = await RelayMatchTransport.JoinAsync(new Uri(RelayUrl), code, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            ShowOnlineError($"Could not join '{code}'. Check the code and try again.");
+            return;
+        }
+
+        if (ct.IsCancellationRequested)
+        {
+            await transport.DisposeAsync();
+            return;
+        }
+
+        _pendingTransport = transport;
+        ShowOnlineStatus("Waiting for your host to start the match...");
+
+        RelayEnvelope matchStart;
+        try
+        {
+            matchStart = await transport.WaitForMatchStartAsync().WaitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (ct.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var yourSeat = (PlayerId)(matchStart.YourSeat ?? (int)PlayerId.Two);
+        var deckOne = yourSeat == PlayerId.One
+            ? joinDeck
+            : matchStart.DeckOne is { } one ? SavedDeckList.FromDto(one)?.ToDeck() : null;
+        var deckTwo = yourSeat == PlayerId.Two
+            ? joinDeck
+            : matchStart.DeckTwo is { } two ? SavedDeckList.FromDto(two)?.ToDeck() : null;
+
+        PendingMatch.Transport = transport;
+        _pendingTransport = null;
+        PendingMatch.Config = new MatchConfig(
+            SeatConfig.Human, SeatConfig.Human, matchStart.Seed ?? 0, deckOne, deckTwo,
+            ViewerOverride: yourSeat);
+        GetTree().ChangeSceneToFile(GameScenePath);
     }
 }

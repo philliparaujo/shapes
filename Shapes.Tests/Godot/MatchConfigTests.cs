@@ -136,6 +136,32 @@ public class MatchConfigTests
         Assert.Equal(PlayerId.One, config.Viewer.Resolve(PlayerId.Two));
     }
 
+    // PLAN.md D5: a network match is Human vs Human (the exact shape Two_humans_keep_the_hotseat_flip
+    // above proves flips every turn), but must never flip -- ViewerOverride is the one field that
+    // makes MatchConfig.Viewer diverge from ViewerMode.For, and this pins that it actually wins,
+    // for BOTH resolved seats, rather than only coincidentally matching one of them.
+    [Fact]
+    public void ViewerOverride_pins_the_view_even_for_two_human_seats()
+    {
+        var networked = new MatchConfig(
+            SeatConfig.Human, SeatConfig.Human, Seed: 42, ViewerOverride: PlayerId.Two);
+
+        Assert.Equal(PlayerId.Two, networked.Viewer.Resolve(PlayerId.One));
+        Assert.Equal(PlayerId.Two, networked.Viewer.Resolve(PlayerId.Two));
+    }
+
+    [Fact]
+    public void Local_modes_are_unaffected_by_the_unset_ViewerOverride()
+    {
+        // Every existing local mode never sets ViewerOverride, so this is the "the new field
+        // changes nothing by default" guard -- a null ViewerOverride must fall all the way
+        // through to the same ViewerMode.For derivation MatchConfig_derives_its_viewer_from_its_seats
+        // already pins.
+        var config = new MatchConfig(SeatConfig.Human, Ai(), Seed: 42);
+
+        Assert.Equal(PlayerId.One, config.Viewer.Resolve(PlayerId.Two));
+    }
+
     [Fact]
     public void An_all_ai_match_runs_to_completion()
     {

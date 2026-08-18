@@ -98,7 +98,8 @@ public abstract record ViewerMode
 // already uses, so an AI-vs-AI game started without touching the dropdowns behaves exactly as it
 // did before decks existed.
 public sealed record MatchConfig(
-    SeatConfig PlayerOne, SeatConfig PlayerTwo, ulong Seed, Deck? DeckOne = null, Deck? DeckTwo = null)
+    SeatConfig PlayerOne, SeatConfig PlayerTwo, ulong Seed, Deck? DeckOne = null, Deck? DeckTwo = null,
+    PlayerId? ViewerOverride = null)
 {
     // Whose seat the screen shows (PLAN.md D1). Derived from the two seat configs rather than
     // stored by the lobby, for the reason in ViewerMode.For: every seat pairing has exactly one
@@ -106,7 +107,13 @@ public sealed record MatchConfig(
     // supply a different one. It is also therefore correct for a RESUMED match for free --
     // SavedMatch persists both SeatConfigs already, so a resumed vs-AI game re-derives Fixed
     // without the save file needing to have known about viewers when it was written.
-    public ViewerMode Viewer => ViewerMode.For(PlayerOne, PlayerTwo);
+    //
+    // ViewerOverride (PLAN.md D5) is the one exception to "always derive it": a network match is
+    // SeatConfig.Human vs SeatConfig.Human, the exact shape ViewerMode.For reads as local hotseat
+    // and flips every turn -- correct when one screen serves both seats, wrong the moment the two
+    // seats are two different processes. Checked first, so every existing local mode (which never
+    // sets it) is completely unaffected; a network match is the only caller that supplies it.
+    public ViewerMode Viewer => ViewerOverride is { } seat ? ViewerMode.At(seat) : ViewerMode.For(PlayerOne, PlayerTwo);
 
     // Iteration budget, not a time budget, even here -- SearchBudget's own header: a wall-clock
     // budget makes the same seed play a different game on a different machine, and a hotseat

@@ -11,9 +11,9 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 18 / 24    |
+| 5 — Godot client                         | 19 / 24    |
 
-1187 tests passing. **Phases 1, 2, 3, and 4 are complete.**
+1194 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
@@ -24,9 +24,10 @@ ends at a *correct* search, not a fast or tuned one.
 authoring remains outstanding from B). A hotseat game is playable end to end in the editor with
 drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
 and the in-game pause menu, and the screen is drawn from a fixed seat when you are playing an AI
-rather than flipping to its side on its turn (D1). What remains in Milestone D: action legibility
-(D2), UI polish, audio, an optional friends-only multiplayer step, and export last. Content is
-settled at `v1.7-final` and the balance
+rather than flipping to its side on its turn (D1). Two installs can also now host/join a real game
+over a relay (D5) — see that step's own notes for what's verified versus still needing a manual
+two-instance run through the Godot editor. What remains in Milestone D: UI polish/audio (D4) and
+export (D6). Content is settled at `v1.7-final` and the balance
 record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
 at large samples (see that phase's closing note).
 
@@ -638,7 +639,7 @@ seeded Godot game matching the same seed's console result.
   .gif importer) live under `Art/rules/`, fit into a shared per-page image box so the panel reads as
   one consistent layout across very different source aspect ratios.
 
-#### Milestone D — ship — 2/6
+#### Milestone D — ship — 3/6
 
 - [x] **D1. Viewer seat — separate "whose turn" from "whose screen."** Replaced the cut determinizer
   migration (whose reasoning now lives with the Deck model caveat above, where its standing
@@ -1035,10 +1036,9 @@ seeded Godot game matching the same seed's console result.
   actions, and should not read as either tier.
 - [ ] **D4. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
   step rather than during it.
-- [ ] **D5. Consider small-scale multiplayer** — two installs queueing on a server, scoped to
-  **friends/self only**, not a public release. A decision step first: build it or don't. Sequenced
-  here, after the client is otherwise finished, because the engine work is already done and nothing
-  earlier depends on it.
+- [x] **D5. Small-scale multiplayer — built.** Decided: build it. Two installs can host/join over a
+  relay and play a real game against each other, with the host choosing seat order (First/Second/
+  Random) and their own deck, and the joiner entering the resulting code and choosing theirs.
 
   **Why this is cheaper than it looks.** Three Phase 1 decisions, taken for unrelated reasons,
   happen to be exactly what a netcode protocol needs. `GameAction` is flat, immutable, value-equal,
@@ -1055,34 +1055,106 @@ seeded Godot game matching the same seed's console result.
   for the single-player reasons in D1's own entry, so a `Fixed(PlayerId)` viewer already exists for a
   network client to reuse. Three pieces remain here. **Redaction**, which D1 explicitly left alone:
   clients today hold the full `GameState` including both hands, so hidden information is enforced by
-  what is drawn rather than by what is sent — over a wire it has to become a per-seat projection,
-  and `Shapes.Ai`'s `ObservedState` is already that projection. `GameRoot.Submit` must accept actions
+  what is drawn rather than by what is sent — over a wire it becomes a per-seat projection, and
+  `Shapes.Ai`'s `ObservedState` is already that projection. `GameRoot.Submit` must accept actions
   arriving unprompted rather than only submit-then-refresh. And the failure states — disconnect,
   timeout, concede, rejected action — which are boring, unavoidable, and always underestimated.
 
-  **Do the seam first, decide on the server second.** Define `IMatchTransport` (queue / send action /
-  receive action / disconnected) with a `LocalTransport` covering today's hotseat and AI games. Every
-  item above is then buildable and testable with **no server running at all**, and the networking
-  becomes the last thing added rather than the first. It also keeps the hosting choice reversible.
+  **Redaction is CLIENT-SIDE ONLY, and that is a decision rather than an oversight.** Seed + action
+  log and true redaction are in direct tension: a client holding the seed can re-run the same
+  deterministic shuffle the server did and derive both hands, so *no* amount of projection on the
+  wire hides information from a client that already has the seed. Server-enforced hiding would mean
+  withholding the seed entirely and sending per-seat state deltas instead — which discards the whole
+  reason this step is cheap (`GameSession.Resume` as the reconnect path, `ActionDto` as the wire
+  format, replay-from-seed as the desync check) and replaces it with a second, separately-verified
+  serialization of `GameState` — precisely the round-trip contract C6 rejected. **At friends-only
+  scope the seed is shared and `ObservedState` is a client-side rendering boundary, not a security
+  boundary.** It stops the UI from drawing what a player shouldn't see; it does not stop a modified
+  client from computing it. Accepted because the threat model is "my friend", where a referee for
+  honest disagreement is the thing worth paying for and cheat-proofing is not. **The line to
+  re-open this at:** anything beyond friends/self — a public queue, strangers, or a ladder — makes
+  the shared seed indefensible, and that is a redesign of the wire format, not a patch to it. It is
+  therefore listed under the exclusions below rather than as a later enhancement.
 
-  **Server shape, if it gets built:** one ASP.NET Core process with a WebSocket endpoint, matches in
-  memory, `SavedMatch` rows to SQLite so a restart doesn't kill live games. It references
-  `Shapes.Core` directly — the engine is pure BCL and test-enforced to stay that way, so the server
-  runs byte-identical rules code with zero porting. Validation is one line
-  (`LegalActions().Contains(action)`, free because `GameAction` already has value equality), which
-  matters less for anti-cheat among friends than for **having a referee when clients disagree**.
-  Firestore was considered and rejected: it cannot run `Shapes.Core`, so it buys zero validation and
-  costs a second hand-maintained representation of match state.
+  **Direct P2P was ruled out, not just deprioritized.** The original plan text above framed the
+  server as an optional matchmaking convenience over a possibly-P2P transport. Confirmed with the
+  user instead: plain direct TCP (host prints a LAN IP, friend types it in) only works when both
+  players share a network — across two different homes, NAT blocks the unsolicited inbound
+  connection direct play needs, with no workaround short of the host configuring port forwarding
+  per session. A **relay both clients dial out to** is not optional at this scope; it is the only
+  transport that actually satisfies "works remotely between friends," since outbound connections
+  are never blocked. This is a stronger claim than the original plan text made, and it is why the
+  relay shape below is not "the fancy option" but the only one that meets the exit bar.
 
-  **Add state hashing in the same commit as the first networked action, not after.** Both clients
-  deriving state independently from one seed is the whole design; if they ever diverge, nothing
-  detects it and the game silently becomes nonsense several turns later. Server sends a state hash
-  per action, clients assert on it — and assert in `LocalTransport` too, so the check is proven
-  before the network can break it.
+  **`IMatchTransport` — the seam, done as planned.** `Shapes.Godot.Adapter/IMatchTransport.cs`:
+  `ActionReceived`/`PeerDisconnected` events, `SendAsync`. Every local mode (hotseat, vs-AI, C6
+  resume) needed no implementation at all — `GameRoot` simply never constructs one, which already
+  *is* the "no server running" case the plan called for; only a network match builds a real one.
 
-  **Explicitly out of scope:** accounts, rating/ladder, chat, spectating, reconnect-to-stranger.
-  Anonymous per-install id, random pairing from one queue. Each excluded item is comparable in size
-  to the whole core system.
+  **`Shapes.Relay` — a real, minimal relay, built now rather than deferred to a VM that doesn't
+  exist yet.** The user had not stood up an Oracle Cloud (or any) server, and didn't want the
+  networking work to sit idle waiting on that. So the relay shipped as its own ordinary
+  `dotnet run`-able ASP.NET Core project (`Microsoft.NET.Sdk.Web`, WebSockets, ConcurrentDictionary
+  match table, no persistence) rather than a design document — usable today on `localhost` for
+  same-machine/LAN testing, and movable to a real VM later with zero rework: "copy the binary,
+  `dotnet run -- --port <n>`, open that port, change the client's one `ws://` URL setting." It
+  deliberately does **not** reference `Shapes.Core`/`Shapes.Ai` (see its own header): it is a dumb
+  pipe that pairs two sockets by a 6-character code and forwards frames verbatim, never inspecting
+  or validating a `GameAction` — the referee-when-clients-disagree role the original plan text
+  described for a full server is **not** implemented; see "left undone" below. The host is the
+  seed/seat authority (it resolves "First/Second/Random" and computes the seed), sent to the
+  joiner as `MatchStart` once paired, keeping the relay itself rules-free per the redaction
+  decision below. **Where Oracle Cloud fits:** exactly where the original plan put it, as the
+  eventual host for this same binary — nothing about that changed, it's just not blocking today.
+
+  **`RelayMatchTransport` (`Shapes.Godot.Adapter`)** wraps a `ClientWebSocket` for the host/join
+  handshake and then forwards `GameAction`s both ways for the match, reusing `SavedMatch.cs`'s
+  existing `ActionDto`/`SeatDto`/`DeckListDto` conversions rather than a second serialization —
+  the "cheaper than it looks" case above held up exactly as described. `Lobby.cs` gained a third
+  Home panel (**Play Online**, Host/Join tabs) alongside Home/Play, following D3's own panel-swap
+  pattern rather than a new scene. `MatchConfig` gained one new field, `ViewerOverride`, because a
+  network match is `SeatConfig.Human` vs `SeatConfig.Human` — the exact shape `ViewerMode.For`
+  reads as local hotseat and flips every turn, correct only when one screen serves both seats.
+  Checked first in `MatchConfig.Viewer`, so every existing local mode (which never sets it) is
+  unaffected — pinned by test (`MatchConfigTests`).
+
+  **Redaction shipped exactly as scoped: client-side only.** Both processes still hold the full
+  `GameState`; `ObservedState` was not wired into the wire protocol, matching the decision below
+  that a shared seed makes server-enforced hiding pointless at friends-only scope.
+
+  **What was cut from this pass, deliberately, to keep the exit bar (two installs, a real game)
+  achievable without also rebuilding C6:**
+  - **No resumable network match.** `SaveProgress` is a no-op when a transport is present — a
+    disconnect ends the match (`BoardView.ShowDisconnected`, reusing the game-over modal) rather
+    than leaving a resumable save, since C6's replay-from-seed has no peer to replay against once
+    the connection is gone. This is `reconnect-to-stranger`'s exclusion generalized to
+    "reconnect at all" for this cut, not a silent gap — flagged here for exactly that reason.
+  - **No state hashing.** The plan's "add it in the same commit as the first networked action"
+    did not happen — both sides deriving state independently from one seed is trusted, not
+    verified, so a desync (a bug, not an adversarial client) would currently surface later and
+    confusingly rather than as an immediate assertion. **Left as the clearest follow-up** if this
+    gets more real-world use: a per-action state hash, checked on both `RelayMatchTransport` and
+    (for symmetry) `LocalTransport`.
+  - **No referee.** The relay never calls `LegalActions().Contains(action)` — it doesn't load
+    `Shapes.Core` at all (see above). Fine at friends-only scope (the threat model is "my friend,"
+    not an adversarial client) but is the piece a public release would need back.
+  - **Verification gap, and it's a real one, not a formality: no Godot editor was available in
+    this environment**, so the actual Lobby → Host/Join → GameRoot UI flow has not been run or
+    screenshotted end-to-end — only its non-Godot half is proven. What **is** verified: the full
+    solution builds clean (`dotnet build`) including `Shapes.Godot`/`Shapes.Godot.Adapter`; all
+    1194 tests pass (1187 prior + 7 new: `RelayProtocolTests` DTO round-trips, `MatchConfigTests`'
+    two new `ViewerOverride` cases); and a live two-client run against a real running
+    `Shapes.Relay` instance (host code issued, joiner paired, `MatchStart` delivered with the
+    correct per-recipient seat, a `GameAction` forwarded in both directions, and a disconnect
+    correctly raising `PeerDisconnected` on the still-connected side) — everything below the
+    Godot node tree. **The user still needs to run two real instances through the Lobby's Host/Join
+    buttons at least once** before this is trusted the way D1/D2's own playtesting-found-real-bugs
+    precedent would want.
+
+  **Explicitly out of scope, unchanged from the original plan:** accounts, rating/ladder, chat,
+  spectating, reconnect-to-stranger, and server-enforced hidden information (see the client-side
+  redaction decision above) — each comparable in size to the whole core system, and each a
+  public-release concern this step was never scoped to cover.
 - [ ] **D6. Export pipeline — the last step, after everything above.** Desktop + signed Android
   `.aab`, reusing/re-verifying the step 1.13 toolchain: export templates need the .NET 9 SDK
   alongside .NET 8, Editor Settings needs explicit Java/Android SDK paths, and rebuilds need

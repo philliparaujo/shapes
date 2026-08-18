@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shapes.Godot", "Shapes.Godo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shapes.Godot.Adapter", "Shapes.Godot.Adapter\Shapes.Godot.Adapter.csproj", "{428610A3-9D2D-40C3-9AB7-87AB125EEBE5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shapes.Relay", "Shapes.Relay\Shapes.Relay.csproj", "{91B86243-C27D-4E5F-847E-A0D674E7A5D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,18 @@ Global
 		{428610A3-9D2D-40C3-9AB7-87AB125EEBE5}.Release|x64.Build.0 = Release|Any CPU
 		{428610A3-9D2D-40C3-9AB7-87AB125EEBE5}.Release|x86.ActiveCfg = Release|Any CPU
 		{428610A3-9D2D-40C3-9AB7-87AB125EEBE5}.Release|x86.Build.0 = Release|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Debug|x64.Build.0 = Debug|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Debug|x86.Build.0 = Debug|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Release|x64.ActiveCfg = Release|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Release|x64.Build.0 = Release|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Release|x86.ActiveCfg = Release|Any CPU
+		{91B86243-C27D-4E5F-847E-A0D674E7A5D0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

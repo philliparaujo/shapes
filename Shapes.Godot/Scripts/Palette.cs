@@ -48,9 +48,9 @@ public static class Palette
     // Lifted a step from the first felt values (2f4438 / 3c5748 / 243528): against a disabled
     // control they were close enough that "can I press this" needed a second look. The enabled
     // resting state now sits clearly above ControlDisabled, and hover above that again.
-    public static readonly Color Control = new("3d5747");
-    public static readonly Color ControlHover = new("4d6d59");
-    public static readonly Color ControlPressed = new("2c4234");
+    public static readonly Color Control = new("4d7757");
+    public static readonly Color ControlHover = new("5d8d69");
+    public static readonly Color ControlPressed = new("3c6244");
 
     // Clearly BELOW the resting surface, not a near-match to it. A disabled control has to be
     // separable from an enabled one at a glance -- the rules overlay puts a disabled "< Prev" right

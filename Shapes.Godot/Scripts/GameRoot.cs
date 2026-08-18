@@ -106,10 +106,25 @@ public partial class GameRoot : Control
 
     private BoardView? _boardView;
 
-    public override void _ExitTree()
+    // PLAN.md D5: set only for a network match (PendingMatch.Transport), null for every local
+    // mode -- its presence is what tells Submit/RunAiTurns/SaveProgress "this game has a remote
+    // peer" without a separate boolean that could disagree with it. Owned here rather than by
+    // Lobby because GameRoot is already the one place allowed to drive a match end-to-end (PLAN.md
+    // A2), and a transport's lifetime is exactly the match's lifetime.
+    private IMatchTransport? _transport;
+
+    public override async void _ExitTree()
     {
         _aiTurnToken.Cancel();
         _aiTurnToken.Dispose();
+
+        // Disposes the socket (and its receive loop) when the scene is torn down, whether that is
+        // a real disconnect, backing out to the lobby, or quitting -- otherwise a network match
+        // left mid-game leaks an open ClientWebSocket and its background receive Task.
+        if (_transport is not null)
+        {
+            await _transport.DisposeAsync();
+        }
     }
 
     public override void _Ready()
@@ -160,6 +175,12 @@ public partial class GameRoot : Control
         PendingMatch.Config = null;
         var seed = config?.Seed ?? (Seed == 0 ? (ulong)DateTime.UtcNow.Ticks : Seed);
 
+        // PLAN.md D5: a live, already-paired transport means Lobby ran a Host/Join flow -- picked
+        // up here the same way Config is, since Godot has no other way to carry a constructed
+        // object across ChangeSceneToFile (PendingMatch's own header).
+        _transport = PendingMatch.Transport;
+        PendingMatch.Transport = null;
+
         StartNewGame(seed, config);
     }
 
@@ -184,6 +205,7 @@ public partial class GameRoot : Control
         AssignAvatars(seed);
         AssignDeckNames();
         BuildAgents(seed, config);
+        WireTransport();
 
         RefreshAll();
         RunAiTurns();
@@ -292,9 +314,12 @@ public partial class GameRoot : Control
         // D1) -- the two answer one question between them ("which seats are human, and which of
         // them is looking at this screen"), and deriving them apart is how they would drift. A
         // null config is the direct-from-editor case: two humans, hotseat, board flips.
-        _viewerMode = config is null
-            ? ViewerMode.Hotseat
-            : ViewerMode.For(config.PlayerOne, config.PlayerTwo);
+        //
+        // Routed through config.Viewer (not ViewerMode.For directly) so a network match's
+        // ViewerOverride (PLAN.md D5) actually takes effect here -- MatchConfig.Viewer is the one
+        // place that decision was meant to live; reading ViewerMode.For directly would silently
+        // bypass it for exactly the case it exists to handle.
+        _viewerMode = config?.Viewer ?? ViewerMode.Hotseat;
 
         // The deck each agent's OPPONENT is playing -- asked for PER SEAT, because the two seats
         // can now be playing different decklists (PLAN.md C2). It must be passed, because an
@@ -407,6 +432,16 @@ public partial class GameRoot : Control
     private void SaveProgress()
     {
         if (_session is null || _session.State.IsOver)
+        {
+            return;
+        }
+
+        // PLAN.md D5: no local save for a network match. C6's resume replays the action log
+        // against a peer that (for this minimal cut) no longer exists once the connection drops --
+        // there is nothing to resume TO, only a game to end (see ShowDisconnected). Saving anyway
+        // would surface a phantom "Resume" button in the lobby for a match this process can never
+        // actually continue.
+        if (_transport is not null)
         {
             return;
         }
@@ -807,10 +842,101 @@ public partial class GameRoot : Control
         // oriented to who is WATCHING rather than to who acted.
         _boardView.PlayAnimation(diff, Viewer);
 
+        // PLAN.md D5: tell the peer what just happened, once it has already been applied locally.
+        // Fire-and-forget from this method's point of view -- a send failure surfaces later as
+        // PeerDisconnected (raised by the transport's own receive loop noticing the socket died),
+        // not as an exception here, because the local action is already committed and there is
+        // nothing to roll back.
+        if (_transport is not null)
+        {
+            _ = _transport.SendAsync(action);
+        }
+
         // A human action can hand the turn straight to an AI seat (or all the way back to the
         // same human, if the action didn't end the turn) -- RunAiTurns is the one place that
         // decides whose move it is next, so every path that changes state runs through it rather
-        // than each UI handler re-deciding "was that seat human."
+        // than each UI handler re-deciding "was that seat human." A no-op for a network match:
+        // _agents is empty (both seats are SeatConfig.Human), so its while-loop condition never
+        // matches -- the same "no agent for this seat" fallthrough hotseat already relies on.
         RunAiTurns();
+    }
+
+    // PLAN.md D5: hooks a live transport into the same apply path Submit uses, minus the "is this
+    // my seat" guard -- an action arriving here already passed the PEER's copy of that guard (its
+    // own GameSession.LegalActions), the same trust RunAiTurns places in agent.Choose's output.
+    // Called once per match from StartNewGame; a no-op when there is no transport (every local
+    // mode), so this method's own body never runs for hotseat/vs-AI/resume.
+    private void WireTransport()
+    {
+        if (_transport is null)
+        {
+            return;
+        }
+
+        _transport.ActionReceived += ApplyRemoteAction;
+        _transport.PeerDisconnected += OnPeerDisconnected;
+    }
+
+    // Queued rather than applied inline: ActionReceived fires from the transport's background
+    // receive loop, not Godot's main thread, and GameSession/BoardView are only safe to touch
+    // from the main thread. CallDeferred can't carry an arbitrary C# object as an argument
+    // (BoardView.PlayPendingAnimation's own note on this same constraint), so the action is
+    // stashed in a field first and CallDeferred takes no arguments, same pattern.
+    private readonly Queue<GameAction> _pendingRemoteActions = new();
+
+    private void ApplyRemoteAction(GameAction action)
+    {
+        lock (_pendingRemoteActions)
+        {
+            _pendingRemoteActions.Enqueue(action);
+        }
+
+        CallDeferred(nameof(DrainRemoteActions));
+    }
+
+    private void DrainRemoteActions()
+    {
+        if (_session is null || _cards is null || _boardView is null)
+        {
+            return;
+        }
+
+        while (true)
+        {
+            GameAction action;
+            lock (_pendingRemoteActions)
+            {
+                if (_pendingRemoteActions.Count == 0)
+                {
+                    return;
+                }
+
+                action = _pendingRemoteActions.Dequeue();
+            }
+
+            var before = _session.State.Clone();
+            var diff = _session.Submit(action);
+            _actionLog.Add(action);
+            _readableLog.Add(action, diff, before, _session.State, _cards);
+            _spentMoves.Observe(action, before, _session.State);
+            ShowRecapFor(action, before);
+            RefreshAll();
+            _boardView.PlayAnimation(diff, Viewer);
+        }
+    }
+
+    private void OnPeerDisconnected()
+    {
+        CallDeferred(nameof(ShowDisconnectedIfStillPlaying));
+    }
+
+    private void ShowDisconnectedIfStillPlaying()
+    {
+        if (_session is null || _session.State.IsOver || _boardView is null)
+        {
+            return;
+        }
+
+        _boardView.ShowDisconnected();
     }
 }

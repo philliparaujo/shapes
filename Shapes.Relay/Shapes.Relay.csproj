@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    PLAN.md D5: the relay both game clients dial out to, so two players on different home
+    networks can find each other without either one configuring port forwarding (NAT blocks the
+    unsolicited inbound connection direct P2P would need). Deliberately does not reference
+    Shapes.Core/Shapes.Ai: it is a dumb pipe that pairs two sockets by a short code and then
+    forwards frames between them, never inspecting game rules. That keeps it small, keeps a
+    public facing process from carrying the whole engine, and matches the friends only redaction
+    decision in PLAN.md (the relay is not a trust boundary; the two clients are).
+
+    Runs anywhere with a plain dotnet run (see Program.cs's header for the exact command and its
+    flag); see that same header for the deployment note (same binary today on a dev machine,
+    later on a real VM).
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+</Project>

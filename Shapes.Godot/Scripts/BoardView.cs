@@ -430,6 +430,13 @@ public partial class BoardView : Control
         _menuPanel!.Open(title, canResume: false);
     }
 
+    // PLAN.md D5: a network match's peer connection dropped. Reuses the same modal ShowGameOver
+    // does rather than a bespoke dialog -- the player's only real options are identical (go back
+    // to the lobby, or quit), and there is nothing to resume to: an interrupted remote match has
+    // no local save (GameRoot skips MatchSaveStore for network games) and no peer left to replay
+    // actions against, so canResume is false for the same reason it is on a finished game.
+    public void ShowDisconnected() => _menuPanel!.Open("Opponent disconnected.", canResume: false);
+
     // A move or spell needing a chosen target (single-target rule, PLAN.md A5) highlights the
     // legal target slots and remembers the actions that produced them, so the next SlotTapped
     // on one of those slots resolves back to a real GameAction via TryResolveTarget rather than
