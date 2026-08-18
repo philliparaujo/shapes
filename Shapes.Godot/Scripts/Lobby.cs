@@ -44,9 +44,9 @@ public partial class Lobby : Control
     // PLAN.md D5: Online panel (Host/Join). RelayUrl is an [Export] rather than a const for the
     // same reason MoveDelaySeconds is (GameRoot's own note) -- a deployment-shaped value someone
     // will want to change without a rebuild, here "which relay to dial" instead of "how fast to
-    // watch." Defaults to localhost for same-machine testing; point it at a real host once one
-    // exists (see Shapes.Relay/Program.cs's deployment note).
-    [Export] public string RelayUrl { get; set; } = "ws://localhost:5080/ws";
+    // watch." Points at the always-on Oracle Cloud relay (Shapes.Relay running as a systemd
+    // service on the VM); override to ws://localhost:5080/ws for same-machine testing.
+    [Export] public string RelayUrl { get; set; } = "ws://192.9.143.181:5080/ws";
 
     [Export] public NodePath OnlinePath { get; set; } = "Online";
     [Export] public NodePath HostTabButtonPath { get; set; } = "Online/ModeTabs/HostTabButton";

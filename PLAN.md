@@ -63,6 +63,11 @@ Run from repo root (`shapes/`, where `Shapes.sln` lives).
 | **Browse stats in the metrics explorer** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --report report.html` |
 | **Re-explore a saved metrics.json** | `dotnet run -c Release --project Shapes.Sim -- --from-metrics-json metrics.json --report report.html` |
 | **Compare two saved metrics.json runs** | `dotnet run -c Release --project Shapes.Sim -- --compare baseline/metrics.json,candidate/metrics.json --compare-report compare.html` |
+| Run the relay locally           | `dotnet run --project Shapes.Relay -- --port 5080` |
+| SSH into the relay VM          | `ssh -i server/ssh-key-2026-08-18.key ubuntu@192.9.143.181` |
+| Check relay service status/logs | `sudo systemctl status shapes-relay` / `sudo journalctl -u shapes-relay -f` |
+| Restart the relay service       | `sudo systemctl restart shapes-relay` |
+| Redeploy the relay after a code change | `dotnet publish Shapes.Relay/Shapes.Relay.csproj -c Release -r linux-x64 --self-contained false -o publish/relay-linux` then `scp -i server/ssh-key-2026-08-18.key -r publish/relay-linux/. ubuntu@192.9.143.181:~/shapes-relay/` then `ssh -i server/ssh-key-2026-08-18.key ubuntu@192.9.143.181 "sudo systemctl restart shapes-relay"` |
 
 `--p1`/`--p2` each take `human` (default), `random`, `greedy`, `ismcts`, or `ismcts-heuristic`
 (step 3.2's heuristic playout, same search otherwise). `--iterations <n>` sets the `ismcts`/
