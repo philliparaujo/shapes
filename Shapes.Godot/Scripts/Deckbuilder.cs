@@ -6,6 +6,7 @@ using Godot;
 using Shapes.Core.Cards;
 using Shapes.Core.Primitives;
 using Shapes.Core.Rules;
+using Shapes.Core.State;
 using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
@@ -47,6 +48,7 @@ public partial class Deckbuilder : Control
     [Export] public NodePath SlotPickerPath { get; set; } = "Layout/TopBar/SlotPicker";
     [Export] public NodePath NameEditPath { get; set; } = "Layout/TopBar/NameEdit";
     [Export] public NodePath DeleteButtonPath { get; set; } = "Layout/TopBar/DeleteButton";
+    [Export] public NodePath CompleteDeckButtonPath { get; set; } = "Layout/TopBar/CompleteDeckButton";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
     [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/TopBar/CardBrowserButton";
     [Export] public NodePath SearchBarPath { get; set; } = "Layout/FilterPanel/FilterBar/SearchBar";
@@ -95,6 +97,7 @@ public partial class Deckbuilder : Control
     private OptionButton? _slotPicker;
     private LineEdit? _nameEdit;
     private Button? _deleteButton;
+    private Button? _completeDeckButton;
     private Button? _backButton;
     private Button? _cardBrowserButton;
     private LineEdit? _searchBar;
@@ -136,6 +139,7 @@ public partial class Deckbuilder : Control
         _slotPicker = GetNode<OptionButton>(SlotPickerPath);
         _nameEdit = GetNode<LineEdit>(NameEditPath);
         _deleteButton = GetNode<Button>(DeleteButtonPath);
+        _completeDeckButton = GetNode<Button>(CompleteDeckButtonPath);
         _backButton = GetNode<Button>(BackButtonPath);
         _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
         _searchBar = GetNode<LineEdit>(SearchBarPath);
@@ -182,6 +186,7 @@ public partial class Deckbuilder : Control
         _slotPicker.ItemSelected += OnSlotSelected;
         _nameEdit.TextChanged += OnNameChanged;
         _deleteButton.Pressed += OnDeletePressed;
+        _completeDeckButton.Pressed += OnCompleteDeckPressed;
         _backButton.Pressed += () => GetTree().ChangeSceneToFile(LobbyScenePath);
 
         // The return leg of the browser's own link (PLAN.md D3 phase 3). Safe as an unconditional
@@ -462,6 +467,45 @@ public partial class Deckbuilder : Control
         PopulateSlotPicker();
     }
 
+    // Fills the current slot up to a legal deck using DeckBuilder.Complete: every card already
+    // chosen is kept, and the rest is picked with the same type-balance and cost-matching
+    // constraints Starter() uses, so "finish this deck for me" produces something as legal and as
+    // curve-sensible as a deck built by hand. With an empty slot this generates a deck from
+    // scratch, which is the same call with nothing to keep.
+    //
+    // Seeded from the wall clock rather than a fixed constant (unlike StarterDeckSeed) --
+    // repeated presses are supposed to explore different completions, not reproduce the same one,
+    // which is the "make this random" half of the request.
+    private void OnCompleteDeckPressed()
+    {
+        if (_cards is null || CurrentDeck.TotalCards >= DeckSize)
+        {
+            return;
+        }
+
+        var existing = CurrentDeck.ToCardIds();
+        var random = new SeededRandom(unchecked((ulong)DateTime.UtcNow.Ticks) ^ (ulong)System.Environment.TickCount);
+
+        Deck completed;
+        try
+        {
+            var name = CurrentDeck.Name.Length > 0 ? CurrentDeck.Name : "custom";
+            completed = DeckBuilder.Complete(name, existing, _cards, _rules, random);
+        }
+        catch (DeckBuildException e)
+        {
+            GD.PushWarning($"Could not complete deck: {e.Message}");
+            return;
+        }
+
+        foreach (var group in completed.Cards.GroupBy(id => id, StringComparer.Ordinal))
+        {
+            CurrentDeck.SetCopies(group.Key, group.Count());
+        }
+
+        CommitEdit();
+    }
+
     // --- Readouts -------------------------------------------------------------------------
 
     // Count and legality up front, then the same cost/type breakdown the sim reports per deck
@@ -476,6 +520,7 @@ public partial class Deckbuilder : Control
         _countLabel!.Text = $"{total} / {DeckSize}";
         _countLabel.AddThemeColorOverride(
             "font_color", legal ? new Color("8fd694") : new Color("d68f8f"));
+        _completeDeckButton!.Disabled = legal;
 
         if (total == 0)
         {

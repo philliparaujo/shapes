@@ -83,6 +83,12 @@ custom_minimum_size = Vector2(220, 36)
 size_flags_vertical = 4
 placeholder_text = "Deck name..."
 
+[node name="CompleteDeckButton" type="Button" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 36)
+size_flags_vertical = 4
+text = "Complete Deck"
+
 [node name="DeleteButton" type="Button" parent="Layout/TopBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(120, 36)

@@ -242,16 +242,111 @@ public static class DeckBuilder
             + $"min {constraints.MinPerType} creatures per type). The card set may not support them.");
     }
 
+    // Completes a partial deck (as built so far in the deckbuilder UI) up to a full, legal deck,
+    // keeping every card already in `existing` and filling the rest with DeckBuilder.Random's own
+    // type-balance and cost-matching constraints.
+    //
+    // Reuses BuildCandidate rather than a separate fill routine: "start from zero cards" and
+    // "start from N cards" are the same problem (seed each type's minimum, then fill uniformly to
+    // size) once BuildCandidate accepts a starting point instead of always starting empty, so a
+    // second implementation would just be this one with its first two lines changed. With 0
+    // existing cards this is exactly Random's candidate generation, which is what makes "generate
+    // a feasible deck from scratch" and "finish a half-built one" the same button.
+    //
+    // REJECTION SAMPLING over the FILL portion only -- the existing cards are fixed, not part of
+    // what is being sampled, so retrying does not reshuffle a player's in-progress choices out
+    // from under them, only the cards being added.
+    public static Deck Complete(
+        string name, IReadOnlyList<string> existing, CardDatabase cards, RuleSet rules,
+        IRandomSource random, Deck? reference = null, RandomDeckConstraints? constraints = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(existing);
+        ArgumentNullException.ThrowIfNull(cards);
+        ArgumentNullException.ThrowIfNull(rules);
+        ArgumentNullException.ThrowIfNull(random);
+
+        constraints ??= new RandomDeckConstraints();
+        reference ??= Default(cards);
+
+        var size = DeckSizeOf(rules);
+        var maxCopies = MaxCopiesOf(rules);
+
+        if (existing.Count > size)
+        {
+            throw new DeckBuildException(
+                $"Cannot complete a {size}-card deck: {existing.Count} cards already selected.");
+        }
+
+        foreach (var group in existing.GroupBy(id => id, StringComparer.Ordinal))
+        {
+            if (group.Count() > maxCopies)
+            {
+                throw new DeckBuildException(
+                    $"Deck already contains {group.Count()} copies of '{group.Key}'; "
+                    + $"the limit is {maxCopies}.");
+            }
+        }
+
+        if (cards.Count * maxCopies < size)
+        {
+            throw new DeckBuildException(
+                $"Cannot build a {size}-card deck: the set has {cards.Count} cards at "
+                + $"{maxCopies} copies each ({cards.Count * maxCopies} cards available).");
+        }
+
+        var targetCost = MeanCost(reference.Cards, cards);
+
+        for (var attempt = 0; attempt < constraints.MaxAttempts; attempt++)
+        {
+            var candidate = BuildCandidate(cards, random, size, maxCopies, constraints, existing);
+            if (candidate is null)
+            {
+                continue;
+            }
+
+            var cost = MeanCost(candidate, cards);
+            if (Math.Abs(cost - targetCost) > constraints.CostTolerance)
+            {
+                continue;
+            }
+
+            var deck = new Deck(name, candidate);
+            Validate(deck, cards, rules);
+            return deck;
+        }
+
+        throw new DeckBuildException(
+            $"Could not complete the deck within the constraints in {constraints.MaxAttempts} "
+            + $"attempts (target mean cost {targetCost:F2} +/-{constraints.CostTolerance}, "
+            + $"min {constraints.MinPerType} cards per type). The card set may not support them "
+            + "alongside the cards already chosen.");
+    }
+
     // One candidate deck: type minimums seeded first, remainder filled uniformly. Returns null
     // when the type minimums cannot be met from this card set, which the caller treats as a failed
     // attempt rather than an error -- the type seeding draws without replacement past the copy
     // limit, so an unlucky draw order can exhaust a type legitimately.
+    //
+    // `seed`, when given, pre-populates the deck (e.g. cards a player already picked in the
+    // deckbuilder) before type seeding runs -- those cards count toward both the type minimums and
+    // the copy limit exactly as a freshly-picked card would, so Complete's fill respects what is
+    // already there instead of double-counting or re-picking past the copy cap.
     private static List<string>? BuildCandidate(
         CardDatabase cards, IRandomSource random, int size, int maxCopies,
-        RandomDeckConstraints constraints)
+        RandomDeckConstraints constraints, IReadOnlyList<string>? seed = null)
     {
         var deck = new List<string>(size);
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        if (seed is not null)
+        {
+            deck.AddRange(seed);
+            foreach (var id in seed)
+            {
+                counts[id] = counts.GetValueOrDefault(id) + 1;
+            }
+        }
 
         // Seed each type's minimum. Ordered by ResourceType so the draw sequence is deterministic
         // for a given seed -- iterating a set here would make the same seed produce different

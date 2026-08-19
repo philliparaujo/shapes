@@ -236,6 +236,73 @@ public class DeckBuilderTests
     }
 
     [Fact]
+    public void Complete_deck_keeps_existing_cards_and_fills_to_legal_size()
+    {
+        var cards = BuildSet();
+        var existing = cards.All.Take(5).Select(c => c.Id).ToList();
+
+        var deck = DeckBuilder.Complete("c", existing, cards, Rules(), new SeededRandom(1));
+
+        Assert.Equal(40, deck.Count);
+        DeckBuilder.Validate(deck, cards, Rules());
+
+        var counts = deck.CountsById();
+        foreach (var id in existing)
+        {
+            Assert.True(counts[id] >= 1);
+        }
+    }
+
+    [Fact]
+    public void Complete_deck_from_empty_is_equivalent_to_random()
+    {
+        var cards = BuildSet();
+
+        var deck = DeckBuilder.Complete("c", [], cards, Rules(), new SeededRandom(1));
+
+        Assert.Equal(40, deck.Count);
+        DeckBuilder.Validate(deck, cards, Rules());
+    }
+
+    [Fact]
+    public void Complete_deck_respects_the_copy_limit_across_existing_and_new_cards()
+    {
+        var cards = BuildSet();
+
+        // Already at the 3-copy limit for one card; the fill must not add a 4th.
+        var existing = Enumerable.Repeat(cards.All[0].Id, 3).ToList();
+
+        var deck = DeckBuilder.Complete("c", existing, cards, Rules(), new SeededRandom(1));
+
+        DeckBuilder.Validate(deck, cards, Rules());
+        Assert.Equal(3, deck.CopiesOf(cards.All[0].Id));
+    }
+
+    [Fact]
+    public void Complete_deck_different_seeds_fill_differently()
+    {
+        var cards = BuildSet();
+        var existing = cards.All.Take(3).Select(c => c.Id).ToList();
+
+        var a = DeckBuilder.Complete("a", existing, cards, Rules(), new SeededRandom(1));
+        var b = DeckBuilder.Complete("b", existing, cards, Rules(), new SeededRandom(2));
+
+        Assert.NotEqual(a.Cards, b.Cards);
+    }
+
+    [Fact]
+    public void Complete_deck_throws_when_too_many_cards_already_selected()
+    {
+        var cards = BuildSet();
+        var existing = Enumerable.Repeat(cards.All[0].Id, 3)
+            .Concat(cards.All.Skip(1).SelectMany(c => Enumerable.Repeat(c.Id, 3)))
+            .ToList();
+
+        Assert.Throws<DeckBuildException>(
+            () => DeckBuilder.Complete("c", existing, cards, Rules(), new SeededRandom(1)));
+    }
+
+    [Fact]
     public void Shuffled_does_not_mutate_the_deck()
     {
         // A Deck is shared across both seats and every game in a batch -- shuffling in place
