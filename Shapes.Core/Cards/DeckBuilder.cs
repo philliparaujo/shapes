@@ -46,6 +46,26 @@ public static class DeckBuilder
         return new Deck(DefaultDeckName, cards.All.Select(c => c.Id));
     }
 
+    // The internal name Starter() gives its Deck -- the deckbuilder tab's pre-seeded slot 0, so a
+    // new player has a legal deck to open the tab with instead of ten empty slots and 48
+    // unfiltered cards to sort through alone.
+    public const string StarterDeckName = "Default";
+
+    // Fixed rather than time- or install-derived: every player's starter deck must be identical
+    // (a "starter deck" that differed by machine would not be a fair baseline to balance against
+    // or to compare a new player's win rate to), and a literal constant is what makes that
+    // guaranteed rather than incidentally true.
+    private const ulong StarterDeckSeed = 0x5DA27_5741_1234UL;
+
+    // A legal, ready-to-play 40-card deck that stands in for Default(): same spirit (a deck that
+    // exercises the whole card set rather than leaning on a narrow archetype) but built through
+    // Random's own type-balance and cost-matching constraints so it is exactly as legal as any
+    // deck a player could build by hand. Regenerating from the card set on every call (rather than
+    // a baked-in card list) means adding, removing, or re-costing a card keeps this deck legal and
+    // representative without anyone having to hand-edit a decklist alongside it.
+    public static Deck Starter(CardDatabase cards) =>
+        Random(StarterDeckName, cards, RuleSet.Default, new SeededRandom(StarterDeckSeed), reference: Default(cards));
+
     // An explicit decklist, validated against the ruleset's size and copy limits.
     public static Deck Custom(string name, IEnumerable<string> cardIds, CardDatabase cards, RuleSet rules)
     {

@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using Godot;
+using Shapes.Core.Cards;
 using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
@@ -34,8 +36,36 @@ public static class DeckStore
             return _cached;
         }
 
-        _cached = ReadFromDisk() ?? DeckSlots.Empty();
+        var slots = ReadFromDisk() ?? DeckSlots.Empty();
+        EnsureStarterDeck(slots);
+        _cached = slots;
         return _cached;
+    }
+
+    // Seeds slot 0 with a legal, ready-to-play "Default" deck (DeckBuilder.Starter) whenever that
+    // slot is still untouched, so a new player opens the deckbuilder tab to a real deck rather
+    // than ten empty slots -- the same starting point every player gets, since Starter's seed is
+    // fixed. Only fires on an EMPTY slot 0: once a player has named or built something there, that
+    // is their deck, and re-seeding over it on a later load would silently discard their work.
+    private static void EnsureStarterDeck(DeckSlots slots)
+    {
+        var slot = slots.Slots[0];
+        if (!slot.IsEmpty)
+        {
+            return;
+        }
+
+        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
+        var cards = CardLoader.FromDirectory(cardsDir);
+        var starter = DeckBuilder.Starter(cards);
+
+        slot.Name = starter.Name;
+        foreach (var (cardId, count) in starter.CountsById())
+        {
+            slot.SetCopies(cardId, count);
+        }
+
+        Save(slots);
     }
 
     // Persists the whole document. Called on every deckbuilder edit that changes a deck (card

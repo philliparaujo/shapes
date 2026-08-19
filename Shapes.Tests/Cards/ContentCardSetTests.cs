@@ -98,6 +98,26 @@ public class ContentCardSetTests
     }
 
     [Fact]
+    public void The_starter_deck_is_legal_and_deterministic()
+    {
+        // The deckbuilder tab's pre-seeded "Default" slot -- must be exactly as legal as any deck
+        // a player could build by hand, and identical across builds/machines since every new
+        // player is meant to start from the same deck.
+        var db = Load();
+        var rules = RuleSet.Default;
+
+        var deck = DeckBuilder.Starter(db);
+        DeckBuilder.Validate(deck, db, rules);
+
+        Assert.Equal(DeckBuilder.StandardDeckSize, deck.Count);
+        Assert.All(
+            deck.CountsById().Values, count => Assert.True(count <= DeckBuilder.StandardMaxCopiesPerCard));
+
+        var again = DeckBuilder.Starter(db);
+        Assert.Equal(deck.Cards, again.Cards);
+    }
+
+    [Fact]
     public void Random_decks_include_spells_at_roughly_their_share_of_the_card_set()
     {
         // REGRESSION GUARD. MinPerType counts cards by PLAY COST, so spells count toward the type
