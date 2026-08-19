@@ -49,19 +49,31 @@ public partial class Deckbuilder : Control
     [Export] public NodePath DeleteButtonPath { get; set; } = "Layout/TopBar/DeleteButton";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
     [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/TopBar/CardBrowserButton";
-    [Export] public NodePath SearchBarPath { get; set; } = "Layout/FilterBar/SearchBar";
-    [Export] public NodePath CostTypeFilterPath { get; set; } = "Layout/FilterBar/CostTypeFilter";
-    [Export] public NodePath KindFilterPath { get; set; } = "Layout/FilterBar/KindFilter";
-    [Export] public NodePath CollectionListPath { get; set; } = "Layout/Columns/CollectionColumn/ScrollContainer/CollectionList";
-    [Export] public NodePath CollectionHeaderPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/CollectionHeaderLabel";
-    [Export] public NodePath PageBarPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar";
-    [Export] public NodePath PrevPageButtonPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar/PrevPageButton";
-    [Export] public NodePath NextPageButtonPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar/NextPageButton";
-    [Export] public NodePath PageLabelPath { get; set; } = "Layout/Columns/CollectionColumn/CollectionHeader/PageBar/PageLabel";
-    [Export] public NodePath DeckListPath { get; set; } = "Layout/Columns/DeckColumn/ScrollContainer/DeckList";
-    [Export] public NodePath CountLabelPath { get; set; } = "Layout/Columns/DeckColumn/DeckHeader/CountLabel";
-    [Export] public NodePath StatsLabelPath { get; set; } = "Layout/Columns/DeckColumn/StatsLabel";
-    [Export] public NodePath CostCurvePath { get; set; } = "Layout/Columns/DeckColumn/CostCurve";
+    [Export] public NodePath SearchBarPath { get; set; } = "Layout/FilterPanel/FilterBar/SearchBar";
+    [Export] public NodePath CostTypeFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterBar/CostTypeFilter";
+    [Export] public NodePath KindFilterPath { get; set; } = "Layout/FilterPanel/FilterBar/KindFilter";
+    [Export] public NodePath FilterPanelPath { get; set; } = "Layout/FilterPanel";
+    [Export] public NodePath CollectionPanelPath { get; set; } = "Layout/Columns/CollectionPanel";
+    [Export] public NodePath DeckPanelPath { get; set; } = "Layout/Columns/DeckPanel";
+    [Export] public NodePath CollectionListPath { get; set; } =
+        "Layout/Columns/CollectionPanel/CollectionColumn/ScrollContainer/CollectionList";
+    [Export] public NodePath CollectionHeaderPath { get; set; } =
+        "Layout/Columns/CollectionPanel/CollectionColumn/CollectionHeader/CollectionHeaderLabel";
+    [Export] public NodePath PageBarPath { get; set; } =
+        "Layout/Columns/CollectionPanel/CollectionColumn/CollectionHeader/PageBar";
+    [Export] public NodePath PrevPageButtonPath { get; set; } =
+        "Layout/Columns/CollectionPanel/CollectionColumn/CollectionHeader/PageBar/PrevPageButton";
+    [Export] public NodePath NextPageButtonPath { get; set; } =
+        "Layout/Columns/CollectionPanel/CollectionColumn/CollectionHeader/PageBar/NextPageButton";
+    [Export] public NodePath PageLabelPath { get; set; } =
+        "Layout/Columns/CollectionPanel/CollectionColumn/CollectionHeader/PageBar/PageLabel";
+    [Export] public NodePath DeckListPath { get; set; } =
+        "Layout/Columns/DeckPanel/DeckColumn/ScrollContainer/DeckList";
+    [Export] public NodePath CountLabelPath { get; set; } =
+        "Layout/Columns/DeckPanel/DeckColumn/DeckHeader/CountLabel";
+    [Export] public NodePath StatsLabelPath { get; set; } = "Layout/Columns/DeckPanel/DeckColumn/StatsLabel";
+    [Export] public NodePath CostCurvePath { get; set; } = "Layout/Columns/DeckPanel/DeckColumn/CostCurve";
     [Export] public string LobbyScenePath { get; set; } = "res://Scenes/Lobby.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
 
@@ -139,6 +151,23 @@ public partial class Deckbuilder : Control
         _countLabel = GetNode<Label>(CountLabelPath);
         _statsLabel = GetNode<Label>(StatsLabelPath);
         _costCurve = GetNode<CostCurveChart>(CostCurvePath);
+
+        // Raised rather than the theme's default panel fill -- see CardBrowser's own _Ready note:
+        // Palette.Surface sits almost flush with TableBackdrop's mid-tone, so an un-overridden
+        // panel barely separates from the backdrop behind it. Matches CardBrowser's filter/grid
+        // panels so the two card screens (reached from one another via the header buttons) read
+        // as the same console rather than two different levels of polish.
+        var raisedPanel = new StyleBoxFlat { BgColor = Palette.SurfaceRaised, BorderColor = Palette.SurfaceEdge };
+        raisedPanel.SetBorderWidthAll(Palette.BorderWidth);
+        raisedPanel.SetCornerRadiusAll(Palette.CornerRadius);
+        raisedPanel.ContentMarginLeft = 16;
+        raisedPanel.ContentMarginRight = 16;
+        raisedPanel.ContentMarginTop = 12;
+        raisedPanel.ContentMarginBottom = 12;
+
+        GetNode<PanelContainer>(FilterPanelPath).AddThemeStyleboxOverride("panel", raisedPanel);
+        GetNode<PanelContainer>(CollectionPanelPath).AddThemeStyleboxOverride("panel", raisedPanel);
+        GetNode<PanelContainer>(DeckPanelPath).AddThemeStyleboxOverride("panel", raisedPanel);
 
         HoverDetailPanelScene ??= GD.Load<PackedScene>("res://Scenes/HoverDetailPanel.tscn");
 

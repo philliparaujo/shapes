@@ -30,21 +30,35 @@ namespace Shapes.Godot.Scripts;
 // cheaply (no nodes), slices out one page, and only instantiates cells for that slice.
 public partial class CardBrowser : Control
 {
-    [Export] public NodePath GridContainerPath { get; set; } = "Layout/ScrollContainer/CardGrid";
+    [Export] public NodePath GridContainerPath { get; set; } =
+        "Layout/ScrollContainer/GridCenter/GridPanel/CardGrid";
+    [Export] public NodePath GridPanelPath { get; set; } =
+        "Layout/ScrollContainer/GridCenter/GridPanel";
+    [Export] public NodePath ScrollContainerPath { get; set; } = "Layout/ScrollContainer";
+    [Export] public NodePath FilterPanelPath { get; set; } = "Layout/FilterPanel";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
     [Export] public NodePath DeckbuilderButtonPath { get; set; } =
         "Layout/TopBar/TitleGroup/DeckbuilderButton";
     [Export] public NodePath SearchBarPath { get; set; } = "Layout/TopBar/SearchBar";
-    [Export] public NodePath CostTypeFilterPath { get; set; } = "Layout/FilterBar/CostTypeFilter";
-    [Export] public NodePath CostAmountFilterPath { get; set; } = "Layout/FilterBar/CostAmountFilter";
-    [Export] public NodePath KindLabelPath { get; set; } = "Layout/FilterBar/KindLabel";
-    [Export] public NodePath KindFilterPath { get; set; } = "Layout/FilterBar/KindFilter";
-    [Export] public NodePath CreatureTypeFilterPath { get; set; } = "Layout/FilterBar/CreatureTypeFilter";
-    [Export] public NodePath ViewModeLabelPath { get; set; } = "Layout/FilterBar/ViewModeLabel";
-    [Export] public NodePath ViewModeFilterPath { get; set; } = "Layout/FilterBar/ViewModeFilter";
-    [Export] public NodePath FirstCreatureFilterPath { get; set; } = "Layout/MergeBar/FirstCreatureFilter";
-    [Export] public NodePath SecondCreatureFilterPath { get; set; } = "Layout/MergeBar/SecondCreatureFilter";
-    [Export] public NodePath MergeBarPath { get; set; } = "Layout/MergeBar";
+    [Export] public NodePath CostTypeFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/CostTypeFilter";
+    [Export] public NodePath CostAmountFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/CostAmountFilter";
+    [Export] public NodePath KindLabelPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/KindLabel";
+    [Export] public NodePath KindFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/KindFilter";
+    [Export] public NodePath CreatureTypeFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/CreatureTypeFilter";
+    [Export] public NodePath ViewModeLabelPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/ViewModeLabel";
+    [Export] public NodePath ViewModeFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/ViewModeFilter";
+    [Export] public NodePath FirstCreatureFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/MergeBar/FirstCreatureFilter";
+    [Export] public NodePath SecondCreatureFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/MergeBar/SecondCreatureFilter";
+    [Export] public NodePath MergeBarPath { get; set; } = "Layout/FilterPanel/FilterColumn/MergeBar";
     [Export] public NodePath PageBarPath { get; set; } = "Layout/PageBar";
     [Export] public NodePath PrevPageButtonPath { get; set; } = "Layout/PageBar/PrevPageButton";
     [Export] public NodePath NextPageButtonPath { get; set; } = "Layout/PageBar/NextPageButton";
@@ -55,9 +69,26 @@ public partial class CardBrowser : Control
     [Export] public PackedScene? SlotViewScene { get; set; }
     [Export] public PackedScene? HoverDetailPanelScene { get; set; }
 
-    // 25 = 5 columns x 5 rows, matching the grid's own column count so a full page fills a
-    // rectangle rather than ending mid-row.
-    private const int PageSize = 25;
+    // Rows per page is fixed; columns are NOT -- see ColumnsFor. The page fills a COLUMNS x ROWS
+    // rectangle either way, so PageSize (used for the "N of M" count and the next/prev math) is
+    // derived from whatever ColumnsFor returns rather than a constant.
+    private const int Rows = 5;
+
+    // Never fewer than this many columns even on a narrow viewport -- a 1-column grid at a huge
+    // cell height would make paging nearly pointless, and this is a floor rather than a target
+    // ColumnsFor's own division already reaches naturally at any reasonable window size.
+    private const int MinColumns = 3;
+
+    // Grid cell gap, and the grid panel's own left+right content margin -- both read by ColumnsFor
+    // to convert the scroll area's raw width into how much of it cells can actually occupy. Named
+    // here rather than left as literals in the .tscn/_Ready styling so the two stay the one number
+    // ColumnsFor's math depends on.
+    private const int GridSeparation = 16;
+    private const int GridPanelPadding = 32;
+
+    // Reserved so ColumnsFor never proposes a column count that fits with exactly zero pixels to
+    // spare -- see its own note.
+    private const int MarginBuffer = 40;
 
     private enum KindFilterOption
     {
@@ -115,6 +146,7 @@ public partial class CardBrowser : Control
     private Button? _prevPageButton;
     private Button? _nextPageButton;
     private Label? _pageLabel;
+    private ScrollContainer? _scrollContainer;
 
     private CardDatabase? _cards;
     // Creature cards only, pre-sorted cost/name/type (PLAN.md C4's sort rule) -- both the
@@ -148,6 +180,32 @@ public partial class CardBrowser : Control
         _prevPageButton = GetNode<Button>(PrevPageButtonPath);
         _nextPageButton = GetNode<Button>(NextPageButtonPath);
         _pageLabel = GetNode<Label>(PageLabelPath);
+        _scrollContainer = GetNode<ScrollContainer>(ScrollContainerPath);
+
+        // Raised rather than the theme's default panel fill (Palette.Surface sits almost flush
+        // with TableBackdrop's mid-tone -- see Palette's own values -- so an un-overridden panel
+        // would barely separate from the backdrop behind it). SurfaceRaised is the same "lifted"
+        // fill the board's own panels use, which is what makes the filter controls and the card
+        // grid read as consoles sitting on the room rather than floating directly on it.
+        var raisedPanel = new StyleBoxFlat { BgColor = Palette.SurfaceRaised, BorderColor = Palette.SurfaceEdge };
+        raisedPanel.SetBorderWidthAll(Palette.BorderWidth);
+        raisedPanel.SetCornerRadiusAll(Palette.CornerRadius);
+        raisedPanel.ContentMarginLeft = GridPanelPadding / 2;
+        raisedPanel.ContentMarginRight = GridPanelPadding / 2;
+        raisedPanel.ContentMarginTop = 12;
+        raisedPanel.ContentMarginBottom = 12;
+
+        GetNode<PanelContainer>(FilterPanelPath).AddThemeStyleboxOverride("panel", raisedPanel);
+        GetNode<PanelContainer>(GridPanelPath).AddThemeStyleboxOverride("panel", raisedPanel);
+
+        _grid.AddThemeConstantOverride("h_separation", GridSeparation);
+        _grid.AddThemeConstantOverride("v_separation", GridSeparation);
+
+        // Columns depend on the scroll area's width (ColumnsFor), so a window resize -- not just
+        // a filter change -- can change how many fit. Without this, resizing the window keeps
+        // whatever column count was chosen at the last filter change, which is exactly the "wrong
+        // margin on a different aspect ratio" this whole recompute exists to avoid.
+        _scrollContainer.Resized += RebuildGrid;
 
         SlotViewScene ??= GD.Load<PackedScene>("res://Scenes/SlotView.tscn");
         HoverDetailPanelScene ??= GD.Load<PackedScene>("res://Scenes/HoverDetailPanel.tscn");
@@ -318,11 +376,21 @@ public partial class CardBrowser : Control
         var creatureType = CreatureTypeOrder[_creatureTypeFilter!.Selected];
         var entries = creatureType == CreatureTypeOption.Merged ? MergedEntries() : OriginalEntries();
 
-        var totalPages = Math.Max(1, (entries.Count + PageSize - 1) / PageSize);
+        // Merged entries always render as SlotView (a merge has no un-merged tooltip reading --
+        // see OnCreatureTypeChanged); Original entries render as SlotView only under
+        // Creature view = In-play. Either way every cell on the page is the SAME size (a single
+        // Entry list is never a mix of Card and First/Second, and viewMode applies uniformly), so
+        // one check up front decides the whole page's column count.
+        var viewMode = ViewModeOrder[_viewModeFilter!.Selected];
+        var usesSlotCells = creatureType == CreatureTypeOption.Merged || viewMode == ViewMode.InPlay;
+
+        _grid!.Columns = ColumnsFor(usesSlotCells ? CardMetrics.SlotWidth : CardMetrics.TooltipWidth);
+        var pageSize = _grid.Columns * Rows;
+
+        var totalPages = Math.Max(1, (entries.Count + pageSize - 1) / pageSize);
         _page = Math.Clamp(_page, 0, totalPages - 1);
 
-        var viewMode = ViewModeOrder[_viewModeFilter!.Selected];
-        foreach (var entry in entries.Skip(_page * PageSize).Take(PageSize))
+        foreach (var entry in entries.Skip(_page * pageSize).Take(pageSize))
         {
             if (entry.Card is { } card)
             {
@@ -334,10 +402,39 @@ public partial class CardBrowser : Control
             }
         }
 
-        _pageBar!.Visible = entries.Count > PageSize;
+        _pageBar!.Visible = entries.Count > pageSize;
         _pageLabel!.Text = $"Page {_page + 1} / {totalPages} ({entries.Count} total)";
         _prevPageButton!.Disabled = _page == 0;
         _nextPageButton!.Disabled = _page >= totalPages - 1;
+    }
+
+    // How many `cellWidth`-wide columns fit the scroll area at its CURRENT size, floored to
+    // MinColumns.
+    //
+    // A FIXED column count is what produced the crowding this replaces: 7 columns of 240px
+    // tooltip cells add up to a wider row than 5 columns of 330px slot cells, so one constant
+    // tuned against one cell size left the other's margins wrong -- and either constant would be
+    // wrong again on a viewport of a different width entirely. Deriving columns from the actual
+    // available width keeps the grid's own edge close to CardBrowser's left/right inset regardless
+    // of cell size or window aspect ratio, rather than a number of columns that only happens to
+    // fit at one resolution.
+    //
+    // Reads _scrollContainer's width rather than the grid panel's own: GridPanel/CardGrid now
+    // shrink-to-content and sit inside a CenterContainer (see CardBrowser.tscn), so the panel's
+    // width is a RESULT of this method, not an input to it -- asking it "how wide are you" would
+    // be circular.
+    private int ColumnsFor(float cellWidth)
+    {
+        // MarginBuffer leaves a visible gutter between the shrink-wrapped grid panel and the
+        // scroll area's own edge even when a column count fits exactly -- an edge-to-edge fit
+        // reads as cramped even though nothing is actually clipped or overlapping.
+        var available = _scrollContainer!.Size.X - GridPanelPadding - MarginBuffer;
+        var perColumn = cellWidth + GridSeparation;
+
+        // +GridSeparation because N columns need only (N-1) internal gaps, not N -- without this
+        // correction the last column that would actually fit is discarded one column early.
+        var columns = (int)((available + GridSeparation) / perColumn);
+        return Math.Max(MinColumns, columns);
     }
 
     // Cheap pass: builds the full filtered/sorted list of WHAT to show, no nodes yet -- so

@@ -267,8 +267,6 @@ public partial class DeckRowScrim : Control
     private const float LeftExtent = 0.55f;
     private const float RightExtent = 0.22f;
 
-    private const int Bands = 24;
-
     // Near-opaque at the left edge. Tuned against the brightest art in the set (Rally's lit red
     // desert, Enrage's white beam), which is what a name has to stay legible over -- an alpha
     // that reads as plenty over a dark card is transparent over those.
@@ -287,6 +285,14 @@ public partial class DeckRowScrim : Control
 
     public override void _Ready() => Resized += QueueRedraw;
 
+    // PER-PIXEL INTERPOLATION, not stacked translucent bands. The banded version drew each fade
+    // as ~24 overlapping semi-transparent DrawRect calls (a 1px overlap to hide seams between
+    // them), which is the exact trap TableBackdrop.DrawRamp's own header already documents and
+    // was rewritten away from: it depends on the node being opaque, and this scrim is translucent
+    // by design, so every band boundary composited twice and painted a faint vertical seam --
+    // visible as the striping over the card art this replaces. DrawPolygon with per-vertex alpha
+    // asks the renderer to interpolate instead of approximating it with bands, so there are no
+    // seams to hide regardless of how translucent the scrim is.
     public override void _Draw()
     {
         var solid = Size.X * SolidLeftExtent;
@@ -299,7 +305,9 @@ public partial class DeckRowScrim : Control
     }
 
     // `start` is where the fade begins, measured in from that edge -- the left fade starts where
-    // the solid band ends so the two meet without a step.
+    // the solid band ends so the two meet without a step. One quad spans the whole fade, with the
+    // near edge at `peakAlpha` and the far edge at 0 -- the renderer interpolates every pixel
+    // between them, which is what a squared falloff would otherwise approximate with many bands.
     private void DrawFade(float start, float extent, float peakAlpha, bool fromLeft)
     {
         if (extent <= 0f)
@@ -307,18 +315,18 @@ public partial class DeckRowScrim : Control
             return;
         }
 
-        var bandWidth = extent / Bands;
-        for (var i = 0; i < Bands; i++)
-        {
-            // Squared falloff, not linear: a linear fade still reads as a visible straight edge
-            // where it meets the art, because perceived brightness does not track alpha linearly.
-            var t = 1f - (i / (float)Bands);
-            var alpha = peakAlpha * t * t;
+        var near = fromLeft ? start : Size.X - start;
+        var far = fromLeft ? start + extent : Size.X - start - extent;
 
-            var x = fromLeft ? start + i * bandWidth : Size.X - start - (i + 1) * bandWidth;
-            DrawRect(
-                new Rect2(x, 0f, bandWidth + 1f, Size.Y),
-                new Color(ScrimColor.R, ScrimColor.G, ScrimColor.B, alpha));
-        }
+        var peak = new Color(ScrimColor.R, ScrimColor.G, ScrimColor.B, peakAlpha);
+        var clear = new Color(ScrimColor.R, ScrimColor.G, ScrimColor.B, 0f);
+
+        var points = new[]
+        {
+            new Vector2(near, 0f), new Vector2(far, 0f),
+            new Vector2(far, Size.Y), new Vector2(near, Size.Y),
+        };
+
+        DrawPolygon(points, [peak, clear, clear, peak]);
     }
 }

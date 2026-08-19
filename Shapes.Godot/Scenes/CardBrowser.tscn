@@ -49,7 +49,14 @@ theme_override_constants/separation = 16
 [node name="TitleLabel" type="Label" parent="Layout/TopBar/TitleGroup"]
 layout_mode = 2
 vertical_alignment = 1
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 26
+theme_override_colors/font_color = Color(0.98, 0.95, 0.88, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 2
+theme_override_constants/shadow_outline_size = 8
+theme_override_colors/font_outline_color = Color(0.05, 0.06, 0.08, 0.95)
+theme_override_constants/outline_size = 6
 text = "Card Browser"
 
 [node name="DeckbuilderButton" type="Button" parent="Layout/TopBar/TitleGroup"]
@@ -65,76 +72,83 @@ custom_minimum_size = Vector2(220, 36)
 size_flags_vertical = 4
 placeholder_text = "Search by name..."
 
-[node name="FilterBar" type="HBoxContainer" parent="Layout"]
+[node name="FilterPanel" type="PanelContainer" parent="Layout"]
+layout_mode = 2
+
+[node name="FilterColumn" type="VBoxContainer" parent="Layout/FilterPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="FilterBar" type="HBoxContainer" parent="Layout/FilterPanel/FilterColumn"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_constants/separation = 12
 
-[node name="CostTypeLabel" type="Label" parent="Layout/FilterBar"]
+[node name="CostTypeLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "Type"
 
-[node name="CostTypeFilter" type="OptionButton" parent="Layout/FilterBar"]
+[node name="CostTypeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(100, 36)
 
-[node name="CostAmountLabel" type="Label" parent="Layout/FilterBar"]
+[node name="CostAmountLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "Cost"
 
-[node name="CostAmountFilter" type="OptionButton" parent="Layout/FilterBar"]
+[node name="CostAmountFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(90, 36)
 
-[node name="KindLabel" type="Label" parent="Layout/FilterBar"]
+[node name="KindLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "Kind"
 
-[node name="KindFilter" type="OptionButton" parent="Layout/FilterBar"]
+[node name="KindFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(110, 36)
 
-[node name="CreatureTypeLabel" type="Label" parent="Layout/FilterBar"]
+[node name="CreatureTypeLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "Creature type"
 
-[node name="CreatureTypeFilter" type="OptionButton" parent="Layout/FilterBar"]
+[node name="CreatureTypeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(110, 36)
 
-[node name="ViewModeLabel" type="Label" parent="Layout/FilterBar"]
+[node name="ViewModeLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "Creature view"
 
-[node name="ViewModeFilter" type="OptionButton" parent="Layout/FilterBar"]
+[node name="ViewModeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
 
-[node name="MergeBar" type="HBoxContainer" parent="Layout"]
+[node name="MergeBar" type="HBoxContainer" parent="Layout/FilterPanel/FilterColumn"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_constants/separation = 12
 
-[node name="FirstCreatureLabel" type="Label" parent="Layout/MergeBar"]
+[node name="FirstCreatureLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "First"
 
-[node name="FirstCreatureFilter" type="OptionButton" parent="Layout/MergeBar"]
+[node name="FirstCreatureFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(160, 36)
 
-[node name="SecondCreatureLabel" type="Label" parent="Layout/MergeBar"]
+[node name="SecondCreatureLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
 vertical_alignment = 1
 text = "Second"
 
-[node name="SecondCreatureFilter" type="OptionButton" parent="Layout/MergeBar"]
+[node name="SecondCreatureFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(160, 36)
 
@@ -164,9 +178,19 @@ layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="CardGrid" type="GridContainer" parent="Layout/ScrollContainer"]
+[node name="GridCenter" type="CenterContainer" parent="Layout/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="GridPanel" type="PanelContainer" parent="Layout/ScrollContainer/GridCenter"]
+layout_mode = 2
+
+[node name="CardGrid" type="GridContainer" parent="Layout/ScrollContainer/GridCenter/GridPanel"]
+layout_mode = 2
 theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 16
 columns = 5
+
+; columns, and h_separation/v_separation above, are recomputed by CardBrowser.cs every rebuild
+; (ColumnsFor) so the grid's real column count tracks the viewport width and the active cell
+; size (tooltip vs in-play/merged) -- these are just the scene's design-time preview values.
