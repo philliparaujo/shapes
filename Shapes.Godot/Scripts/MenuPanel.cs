@@ -19,16 +19,19 @@ public partial class MenuPanel : Control
     public event Action? ExitRequested;
     public event Action? ResumeRequested;
     public event Action? RulesRequested;
+    public event Action? SoundsRequested;
 
     [Export] public NodePath TitleLabelPath { get; set; } = "Backdrop/Panel/Margin/Layout/TitleLabel";
     [Export] public NodePath ResumeButtonPath { get; set; } = "Backdrop/Panel/Margin/Layout/ResumeButton";
     [Export] public NodePath RulesButtonPath { get; set; } = "Backdrop/Panel/Margin/Layout/RulesButton";
+    [Export] public NodePath SoundsButtonPath { get; set; } = "Backdrop/Panel/Margin/Layout/SoundsButton";
     [Export] public NodePath LobbyButtonPath { get; set; } = "Backdrop/Panel/Margin/Layout/LobbyButton";
     [Export] public NodePath ExitButtonPath { get; set; } = "Backdrop/Panel/Margin/Layout/ExitButton";
 
     private Label? _title;
     private Button? _resumeButton;
     private Button? _rulesButton;
+    private Button? _soundsButton;
     private Button? _lobbyButton;
     private Button? _exitButton;
 
@@ -37,11 +40,13 @@ public partial class MenuPanel : Control
         _title = GetNode<Label>(TitleLabelPath);
         _resumeButton = GetNode<Button>(ResumeButtonPath);
         _rulesButton = GetNode<Button>(RulesButtonPath);
+        _soundsButton = GetNode<Button>(SoundsButtonPath);
         _lobbyButton = GetNode<Button>(LobbyButtonPath);
         _exitButton = GetNode<Button>(ExitButtonPath);
 
         _resumeButton.Pressed += () => ResumeRequested?.Invoke();
         _rulesButton.Pressed += () => RulesRequested?.Invoke();
+        _soundsButton.Pressed += () => SoundsRequested?.Invoke();
         _lobbyButton.Pressed += () => BackToLobbyRequested?.Invoke();
         _exitButton.Pressed += () => ExitRequested?.Invoke();
 

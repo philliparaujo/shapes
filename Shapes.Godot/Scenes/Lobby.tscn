@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://dv6q0lobby001"]
+[gd_scene load_steps=6 format=3 uid="uid://dv6q0lobby001"]
 
 [ext_resource type="Script" path="res://Scripts/Lobby.cs" id="1_lobby"]
 [ext_resource type="PackedScene" path="res://Scenes/TutorialOverlay.tscn" id="2_tutorialoverlay"]
+[ext_resource type="PackedScene" path="res://Scenes/SoundsPanel.tscn" id="6_soundspanel"]
 [ext_resource type="Script" path="res://Scripts/MenuBackdrop.cs" id="4_menubackdrop"]
 [ext_resource type="Texture2D" uid="uid://bmdu02bva732o" path="res://Art/backgrounds/greenfocus3.jpg" id="5_background"]
 
@@ -76,6 +77,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_font_sizes/font_size = 15
 text = "Rules"
+
+[node name="SoundsButton" type="Button" parent="Home"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+text = "Sounds"
 
 [node name="ExitButton" type="Button" parent="Home"]
 layout_mode = 2
@@ -314,3 +321,5 @@ theme_override_font_sizes/font_size = 15
 text = "Cancel"
 
 [node name="TutorialOverlay" parent="." instance=ExtResource("2_tutorialoverlay")]
+
+[node name="SoundsPanel" parent="." instance=ExtResource("6_soundspanel")]

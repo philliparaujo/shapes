@@ -15,6 +15,13 @@ run/main_scene="res://Scenes/Lobby.tscn"
 config/features=PackedStringArray("4.5", "C#", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+; PLAN.md D4. An autoload because music must survive ChangeSceneToFile -- the lobby, deckbuilder,
+; card browser and a match are four separate scenes, and a player owned by any one of them would
+; stop (and restart from the top) at every transition. See AudioDirector's own header.
+AudioDirector="*res://Scripts/AudioDirector.cs"
+
 [display]
 
 window/size/viewport_width=1600

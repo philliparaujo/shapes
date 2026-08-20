@@ -1,10 +1,11 @@
-[gd_scene load_steps=18 format=3 uid="uid://dv6q0boardview001"]
+[gd_scene load_steps=19 format=3 uid="uid://dv6q0boardview001"]
 
 [ext_resource type="Script" path="res://Scripts/BoardView.cs" id="1_boardview"]
 [ext_resource type="PackedScene" path="res://Scenes/PlayerPanel.tscn" id="2_playerpanel"]
 [ext_resource type="PackedScene" path="res://Scenes/MenuPanel.tscn" id="4_menupanel"]
 [ext_resource type="PackedScene" path="res://Scenes/HoverDetailPanel.tscn" id="5_hoverdetail"]
 [ext_resource type="PackedScene" path="res://Scenes/TutorialOverlay.tscn" id="13_tutorialoverlay"]
+[ext_resource type="PackedScene" path="res://Scenes/SoundsPanel.tscn" id="18_soundspanel"]
 [ext_resource type="Script" path="res://Scripts/BoardAnimator.cs" id="6_boardanimator"]
 [ext_resource type="Script" path="res://Scripts/BoardFrame.cs" id="7_boardframe"]
 [ext_resource type="Script" path="res://Scripts/HandFan.cs" id="8_handfan"]
@@ -208,6 +209,8 @@ tooltip_text = "Match log"
 [node name="MenuPanel" parent="." instance=ExtResource("4_menupanel")]
 
 [node name="TutorialOverlay" parent="." instance=ExtResource("13_tutorialoverlay")]
+
+[node name="SoundsPanel" parent="." instance=ExtResource("18_soundspanel")]
 
 [node name="ActionLogOverlay" parent="." instance=ExtResource("15_actionlog")]
 

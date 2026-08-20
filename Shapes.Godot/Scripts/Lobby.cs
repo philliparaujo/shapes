@@ -35,8 +35,10 @@ public partial class Lobby : Control
     [Export] public NodePath PlayOnlineButtonPath { get; set; } = "Home/PlayOnlineButton";
     [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Home/DeckbuildingButton";
     [Export] public NodePath RulesButtonPath { get; set; } = "Home/RulesButton";
+    [Export] public NodePath SoundsButtonPath { get; set; } = "Home/SoundsButton";
     [Export] public NodePath ExitButtonPath { get; set; } = "Home/ExitButton";
     [Export] public NodePath TutorialOverlayPath { get; set; } = "TutorialOverlay";
+    [Export] public NodePath SoundsPanelPath { get; set; } = "SoundsPanel";
     [Export] public string GameScenePath { get; set; } = "res://Scenes/GameRoot.tscn";
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
     [Export] public string DeckbuilderScenePath { get; set; } = "res://Scenes/Deckbuilder.tscn";
@@ -80,9 +82,11 @@ public partial class Lobby : Control
     private Button? _resumeButton;
     private Button? _deckbuilderButton;
     private Button? _rulesButton;
+    private Button? _soundsButton;
     private Label? _errorLabel;
     private Button? _exitButton;
     private TutorialOverlay? _tutorialOverlay;
+    private SoundsPanel? _soundsPanel;
 
     // The two panels this scene switches between (PLAN.md D3 phase 3). One scene rather than two,
     // because everything the Play panel needs -- the loaded CardDatabase, the deck slots, the
@@ -153,9 +157,11 @@ public partial class Lobby : Control
         _resumeButton = GetNode<Button>(ResumeButtonPath);
         _deckbuilderButton = GetNode<Button>(DeckbuilderButtonPath);
         _rulesButton = GetNode<Button>(RulesButtonPath);
+        _soundsButton = GetNode<Button>(SoundsButtonPath);
         _errorLabel = GetNode<Label>(ErrorLabelPath);
         _exitButton = GetNode<Button>(ExitButtonPath);
         _tutorialOverlay = GetNode<TutorialOverlay>(TutorialOverlayPath);
+        _soundsPanel = GetNode<SoundsPanel>(SoundsPanelPath);
 
         _home = GetNode<Control>(HomePath);
         _play = GetNode<Control>(PlayPath);
@@ -235,6 +241,13 @@ public partial class Lobby : Control
         _rulesButton.Pressed += _tutorialOverlay!.Open;
         _tutorialOverlay.CloseRequested += _tutorialOverlay.Close;
 
+        // PLAN.md D4: the Sounds panel sits directly below Rules on the home screen and is the
+        // same single panel scene the in-game pause menu opens (BoardView), for the same reason
+        // C7 gives for the rules overlay -- there is exactly one Sounds page, not a lobby copy and
+        // a board copy that could drift.
+        _soundsButton.Pressed += _soundsPanel.Open;
+        _soundsPanel.CloseRequested += _soundsPanel.Close;
+
         ShowPlay(false);
     }
 
@@ -312,6 +325,17 @@ public partial class Lobby : Control
     {
         if (@event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
         {
+            return;
+        }
+
+        // PLAN.md D4. Tested before the tutorial for the same topmost-first reason the tutorial is
+        // tested before the panels: the two never open together from here, so the relative order of
+        // these two is arbitrary, but both must precede the panel swaps below or ESC would back out
+        // of the whole screen while a modal is still up.
+        if (_soundsPanel is { Visible: true })
+        {
+            _soundsPanel.Close();
+            GetViewport().SetInputAsHandled();
             return;
         }
 

@@ -382,6 +382,17 @@ public partial class GameRoot : Control
             return;
         }
 
+        // PLAN.md D4: the Sounds panel opens over the pause menu exactly as the tutorial does, so
+        // it needs the same treatment and for the same reason. The two never open together (both
+        // are reached from the menu beneath them), so their relative order here is arbitrary --
+        // what matters is that both precede the menu itself.
+        if (_boardView.IsSoundsOpen)
+        {
+            _boardView.CloseSounds();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         // Same topmost-first rule for the match log (PLAN.md D2 item 5). Unlike the tutorial it
         // opens straight from the board rather than over the pause menu, so closing it reveals the
         // board -- but it still has to be tested BEFORE the menu, or ESC would open the pause menu
@@ -564,6 +575,7 @@ public partial class GameRoot : Control
                 // the AI's attack travelling up the screen -- away from the human it is aimed at --
                 // now that the board no longer turns around to match.
                 _boardView.PlayAnimation(diff, Viewer);
+                PlaySoundsFor(action, diff);
 
                 // Paces every agent uniformly, not just the fast ones -- an IS-MCTS search that
                 // already took visible time still gets the same beat before the next action, so
@@ -784,6 +796,22 @@ public partial class GameRoot : Control
         }
     }
 
+    // PLAN.md D4: the audio half of PlayAnimation, called from all three apply paths (local
+    // Submit, RunAiTurns, DrainRemoteActions) so a card played by a human, an AI, or a remote peer
+    // sounds identical. Kept as its own method rather than folded into the animation call because
+    // the two answer different questions -- PlayAnimation needs the VIEWER's seat to orient a
+    // cue's direction, while a sound has no direction to orient and so needs no seat at all.
+    //
+    // Sounds BOTH seats deliberately, matching the recap panel's own decision (ActionRecap's
+    // header): hearing what the opponent just did is the point, not noise to be filtered out.
+    private void PlaySoundsFor(GameAction action, StateDiff diff)
+    {
+        foreach (var cue in SoundScript.From(diff, action))
+        {
+            SoundFx.Play(cue);
+        }
+    }
+
     // PLAN.md D2 items 2/4. Not every action earns a recap -- ActionRecap.For returns null for
     // EndTurn/Discard, which are either already obvious from the board or not worth interrupting
     // the panel for. Shown for both seats; see ActionRecap's header for that decision.
@@ -841,6 +869,7 @@ public partial class GameRoot : Control
         // The viewer's own seat, same as RunAiTurns -- see its note on why the animation is
         // oriented to who is WATCHING rather than to who acted.
         _boardView.PlayAnimation(diff, Viewer);
+        PlaySoundsFor(action, diff);
 
         // PLAN.md D5: tell the peer what just happened, once it has already been applied locally.
         // Fire-and-forget from this method's point of view -- a send failure surfaces later as
@@ -922,6 +951,7 @@ public partial class GameRoot : Control
             ShowRecapFor(action, before);
             RefreshAll();
             _boardView.PlayAnimation(diff, Viewer);
+            PlaySoundsFor(action, diff);
         }
     }
 

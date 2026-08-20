@@ -11,9 +11,9 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 19 / 24    |
+| 5 — Godot client                         | 21 / 24    |
 
-1194 tests passing. **Phases 1, 2, 3, and 4 are complete.**
+1225 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
@@ -26,8 +26,9 @@ drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable fr
 and the in-game pause menu, and the screen is drawn from a fixed seat when you are playing an AI
 rather than flipping to its side on its turn (D1). Two installs can also now host/join a real game
 over a relay (D5) — see that step's own notes for what's verified versus still needing a manual
-two-instance run through the Godot editor. What remains in Milestone D: UI polish/audio (D4) and
-export (D6). Content is settled at `v1.7-final` and the balance
+two-instance run through the Godot editor. Music and sound effects play, with a Sounds panel
+controlling both (D4, audio half). What remains in Milestone D: D4's transitions and menu restyle,
+and export (D6). Content is settled at `v1.7-final` and the balance
 record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
 at large samples (see that phase's closing note).
 
@@ -529,7 +530,7 @@ games run ~2 turns shorter; the fix is a ruleset knob, not a card edit, and Phas
 will move it again. **Archetype balance was always out of scope** — not measurable on a symmetric
 deck where both seats hold every card.
 
-### Phase 5 — Godot client (desktop + mobile) — 18/24, in progress
+### Phase 5 — Godot client (desktop + mobile) — 21/24 complete, 3 part-done, in progress
 
 Target Windows/macOS/Linux desktop and Android from one codebase. Organised as four milestones:
 A got the full rules onto one screen with no art; B made it feel like a game (interaction model,
@@ -644,7 +645,7 @@ seeded Godot game matching the same seed's console result.
   .gif importer) live under `Art/rules/`, fit into a shared per-page image box so the panel reads as
   one consistent layout across very different source aspect ratios.
 
-#### Milestone D — ship — 3/6
+#### Milestone D — ship — 3/6 complete (D3 and D4 both part-done)
 
 - [x] **D1. Viewer seat — separate "whose turn" from "whose screen."** Replaced the cut determinizer
   migration (whose reasoning now lives with the Deck model caveat above, where its standing
@@ -1039,8 +1040,114 @@ seeded Godot game matching the same seed's console result.
   1.6× font ratio, wide enough that the distinction survives a glance. Exactly one primary per screen
   (Play on Home, Start Game on Play); the seat dropdowns stay at 44px because they are inputs, not
   actions, and should not read as either tier.
-- [ ] **D4. Polish:** sound, transitions, menus. Audio wants an asset-source decision *before* this
-  step rather than during it.
+- [~] **D4. Polish: audio landed; transitions and the menu restyle remain.** The asset-source
+  decision this step was waiting on resolved outside it — 14 SFX and 4 music tracks were imported
+  under `Audio/Sfx` and `Audio/Music`, a top-level folder parallel to `Art/` rather than nested
+  inside it, since sound is not a visual asset and the two are loaded by different subsystems.
+
+  **What landed.** A **Sounds panel** (music and SFX, each 0–5, defaulting to 3) reachable from
+  directly below Rules in both places Rules itself is reachable — the home screen and the in-game
+  pause menu — because it is one panel scene instantiated twice, exactly the arrangement C7 chose
+  for the rules overlay and for the same reason: there is one Sounds page, not a lobby copy and a
+  board copy that could drift. **Music plays automatically and rotates 1→2→3→4→1** off filename
+  order, so adding a `5.ogg` extends the cycle with no code change. **Six SFX cues** are wired:
+  card play, move use, merge, the turn-start score tick, resource gain, and button click.
+
+  **`AudioDirector` is an autoload, and that is the load-bearing decision.** The lobby, deckbuilder,
+  card browser and a match are four separate scenes; a music player owned by any one of them stops
+  dead — and restarts from the top — at every `ChangeSceneToFile`. An autoload is the only node that
+  outlives a scene change, so the track survives the boundary. Volume is applied to **two audio
+  buses**, not per-player: several SFX players exist, and a bus is one number every routed player
+  inherits live, including sounds already mid-playback.
+
+  **The 0–5 scale is a table, not a formula.** The obvious linear-amplitude mapping crowds every
+  audible difference into the top two steps, leaving levels 1 and 2 indistinguishable. The six
+  values sit on the amplitude curve at roughly 6 dB apart — the interval that reads as "about
+  half/twice as loud" — with level 5 at unity gain so the loudest setting cannot clip an
+  already-normalized source, and level 0 hard-muting its bus rather than merely attenuating to
+  inaudibility.
+
+  **The cue vocabulary is deliberately NOT `AnimationCue`**, despite three members sharing names.
+  `AnimationScript` emits **per slot**, which is right for three damage numbers floating up and
+  wrong for audio: three identical samples starting on the same frame sum into one distorted
+  impact rather than reading as three events. `SoundScript` therefore collapses to at most one of
+  each cue per action. It also **takes the action as well as the diff**, splitting the two along a
+  real seam — the action says what the player *did* (play/move/merge), the diff says what *followed*
+  (income, scoring). A diff-only version gets two cases wrong that tests now pin: a targetless spell
+  changes no slot and would have been silent, and spending resources looks like gaining them to any
+  naive "did resources change" check.
+
+  **31 tests**, all pure-adapter (no editor needed), covering the volume curve's monotonicity, the
+  rotation's wrap, and both diff-derivation traps above. **Verified by a temporary headless harness**
+  asserting against live engine state rather than the type checker — that the autoload ran, both
+  buses carried the settings' volume, music was actually playing track 1, all six cues resolved to
+  real files, that setting level 5 moved the bus to 0 dB and level 0 muted it, and that the panel
+  opened from the real Lobby with six steps per row. Deleted after use, per the D1 harness precedent.
+
+  **One real defect found by running it, invisible to a clean build:** the process exited with
+  "resources still in use". Stopping playback did *not* fix it — the retained references were the
+  cached `AudioStream` objects themselves (the track list and `SoundBank`'s cue cache), which an
+  autoload's fields keep alive past the point Godot's resource system expects everything released.
+  Cleared in `_ExitTree`; shutdown is now silent. Harmless in a shipped session, but it is noise in
+  exactly the headless logs this project uses to verify Godot behaviour, and a genuine warning is
+  worth more than a familiar one.
+
+  **The SFX assignments are a deliberate first pass.** They were chosen by matching each cue's
+  physical metaphor to the imported library by name and character — wood for a card meeting the
+  table, metal plate for a move connecting, a duller heavier body for a merge, the heaviest impact
+  for the score tick (the only cue that moves the win condition), a non-percussive tick for income
+  since it fires every turn and must be the least fatiguing sound in the set, and the shortest
+  sample for a UI click. **Nobody has heard them**: they are mapped in one table in `SoundBank` so
+  re-pointing a cue is a one-line edit, with the reasoning recorded beside each so a listening pass
+  can tell "deliberate but wrong" from "arbitrary".
+
+  **Three defects found by playing it, each invisible to a passing build.** All three are the same
+  category as A3's original lesson — Godot wiring that compiles, runs, and is simply wrong.
+
+  **(1) A one-character typo silenced a cue.** `HeroDamage` was mapped to `imapctPlate_light_000.ogg`
+  and reported as a cue-priority bug ("I only hear the resource sound"), because that is exactly what
+  it looks like from the outside. `SoundBank` degrades a missing file to silence *by design* — one
+  bad filename must not take the game down — but that makes an authoring mistake undetectable at the
+  only moment anyone could act on it. Fixed, and `SoundBank.WarnOnMissingFiles` now probes every cue
+  at startup and pushes an error for any that will be silent. **A silent fallback needs a loud
+  counterpart**; the runtime behaviour was right and the authoring experience was not.
+
+  **(2) Income and scoring genuinely do collide, and scoring now wins.** Both resolve in the same
+  `AdvanceToActions` step, so on any scoring turn start the two cues fire on one frame and the louder
+  sample simply masks the other — which one you hear being an accident of their waveforms. Offsetting
+  was rejected: a delay only *moves* the collision, since the player can act again before it elapses
+  and the deferred cue then lands on the next action's sounds. Suppression is also the honest reading
+  — income arrives every turn and is the least informative sound in the set, while a score is the only
+  event that moves the win condition. Income still sounds on every turn that does not score.
+
+  **(3) The first screen a player saw had silent buttons.** Click sounds were wired by walking each
+  screen's tree from its `_Ready`, which covers `.tscn`-authored buttons and misses everything built
+  in code — the browser's grid, the deckbuilder's rows, the board's move buttons, every rebuilt
+  paginator. Replaced with a `node_added` hook so a button is wired **by the fact of existing** rather
+  than by a call site remembering. That alone reintroduced the bug at the other end: `node_added` only
+  reports nodes entering *after* it connects, and the main scene is already in the tree when an
+  autoload's `_Ready` runs — so the lobby was silent until the player navigated away and back. The hook
+  is now paired with a one-time catch-up walk of the existing tree, plus a `wired` meta flag so the two
+  paths cannot double-wire one button. `CardFace`/`SlotView`/move buttons are exempt by type, since
+  they already sound their own cue and would otherwise click *and* thump on one press.
+
+  **Verified by two temporary harnesses**, both deleted after use. The click harness measures the hook
+  **behaviourally** — instantiating each screen twice, with the hook connected and disconnected, and
+  diffing total `Pressed` connections — after a first attempt that introspected callables reported
+  "0 wired" on a working feature (a C# lambda connects as a `CallableCustom` Godot will not describe,
+  so *the detector* was broken, not the code). Result: 40/40 lobby, 42/42 deckbuilder, 11/11 browser,
+  and 26 of 37 on the board with exactly the 11 card/slot buttons exempt. The startup harness ran as a
+  second autoload against the real lobby boot — the only way to reproduce (3), since instantiating the
+  lobby from another harness adds it *after* startup and the hook catches it. **The check was itself
+  checked**: disabling the catch-up walk turned it red with 9 silent buttons, and those 9 are the
+  dropdowns — the ones with no handler of their own, which is why the symptom read as partial.
+
+  **Still open under this step:** transitions (scene changes still hard-cut) and the menu restyle,
+  including the **inert-hand-during-AI-turn** legibility problem D1's debt note raised and D2/D3 each
+  deferred to here. Also **cosmetic**: the music stream and its playback object are reported leaked at
+  process exit, because `_ExitTree` does not run on an autoload at shutdown, so the cleanup there never
+  fires. Visible only under `--quit-after` in headless runs; it needs a `NOTIFICATION_PREDELETE`-style
+  hook rather than `_ExitTree`.
 - [x] **D5. Small-scale multiplayer — built.** Decided: build it. Two installs can host/join over a
   relay and play a real game against each other, with the host choosing seat order (First/Second/
   Random) and their own deck, and the joiner entering the resulting code and choosing theirs.

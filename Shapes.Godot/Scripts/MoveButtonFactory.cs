@@ -67,6 +67,11 @@ public static class MoveButtonFactory
             ClipContents = true,
         };
 
+        // PLAN.md D4: pressing this submits a UseMove, which already sounds its own cue -- so it
+        // opts out of the automatic UI click rather than firing both on one press. Marked before it
+        // enters the tree, which is what SoundFx.Silence requires.
+        SoundFx.Silence(button);
+
         // Styled explicitly, NOT left to the project theme (PLAN.md D3 phase 3). A move button is
         // part of a card's printed face, not app chrome -- once UiTheme gave every Button the
         // board's felt-and-gold treatment, these turned green inside a dark card and the six of

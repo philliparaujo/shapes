@@ -44,6 +44,7 @@ public partial class BoardView : Control
     [Export] public NodePath CancelTargetingButtonPath { get; set; } = "SideRail/MiddleColumn/CancelTargetingButton";
     [Export] public NodePath MenuPanelPath { get; set; } = "MenuPanel";
     [Export] public NodePath TutorialOverlayPath { get; set; } = "TutorialOverlay";
+    [Export] public NodePath SoundsPanelPath { get; set; } = "SoundsPanel";
     [Export] public NodePath HoverDetailPanelPath { get; set; } = "HoverDetailPanel";
     [Export] public NodePath BoardAnimatorPath { get; set; } = "BoardAnimator";
     [Export] public NodePath TypeCycleChartPath { get; set; } = "TypeCycleChart";
@@ -61,6 +62,7 @@ public partial class BoardView : Control
     private Button? _cancelTargetingButton;
     private MenuPanel? _menuPanel;
     private TutorialOverlay? _tutorialOverlay;
+    private SoundsPanel? _soundsPanel;
     private HoverDetailPanel? _hoverDetailPanel;
     private TypeCycleChart? _typeCycleChart;
     private Button? _settingsButton;
@@ -113,6 +115,7 @@ public partial class BoardView : Control
         _cancelTargetingButton = GetNode<Button>(CancelTargetingButtonPath);
         _menuPanel = GetNode<MenuPanel>(MenuPanelPath);
         _tutorialOverlay = GetNode<TutorialOverlay>(TutorialOverlayPath);
+        _soundsPanel = GetNode<SoundsPanel>(SoundsPanelPath);
         _hoverDetailPanel = GetNode<HoverDetailPanel>(HoverDetailPanelPath);
         _boardAnimator = GetNode<BoardAnimator>(BoardAnimatorPath);
         _hand = GetNode<HandFan>(HandPath);
@@ -163,10 +166,18 @@ public partial class BoardView : Control
         _menuPanel.ResumeRequested += () => _menuPanel.Close();
         _menuPanel.RulesRequested += () => _tutorialOverlay!.Open();
 
+        // PLAN.md D4: Sounds sits directly below Rules in the pause menu and opens the same panel
+        // scene the lobby's own Sounds button does -- one page, two entry points, exactly as C7
+        // arranged for the rules overlay.
+        _menuPanel.SoundsRequested += () => _soundsPanel!.Open();
+
         _menuPanel.Visible = false;
 
         _tutorialOverlay.CloseRequested += () => _tutorialOverlay.Close();
         _tutorialOverlay.Visible = false;
+
+        _soundsPanel.CloseRequested += () => _soundsPanel.Close();
+        _soundsPanel.Visible = false;
 
         // Opens the same panel ESC does -- the button is a discoverable, mouse-only entry point
         // to the pause menu, not a second menu with its own behaviour.
@@ -204,6 +215,11 @@ public partial class BoardView : Control
     // without also punching through to the menu underneath.
     public bool IsTutorialOpen => _tutorialOverlay?.Visible ?? false;
 
+    // True while the Sounds panel is up (PLAN.md D4). Its own flag for the same reason
+    // IsTutorialOpen is separate from IsMenuOpen: it opens OVER the pause menu, so ESC has to be
+    // able to dismiss just this without punching through to the menu underneath.
+    public bool IsSoundsOpen => _soundsPanel?.Visible ?? false;
+
     // PLAN.md 5.C-UI: ESC opens the same panel the game-over screen uses, minus the finality --
     // a paused game keeps its Resume button, a finished one does not.
     public void OpenPauseMenu() => _menuPanel!.Open("Paused", canResume: true);
@@ -217,6 +233,10 @@ public partial class BoardView : Control
     // ESC's other job while the Rules overlay is on top: close just the overlay, revealing the
     // pause menu it was opened over rather than falling all the way back to the board.
     public void CloseTutorial() => _tutorialOverlay!.Close();
+
+    // ESC's equivalent for the Sounds panel (PLAN.md D4) -- closes just this, revealing the pause
+    // menu it was opened over.
+    public void CloseSounds() => _soundsPanel!.Close();
 
     // The portraits for the two seats, chosen once per match by GameRoot. Stored rather than
     // applied here: the panels are assigned per SEAT on every Render, so the mapping from player
