@@ -45,15 +45,18 @@ namespace Shapes.Godot.Scripts;
 // work this tab is most expensive to redo.
 public partial class Deckbuilder : Control
 {
-    [Export] public NodePath SlotPickerPath { get; set; } = "Layout/TopBar/SlotPicker";
-    [Export] public NodePath NameEditPath { get; set; } = "Layout/TopBar/NameEdit";
-    [Export] public NodePath DeleteButtonPath { get; set; } = "Layout/TopBar/DeleteButton";
-    [Export] public NodePath CompleteDeckButtonPath { get; set; } = "Layout/TopBar/CompleteDeckButton";
+    [Export] public NodePath SlotPickerPath { get; set; } = "Layout/FilterPanel/FilterBar/SlotPicker";
+    [Export] public NodePath NameEditPath { get; set; } = "Layout/FilterPanel/FilterBar/NameEdit";
+    [Export] public NodePath DeleteButtonPath { get; set; } = "Layout/FilterPanel/FilterBar/DeleteButton";
+    [Export] public NodePath CompleteDeckButtonPath { get; set; } =
+        "Layout/FilterPanel/FilterBar/CompleteDeckButton";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
     [Export] public NodePath CardBrowserButtonPath { get; set; } = "Layout/TopBar/CardBrowserButton";
     [Export] public NodePath SearchBarPath { get; set; } = "Layout/FilterPanel/FilterBar/SearchBar";
     [Export] public NodePath CostTypeFilterPath { get; set; } =
         "Layout/FilterPanel/FilterBar/CostTypeFilter";
+    [Export] public NodePath CostAmountFilterPath { get; set; } =
+        "Layout/FilterPanel/FilterBar/CostAmountFilter";
     [Export] public NodePath KindFilterPath { get; set; } = "Layout/FilterPanel/FilterBar/KindFilter";
     [Export] public NodePath FilterPanelPath { get; set; } = "Layout/FilterPanel";
     [Export] public NodePath CollectionPanelPath { get; set; } = "Layout/Columns/CollectionPanel";
@@ -92,6 +95,8 @@ public partial class Deckbuilder : Control
     private static readonly ResourceType?[] CostTypeOrder =
         [null, ResourceType.Spike, ResourceType.Anvil, ResourceType.Wheel];
 
+    private static readonly int?[] CostAmountOrder = [null, 1, 2, 3, 4, 5];
+
     private static readonly bool?[] KindOrder = [null, true, false];
 
     private OptionButton? _slotPicker;
@@ -102,6 +107,7 @@ public partial class Deckbuilder : Control
     private Button? _cardBrowserButton;
     private LineEdit? _searchBar;
     private OptionButton? _costTypeFilter;
+    private OptionButton? _costAmountFilter;
     private OptionButton? _kindFilter;
     private GridContainer? _collectionList;
     private Label? _collectionHeader;
@@ -144,6 +150,7 @@ public partial class Deckbuilder : Control
         _cardBrowserButton = GetNode<Button>(CardBrowserButtonPath);
         _searchBar = GetNode<LineEdit>(SearchBarPath);
         _costTypeFilter = GetNode<OptionButton>(CostTypeFilterPath);
+        _costAmountFilter = GetNode<OptionButton>(CostAmountFilterPath);
         _kindFilter = GetNode<OptionButton>(KindFilterPath);
         _collectionList = GetNode<GridContainer>(CollectionListPath);
         _collectionHeader = GetNode<Label>(CollectionHeaderPath);
@@ -197,6 +204,7 @@ public partial class Deckbuilder : Control
         // page 4 would otherwise land on an empty page whose contents the filter just removed.
         _searchBar.TextChanged += _ => OnFilterChanged();
         _costTypeFilter.ItemSelected += _ => OnFilterChanged();
+        _costAmountFilter.ItemSelected += _ => OnFilterChanged();
         _kindFilter.ItemSelected += _ => OnFilterChanged();
         _prevPageButton.Pressed += () => ChangePage(-1);
         _nextPageButton.Pressed += () => ChangePage(1);
@@ -217,18 +225,28 @@ public partial class Deckbuilder : Control
         AddChild(_hoverPanel);
     }
 
+    // Wording matches CardBrowser.PopulateFilters exactly (PLAN.md D3 phase 3's "one console, two
+    // screens" reasoning) -- a player moving between the two card screens should not have to
+    // learn that Deckbuilding's "Type" is CardBrowser's "Type" under a different name.
     private void PopulateFilters()
     {
         _costTypeFilter!.Clear();
-        _costTypeFilter.AddItem("All costs");
+        _costTypeFilter.AddItem("All");
         _costTypeFilter.AddItem("Spike");
         _costTypeFilter.AddItem("Anvil");
         _costTypeFilter.AddItem("Wheel");
 
+        _costAmountFilter!.Clear();
+        _costAmountFilter.AddItem("All");
+        foreach (var amount in CostAmountOrder.Skip(1))
+        {
+            _costAmountFilter.AddItem(amount!.Value.ToString());
+        }
+
         _kindFilter!.Clear();
-        _kindFilter.AddItem("All cards");
-        _kindFilter.AddItem("Creatures");
-        _kindFilter.AddItem("Spells");
+        _kindFilter.AddItem("All");
+        _kindFilter.AddItem("Creature");
+        _kindFilter.AddItem("Spell");
     }
 
     // Slot labels carry their deck's name and size ("3. Aggro Spike (40)") so the picker doubles
@@ -361,6 +379,7 @@ public partial class Deckbuilder : Control
     {
         var search = _searchBar!.Text.Trim();
         var costType = CostTypeOrder[_costTypeFilter!.Selected];
+        var costAmount = CostAmountOrder[_costAmountFilter!.Selected];
         var wantCreature = KindOrder[_kindFilter!.Selected];
 
         var results = new List<CardDefinition>();
@@ -376,7 +395,14 @@ public partial class Deckbuilder : Control
                 continue;
             }
 
-            if (costType is { } type && CardText.SinglePipType(card.Cost) != type)
+            var primaryType = CardText.SinglePipType(card.Cost);
+            if (costType is { } type && primaryType != type)
+            {
+                continue;
+            }
+
+            var amount = primaryType is { } t ? card.Cost[t] : 0;
+            if (costAmount is { } wantedAmount && amount != wantedAmount)
             {
                 continue;
             }

@@ -60,26 +60,26 @@ custom_minimum_size = Vector2(0, 68)
 theme_override_font_sizes/font_size = 24
 text = "Play"
 
-[node name="PlayOnlineButton" type="Button" parent="Home"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
-theme_override_font_sizes/font_size = 15
-text = "Play Online"
-
 [node name="DeckbuildingButton" type="Button" parent="Home"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_font_sizes/font_size = 15
 text = "Deckbuilding"
 
-[node name="RulesButton" type="Button" parent="Home"]
+[node name="RulesSoundsRow" type="HBoxContainer" parent="Home"]
 layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="RulesButton" type="Button" parent="Home/RulesSoundsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 40)
 theme_override_font_sizes/font_size = 15
 text = "Rules"
 
-[node name="SoundsButton" type="Button" parent="Home"]
+[node name="SoundsButton" type="Button" parent="Home/RulesSoundsRow"]
 layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 40)
 theme_override_font_sizes/font_size = 15
 text = "Sounds"
@@ -99,9 +99,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -260.0
-offset_top = -320.0
+offset_top = -330.0
 offset_right = 260.0
-offset_bottom = 320.0
+offset_bottom = 330.0
 theme_override_constants/separation = 12
 
 [node name="PlayTitle" type="Label" parent="Play"]
@@ -110,47 +110,76 @@ horizontal_alignment = 1
 theme_override_font_sizes/font_size = 28
 text = "New Match"
 
-[node name="PlayerOne" type="VBoxContainer" parent="Play"]
+[node name="ModeTabs" type="HBoxContainer" parent="Play"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="LocalTabButton" type="Button" parent="Play/ModeTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+toggle_mode = true
+button_pressed = true
+text = "Local"
+
+[node name="OnlineTabButton" type="Button" parent="Play/ModeTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+toggle_mode = true
+text = "Online"
+
+[node name="LocalPanel" type="VBoxContainer" parent="Play"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PlayerOne" type="VBoxContainer" parent="Play/LocalPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="Label" type="Label" parent="Play/PlayerOne"]
+[node name="Label" type="Label" parent="Play/LocalPanel/PlayerOne"]
 layout_mode = 2
 text = "Player 1"
 
-[node name="KindPicker" type="OptionButton" parent="Play/PlayerOne"]
+[node name="Row" type="HBoxContainer" parent="Play/LocalPanel/PlayerOne"]
 layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="KindPicker" type="OptionButton" parent="Play/LocalPanel/PlayerOne/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DifficultyPicker" type="OptionButton" parent="Play/PlayerOne"]
+[node name="DeckPicker" type="OptionButton" parent="Play/LocalPanel/PlayerOne/Row"]
 layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DeckPicker" type="OptionButton" parent="Play/PlayerOne"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-
-[node name="PlayerTwo" type="VBoxContainer" parent="Play"]
+[node name="PlayerTwo" type="VBoxContainer" parent="Play/LocalPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="Label" type="Label" parent="Play/PlayerTwo"]
+[node name="Label" type="Label" parent="Play/LocalPanel/PlayerTwo"]
 layout_mode = 2
 text = "Player 2"
 
-[node name="KindPicker" type="OptionButton" parent="Play/PlayerTwo"]
+[node name="Row" type="HBoxContainer" parent="Play/LocalPanel/PlayerTwo"]
 layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="KindPicker" type="OptionButton" parent="Play/LocalPanel/PlayerTwo/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DifficultyPicker" type="OptionButton" parent="Play/PlayerTwo"]
+[node name="DeckPicker" type="OptionButton" parent="Play/LocalPanel/PlayerTwo/Row"]
 layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 44)
 
-[node name="DeckPicker" type="OptionButton" parent="Play/PlayerTwo"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-
-[node name="ErrorLabel" type="Label" parent="Play"]
+[node name="ErrorLabel" type="Label" parent="Play/LocalPanel"]
 visible = false
 layout_mode = 2
 autowrap_mode = 3
@@ -159,18 +188,136 @@ theme_override_colors/font_color = Color(0.839216, 0.560784, 0.560784, 1)
 theme_override_font_sizes/font_size = 13
 text = ""
 
-[node name="ResumeButton" type="Button" parent="Play"]
+[node name="ResumeButton" type="Button" parent="Play/LocalPanel"]
 visible = false
 layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_font_sizes/font_size = 15
 text = "Resume Game"
 
-[node name="StartButton" type="Button" parent="Play"]
+[node name="StartButton" type="Button" parent="Play/LocalPanel"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 68)
 theme_override_font_sizes/font_size = 24
 text = "Start Game"
+
+[node name="OnlinePanel" type="VBoxContainer" parent="Play"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HostJoinTabs" type="HBoxContainer" parent="Play/OnlinePanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HostTabButton" type="Button" parent="Play/OnlinePanel/HostJoinTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+toggle_mode = true
+button_pressed = true
+text = "Host"
+
+[node name="JoinTabButton" type="Button" parent="Play/OnlinePanel/HostJoinTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 40)
+theme_override_font_sizes/font_size = 15
+toggle_mode = true
+text = "Join"
+
+[node name="HostPanel" type="VBoxContainer" parent="Play/OnlinePanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Row" type="HBoxContainer" parent="Play/OnlinePanel/HostPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SeatColumn" type="VBoxContainer" parent="Play/OnlinePanel/HostPanel/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="SeatLabel" type="Label" parent="Play/OnlinePanel/HostPanel/Row/SeatColumn"]
+layout_mode = 2
+text = "Player"
+
+[node name="SeatPicker" type="OptionButton" parent="Play/OnlinePanel/HostPanel/Row/SeatColumn"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="DeckColumn" type="VBoxContainer" parent="Play/OnlinePanel/HostPanel/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="DeckLabel" type="Label" parent="Play/OnlinePanel/HostPanel/Row/DeckColumn"]
+layout_mode = 2
+text = "Your deck"
+
+[node name="DeckPicker" type="OptionButton" parent="Play/OnlinePanel/HostPanel/Row/DeckColumn"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="HostButton" type="Button" parent="Play/OnlinePanel/HostPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 68)
+theme_override_font_sizes/font_size = 24
+text = "Host Game"
+
+[node name="CodeLabel" type="Label" parent="Play/OnlinePanel/HostPanel"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 40
+text = ""
+
+[node name="JoinPanel" type="VBoxContainer" parent="Play/OnlinePanel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CodeEntryLabel" type="Label" parent="Play/OnlinePanel/JoinPanel"]
+layout_mode = 2
+text = "Code from your host"
+
+[node name="CodeEntry" type="LineEdit" parent="Play/OnlinePanel/JoinPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+max_length = 6
+
+[node name="DeckLabel" type="Label" parent="Play/OnlinePanel/JoinPanel"]
+layout_mode = 2
+text = "Your deck"
+
+[node name="DeckPicker" type="OptionButton" parent="Play/OnlinePanel/JoinPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+
+[node name="JoinButton" type="Button" parent="Play/OnlinePanel/JoinPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 68)
+theme_override_font_sizes/font_size = 24
+text = "Join Game"
+
+[node name="StatusLabel" type="Label" parent="Play/OnlinePanel"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 15
+text = ""
+
+[node name="ErrorLabel" type="Label" parent="Play/OnlinePanel"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.839216, 0.560784, 0.560784, 1)
+theme_override_font_sizes/font_size = 13
+text = ""
 
 [node name="PlayFooter" type="HBoxContainer" parent="Play"]
 layout_mode = 2
@@ -189,136 +336,6 @@ size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 40)
 theme_override_font_sizes/font_size = 15
 text = "Edit Decks"
-
-[node name="Online" type="VBoxContainer" parent="."]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -300.0
-offset_right = 260.0
-offset_bottom = 300.0
-theme_override_constants/separation = 12
-
-[node name="OnlineTitle" type="Label" parent="Online"]
-layout_mode = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 28
-text = "Play Online"
-
-[node name="ModeTabs" type="HBoxContainer" parent="Online"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="HostTabButton" type="Button" parent="Online/ModeTabs"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 40)
-theme_override_font_sizes/font_size = 15
-toggle_mode = true
-button_pressed = true
-text = "Host"
-
-[node name="JoinTabButton" type="Button" parent="Online/ModeTabs"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 40)
-theme_override_font_sizes/font_size = 15
-toggle_mode = true
-text = "Join"
-
-[node name="HostPanel" type="VBoxContainer" parent="Online"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="SeatLabel" type="Label" parent="Online/HostPanel"]
-layout_mode = 2
-text = "Your seat"
-
-[node name="SeatPicker" type="OptionButton" parent="Online/HostPanel"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-
-[node name="DeckLabel" type="Label" parent="Online/HostPanel"]
-layout_mode = 2
-text = "Your deck"
-
-[node name="DeckPicker" type="OptionButton" parent="Online/HostPanel"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-
-[node name="HostButton" type="Button" parent="Online/HostPanel"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 68)
-theme_override_font_sizes/font_size = 24
-text = "Host Game"
-
-[node name="CodeLabel" type="Label" parent="Online/HostPanel"]
-visible = false
-layout_mode = 2
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 40
-text = ""
-
-[node name="JoinPanel" type="VBoxContainer" parent="Online"]
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="CodeEntryLabel" type="Label" parent="Online/JoinPanel"]
-layout_mode = 2
-text = "Code from your host"
-
-[node name="CodeEntry" type="LineEdit" parent="Online/JoinPanel"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-max_length = 6
-
-[node name="DeckLabel" type="Label" parent="Online/JoinPanel"]
-layout_mode = 2
-text = "Your deck"
-
-[node name="DeckPicker" type="OptionButton" parent="Online/JoinPanel"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
-
-[node name="JoinButton" type="Button" parent="Online/JoinPanel"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 68)
-theme_override_font_sizes/font_size = 24
-text = "Join Game"
-
-[node name="StatusLabel" type="Label" parent="Online"]
-visible = false
-layout_mode = 2
-autowrap_mode = 3
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 15
-text = ""
-
-[node name="ErrorLabel" type="Label" parent="Online"]
-visible = false
-layout_mode = 2
-autowrap_mode = 3
-horizontal_alignment = 1
-theme_override_colors/font_color = Color(0.839216, 0.560784, 0.560784, 1)
-theme_override_font_sizes/font_size = 13
-text = ""
-
-[node name="OnlineFooter" type="HBoxContainer" parent="Online"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="OnlineBackButton" type="Button" parent="Online/OnlineFooter"]
-layout_mode = 2
-size_flags_horizontal = 3
-custom_minimum_size = Vector2(0, 40)
-theme_override_font_sizes/font_size = 15
-text = "Cancel"
 
 [node name="TutorialOverlay" parent="." instance=ExtResource("2_tutorialoverlay")]
 

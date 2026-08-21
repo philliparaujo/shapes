@@ -12,30 +12,27 @@ namespace Shapes.Godot.Scripts;
 
 // Match setup, shown before GameRoot (PLAN.md C1, with C5's AI-opponent wiring pulled forward
 // rather than shipping a seat picker that silently does nothing when an AI kind is chosen).
-// Each seat is independently Human or one of the console's four agent kinds -- 0/2 human
-// players (AI v AI) and 1 human player (the common case) are both just two independent
-// pickers, not a separate mode switch.
+// Each seat is independently Human or one of three CPU difficulty tiers -- 0/2 human players
+// (AI v AI) and 1 human player (the common case) are both just two independent pickers, not a
+// separate mode switch.
 public partial class Lobby : Control
 {
-    [Export] public NodePath PlayerOneKindPath { get; set; } = "Play/PlayerOne/KindPicker";
-    [Export] public NodePath PlayerOneDifficultyPath { get; set; } = "Play/PlayerOne/DifficultyPicker";
-    [Export] public NodePath PlayerOneDeckPath { get; set; } = "Play/PlayerOne/DeckPicker";
-    [Export] public NodePath PlayerTwoKindPath { get; set; } = "Play/PlayerTwo/KindPicker";
-    [Export] public NodePath PlayerTwoDifficultyPath { get; set; } = "Play/PlayerTwo/DifficultyPicker";
-    [Export] public NodePath PlayerTwoDeckPath { get; set; } = "Play/PlayerTwo/DeckPicker";
-    [Export] public NodePath StartButtonPath { get; set; } = "Play/StartButton";
-    [Export] public NodePath ResumeButtonPath { get; set; } = "Play/ResumeButton";
-    [Export] public NodePath ErrorLabelPath { get; set; } = "Play/ErrorLabel";
+    [Export] public NodePath PlayerOneKindPath { get; set; } = "Play/LocalPanel/PlayerOne/Row/KindPicker";
+    [Export] public NodePath PlayerOneDeckPath { get; set; } = "Play/LocalPanel/PlayerOne/Row/DeckPicker";
+    [Export] public NodePath PlayerTwoKindPath { get; set; } = "Play/LocalPanel/PlayerTwo/Row/KindPicker";
+    [Export] public NodePath PlayerTwoDeckPath { get; set; } = "Play/LocalPanel/PlayerTwo/Row/DeckPicker";
+    [Export] public NodePath StartButtonPath { get; set; } = "Play/LocalPanel/StartButton";
+    [Export] public NodePath ResumeButtonPath { get; set; } = "Play/LocalPanel/ResumeButton";
+    [Export] public NodePath ErrorLabelPath { get; set; } = "Play/LocalPanel/ErrorLabel";
     [Export] public NodePath PlayBackButtonPath { get; set; } = "Play/PlayFooter/PlayBackButton";
     [Export] public NodePath PlayDeckbuilderButtonPath { get; set; } = "Play/PlayFooter/PlayDeckbuilderButton";
 
     [Export] public NodePath HomePath { get; set; } = "Home";
     [Export] public NodePath PlayPath { get; set; } = "Play";
     [Export] public NodePath PlayButtonPath { get; set; } = "Home/PlayButton";
-    [Export] public NodePath PlayOnlineButtonPath { get; set; } = "Home/PlayOnlineButton";
     [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Home/DeckbuildingButton";
-    [Export] public NodePath RulesButtonPath { get; set; } = "Home/RulesButton";
-    [Export] public NodePath SoundsButtonPath { get; set; } = "Home/SoundsButton";
+    [Export] public NodePath RulesButtonPath { get; set; } = "Home/RulesSoundsRow/RulesButton";
+    [Export] public NodePath SoundsButtonPath { get; set; } = "Home/RulesSoundsRow/SoundsButton";
     [Export] public NodePath ExitButtonPath { get; set; } = "Home/ExitButton";
     [Export] public NodePath TutorialOverlayPath { get; set; } = "TutorialOverlay";
     [Export] public NodePath SoundsPanelPath { get; set; } = "SoundsPanel";
@@ -50,33 +47,48 @@ public partial class Lobby : Control
     // service on the VM); override to ws://localhost:5080/ws for same-machine testing.
     [Export] public string RelayUrl { get; set; } = "ws://192.9.143.181:5080/ws";
 
-    [Export] public NodePath OnlinePath { get; set; } = "Online";
-    [Export] public NodePath HostTabButtonPath { get; set; } = "Online/ModeTabs/HostTabButton";
-    [Export] public NodePath JoinTabButtonPath { get; set; } = "Online/ModeTabs/JoinTabButton";
-    [Export] public NodePath HostPanelPath { get; set; } = "Online/HostPanel";
-    [Export] public NodePath JoinPanelPath { get; set; } = "Online/JoinPanel";
-    [Export] public NodePath OnlineSeatPickerPath { get; set; } = "Online/HostPanel/SeatPicker";
-    [Export] public NodePath OnlineHostDeckPickerPath { get; set; } = "Online/HostPanel/DeckPicker";
-    [Export] public NodePath HostButtonPath { get; set; } = "Online/HostPanel/HostButton";
-    [Export] public NodePath CodeLabelPath { get; set; } = "Online/HostPanel/CodeLabel";
-    [Export] public NodePath CodeEntryPath { get; set; } = "Online/JoinPanel/CodeEntry";
-    [Export] public NodePath OnlineJoinDeckPickerPath { get; set; } = "Online/JoinPanel/DeckPicker";
-    [Export] public NodePath JoinButtonPath { get; set; } = "Online/JoinPanel/JoinButton";
-    [Export] public NodePath OnlineStatusLabelPath { get; set; } = "Online/StatusLabel";
-    [Export] public NodePath OnlineErrorLabelPath { get; set; } = "Online/ErrorLabel";
-    [Export] public NodePath OnlineBackButtonPath { get; set; } = "Online/OnlineFooter/OnlineBackButton";
+    // Local/Online is now a tab pair INSIDE Play rather than Play/Play Online being two separate
+    // Home entry points -- there is only one "start a match" screen, and Local vs Online is a
+    // question about who the opponent is, not a different destination. Same Host/Join sub-tab
+    // pattern nested one level in.
+    [Export] public NodePath LocalTabButtonPath { get; set; } = "Play/ModeTabs/LocalTabButton";
+    [Export] public NodePath OnlineTabButtonPath { get; set; } = "Play/ModeTabs/OnlineTabButton";
+    [Export] public NodePath LocalPanelPath { get; set; } = "Play/LocalPanel";
+    [Export] public NodePath OnlinePanelPath { get; set; } = "Play/OnlinePanel";
+    [Export] public NodePath HostTabButtonPath { get; set; } = "Play/OnlinePanel/HostJoinTabs/HostTabButton";
+    [Export] public NodePath JoinTabButtonPath { get; set; } = "Play/OnlinePanel/HostJoinTabs/JoinTabButton";
+    [Export] public NodePath HostPanelPath { get; set; } = "Play/OnlinePanel/HostPanel";
+    [Export] public NodePath JoinPanelPath { get; set; } = "Play/OnlinePanel/JoinPanel";
+    [Export] public NodePath OnlineSeatPickerPath { get; set; } =
+        "Play/OnlinePanel/HostPanel/Row/SeatColumn/SeatPicker";
+    [Export] public NodePath OnlineHostDeckPickerPath { get; set; } =
+        "Play/OnlinePanel/HostPanel/Row/DeckColumn/DeckPicker";
+    [Export] public NodePath HostButtonPath { get; set; } = "Play/OnlinePanel/HostPanel/HostButton";
+    [Export] public NodePath CodeLabelPath { get; set; } = "Play/OnlinePanel/HostPanel/CodeLabel";
+    [Export] public NodePath CodeEntryPath { get; set; } = "Play/OnlinePanel/JoinPanel/CodeEntry";
+    [Export] public NodePath OnlineJoinDeckPickerPath { get; set; } = "Play/OnlinePanel/JoinPanel/DeckPicker";
+    [Export] public NodePath JoinButtonPath { get; set; } = "Play/OnlinePanel/JoinPanel/JoinButton";
+    [Export] public NodePath OnlineStatusLabelPath { get; set; } = "Play/OnlinePanel/StatusLabel";
+    [Export] public NodePath OnlineErrorLabelPath { get; set; } = "Play/OnlinePanel/ErrorLabel";
 
-    // Index-aligned with the OptionButton items added in _Ready -- see PopulateKindPicker.
-    private static readonly AgentKind[] KindOrder =
+    // Index-aligned with the OptionButton items added in _Ready -- see PopulateKindPicker. One
+    // dropdown per seat rather than a kind picker plus a separate difficulty picker: the lobby's
+    // difficulty knob only ever needs to answer "how strong an opponent," and Easy/Medium/Hard
+    // says that directly where "IS-MCTS, 5000 iterations" makes a player choose a number instead.
+    // All three tiers are the same IS-MCTS agent at MatchConfig.DifficultyPresets' three budgets --
+    // Random/Greedy/the heuristic playout variant exist for the console and the sim's own
+    // comparisons, not as a lobby-facing difficulty choice.
+    private static readonly (AgentKind Kind, int Iterations)[] KindOrder =
     [
-        AgentKind.Human, AgentKind.Random, AgentKind.Greedy, AgentKind.IsMcts, AgentKind.IsMctsHeuristic,
+        (AgentKind.Human, 0),
+        (AgentKind.IsMcts, MatchConfig.DifficultyPresets[0]),
+        (AgentKind.IsMcts, MatchConfig.DifficultyPresets[1]),
+        (AgentKind.IsMcts, MatchConfig.DifficultyPresets[2]),
     ];
 
     private OptionButton? _playerOneKind;
-    private OptionButton? _playerOneDifficulty;
     private OptionButton? _playerOneDeck;
     private OptionButton? _playerTwoKind;
-    private OptionButton? _playerTwoDifficulty;
     private OptionButton? _playerTwoDeck;
     private Button? _startButton;
     private Button? _resumeButton;
@@ -98,20 +110,20 @@ public partial class Lobby : Control
     private Button? _playBackButton;
     private Button? _playDeckbuilderButton;
 
+    // Local/Online tabs INSIDE Play (see the [Export] block's own note) -- the same toggle-button
+    // pair pattern Host/Join already used, just one level higher.
+    private Button? _localTabButton;
+    private Button? _onlineTabButton;
+    private Control? _localPanel;
+    private Control? _onlinePanel;
+
     // The deck slots the two dropdowns offer, loaded once here so both pickers list the same
     // decks in the same order and a selected index means the same slot in each.
     private DeckSlots _decks = DeckSlots.Empty();
     private CardDatabase? _cards;
 
-    // Item 0 in both deck pickers is the default deck (one of every card), not a slot -- so a
-    // player who has never opened the deckbuilder still gets a working game, which is what the
-    // lobby did before decks existed. Slot N is therefore at item index N+1.
-    private const int DefaultDeckItemIndex = 0;
-
-    // PLAN.md D5: Online panel (Host/Join). A third top-level panel alongside Home/Play, same
-    // "swap visibility, don't change scene" pattern ShowPlay already uses.
-    private Control? _online;
-    private Button? _playOnlineButton;
+    // PLAN.md D5: Online panel (Host/Join), now nested inside Play (see LocalTabButtonPath's note)
+    // rather than a third top-level panel alongside Home/Play.
     private Button? _hostTabButton;
     private Button? _joinTabButton;
     private Control? _hostPanel;
@@ -125,12 +137,11 @@ public partial class Lobby : Control
     private Button? _joinButton;
     private Label? _onlineStatusLabel;
     private Label? _onlineErrorLabel;
-    private Button? _onlineBackButton;
 
-    // "First" / "Second" / "Random" -- index-aligned with SeatPicker's items, same convention as
-    // KindOrder above. Only meaningful when hosting: the joiner's seat is whatever the host didn't
-    // take (or rolled), delivered over the wire in MatchStart rather than chosen locally.
-    private static readonly string[] SeatChoiceOrder = ["First", "Second", "Random"];
+    // "Player 1" / "Player 2" -- index-aligned with the seat picker's items, same convention as
+    // KindOrder above. Only meaningful when hosting: the joiner's seat is whatever the host
+    // didn't take, delivered over the wire in MatchStart rather than chosen locally.
+    private static readonly PlayerId[] PlayerChoiceOrder = [PlayerId.One, PlayerId.Two];
 
     // The relay connection this screen currently owns, from HostButton/JoinButton press until
     // either the handshake completes (control moves to GameRoot, which takes ownership from here)
@@ -148,10 +159,8 @@ public partial class Lobby : Control
         UiTheme.ApplyTo(this);
 
         _playerOneKind = GetNode<OptionButton>(PlayerOneKindPath);
-        _playerOneDifficulty = GetNode<OptionButton>(PlayerOneDifficultyPath);
         _playerOneDeck = GetNode<OptionButton>(PlayerOneDeckPath);
         _playerTwoKind = GetNode<OptionButton>(PlayerTwoKindPath);
-        _playerTwoDifficulty = GetNode<OptionButton>(PlayerTwoDifficultyPath);
         _playerTwoDeck = GetNode<OptionButton>(PlayerTwoDeckPath);
         _startButton = GetNode<Button>(StartButtonPath);
         _resumeButton = GetNode<Button>(ResumeButtonPath);
@@ -169,8 +178,11 @@ public partial class Lobby : Control
         _playBackButton = GetNode<Button>(PlayBackButtonPath);
         _playDeckbuilderButton = GetNode<Button>(PlayDeckbuilderButtonPath);
 
-        _online = GetNode<Control>(OnlinePath);
-        _playOnlineButton = GetNode<Button>(PlayOnlineButtonPath);
+        _localTabButton = GetNode<Button>(LocalTabButtonPath);
+        _onlineTabButton = GetNode<Button>(OnlineTabButtonPath);
+        _localPanel = GetNode<Control>(LocalPanelPath);
+        _onlinePanel = GetNode<Control>(OnlinePanelPath);
+
         _hostTabButton = GetNode<Button>(HostTabButtonPath);
         _joinTabButton = GetNode<Button>(JoinTabButtonPath);
         _hostPanel = GetNode<Control>(HostPanelPath);
@@ -184,12 +196,9 @@ public partial class Lobby : Control
         _joinButton = GetNode<Button>(JoinButtonPath);
         _onlineStatusLabel = GetNode<Label>(OnlineStatusLabelPath);
         _onlineErrorLabel = GetNode<Label>(OnlineErrorLabelPath);
-        _onlineBackButton = GetNode<Button>(OnlineBackButtonPath);
 
         PopulateKindPicker(_playerOneKind);
         PopulateKindPicker(_playerTwoKind);
-        PopulateDifficultyPicker(_playerOneDifficulty);
-        PopulateDifficultyPicker(_playerTwoDifficulty);
         PopulateSeatPicker(_onlineSeatPicker);
 
         // The card set is loaded once here; the DECK SLOTS are re-read on every entry to the Play
@@ -199,11 +208,7 @@ public partial class Lobby : Control
 
         // Default to the common case: player one human, player two a mid-strength AI -- the
         // "start a game against the computer" path needs zero clicks beyond Start.
-        _playerTwoKind.Selected = Array.IndexOf(KindOrder, AgentKind.IsMcts);
-
-        _playerOneKind.ItemSelected += _ => UpdateDifficultyVisibility();
-        _playerTwoKind.ItemSelected += _ => UpdateDifficultyVisibility();
-        UpdateDifficultyVisibility();
+        _playerTwoKind.Selected = Array.FindIndex(KindOrder, k => k.Kind == AgentKind.IsMcts);
 
         _startButton.Pressed += OnStartPressed;
         _resumeButton.Pressed += OnResumePressed;
@@ -220,10 +225,10 @@ public partial class Lobby : Control
         // natural next thought -- so the deckbuilder is one click away rather than back-then-out.
         _playDeckbuilderButton!.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
 
-        // PLAN.md D5: HOME -> ONLINE is the same panel-swap pattern as HOME -> PLAY, for the same
-        // reason -- the card set and deck slots are already loaded here.
-        _playOnlineButton!.Pressed += () => ShowOnline(true);
-        _onlineBackButton!.Pressed += () => ShowOnline(false);
+        // Local/Online is a tab pair inside Play now (see LocalTabButtonPath's note), the same
+        // toggle-button pattern Host/Join already used one level in.
+        _localTabButton!.Pressed += () => ShowPlayMode(online: false);
+        _onlineTabButton!.Pressed += () => ShowPlayMode(online: true);
         _hostTabButton!.Pressed += () => ShowOnlineTab(hosting: true);
         _joinTabButton!.Pressed += () => ShowOnlineTab(hosting: false);
         _hostButton!.Pressed += OnHostPressed;
@@ -251,7 +256,10 @@ public partial class Lobby : Control
         ShowPlay(false);
     }
 
-    // Swaps between the home menu and match setup.
+    // Swaps between the home menu and match setup. Local and Online (PLAN.md D5) are both inside
+    // Play now (see LocalTabButtonPath's note on the [Export] block), so entering Play populates
+    // every deck picker across both tabs and always lands back on Local -- Online is a deliberate
+    // choice made fresh each visit, not a sticky mode that survives a trip back to Home.
     //
     // The deck pickers are repopulated on the way IN rather than only in _Ready, for the reason
     // _Ready's own note gives: the deckbuilder is the most likely thing to have changed the slots,
@@ -264,50 +272,45 @@ public partial class Lobby : Control
             _decks = DeckStore.Load();
             PopulateDeckPicker(_playerOneDeck!);
             PopulateDeckPicker(_playerTwoDeck!);
+            PopulateDeckPicker(_onlineHostDeck!);
+            PopulateDeckPicker(_onlineJoinDeck!);
             _errorLabel!.Visible = false;
+            ResetOnlineStatus();
+            ShowPlayMode(online: false);
+            ShowOnlineTab(hosting: true);
 
             // Re-checked here, not just at _Ready: a game finished since this scene loaded would
             // otherwise leave a Resume button that fails to load. Same reasoning as C6's own check.
             _resumeButton!.Visible = MatchSaveStore.Exists();
         }
-
-        _home!.Visible = !playing;
-        _play!.Visible = playing;
-
-        if (playing)
-        {
-            _online!.Visible = false;
-        }
-    }
-
-    // PLAN.md D5: HOME <-> ONLINE, the same panel-swap ShowPlay uses for HOME <-> PLAY. The deck
-    // pickers are repopulated on the way in for the same reason ShowPlay's are.
-    private void ShowOnline(bool online)
-    {
-        if (online)
-        {
-            _decks = DeckStore.Load();
-            PopulateDeckPicker(_onlineHostDeck!);
-            PopulateDeckPicker(_onlineJoinDeck!);
-            ResetOnlineStatus();
-            ShowOnlineTab(hosting: true);
-        }
         else
         {
-            // Backing out of an in-flight host/join abandons it -- there is no "keep waiting in
-            // the background" mode, so the transport this screen was holding must be torn down
-            // rather than leaked (an open socket plus its receive loop, per RelayMatchTransport's
-            // own DisposeAsync).
+            // Backing out abandons any in-flight host/join -- there is no "keep waiting in the
+            // background" mode, so the transport this screen was holding must be torn down rather
+            // than leaked (an open socket plus its receive loop, per RelayMatchTransport's own
+            // DisposeAsync). A no-op if Local was the active tab; CancelPendingAsync itself is a
+            // no-op when nothing is pending.
             _ = CancelPendingAsync();
         }
 
-        _home!.Visible = !online;
-        if (online)
+        _home!.Visible = !playing;
+        _play!.Visible = playing;
+    }
+
+    // Local <-> Online, the tab pair inside Play (PLAN.md D5, folded in from the old top-level
+    // Online panel -- see LocalTabButtonPath's note). Switching away from Online abandons any
+    // in-flight host/join for the same reason leaving Play entirely does.
+    private void ShowPlayMode(bool online)
+    {
+        if (!online)
         {
-            _play!.Visible = false;
+            _ = CancelPendingAsync();
         }
 
-        _online!.Visible = online;
+        _localTabButton!.ButtonPressed = !online;
+        _onlineTabButton!.ButtonPressed = online;
+        _localPanel!.Visible = !online;
+        _onlinePanel!.Visible = online;
     }
 
     private void ShowOnlineTab(bool hosting)
@@ -318,9 +321,8 @@ public partial class Lobby : Control
         _joinPanel!.Visible = !hosting;
     }
 
-    // ESC backs out one level: the rules overlay first if it is open, then match setup (or the
-    // Online panel) to the home menu. Topmost-first, the same ordering GameRoot's own handler
-    // uses for its overlays.
+    // ESC backs out one level: the rules overlay first if it is open, then match setup to the
+    // home menu. Topmost-first, the same ordering GameRoot's own handler uses for its overlays.
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
@@ -342,13 +344,6 @@ public partial class Lobby : Control
         if (_tutorialOverlay is { Visible: true })
         {
             _tutorialOverlay.Close();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (_online is { Visible: true })
-        {
-            ShowOnline(false);
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -386,24 +381,25 @@ public partial class Lobby : Control
     {
         picker.Clear();
         picker.AddItem("Human");
-        picker.AddItem("Random");
-        picker.AddItem("Greedy");
-        picker.AddItem("IS-MCTS");
-        picker.AddItem("IS-MCTS (heuristic)");
+        picker.AddItem("Easy CPU");
+        picker.AddItem("Medium CPU");
+        picker.AddItem("Hard CPU");
     }
 
-    // The default deck first, then every non-empty slot, labelled with its size so an illegal
-    // deck is visible as a choice rather than only as an error after pressing Start. Empty slots
-    // are omitted entirely -- there is nothing to play -- so this list is usually short.
+    // Only COMPLETE decks (DeckSize/DeckSize cards) -- a game cannot start on anything less, so
+    // an incomplete slot or the >40-card default deck showing up here would just be a choice that
+    // fails at Start with an error. No size suffix either: every entry is complete by
+    // construction, so "(40)" on every row would say nothing a player doesn't already know from
+    // being able to pick it at all.
     private void PopulateDeckPicker(OptionButton picker)
     {
         picker.Clear();
-        picker.AddItem("Default deck");
+        var deckSize = DeckBuilder.DeckSizeOf(RuleSet.Default);
 
         for (var i = 0; i < DeckSlots.SlotCount; i++)
         {
             var deck = _decks.Slots[i];
-            if (deck.IsEmpty)
+            if (deck.TotalCards != deckSize)
             {
                 continue;
             }
@@ -411,13 +407,13 @@ public partial class Lobby : Control
             var name = deck.Name.Length > 0 ? deck.Name : $"Deck {i + 1}";
 
             // The slot index travels as item METADATA rather than as the item's position,
-            // because empty slots are skipped: item 3 is not slot 3, and reconstructing the
-            // mapping by counting would break the moment a slot in the middle is emptied.
-            picker.AddItem($"{name} ({deck.TotalCards})");
+            // because incomplete slots are skipped: item 3 is not slot 3, and reconstructing the
+            // mapping by counting would break the moment a slot's completeness changes.
+            picker.AddItem(name);
             picker.SetItemMetadata(picker.ItemCount - 1, i);
         }
 
-        picker.Selected = DefaultDeckItemIndex;
+        picker.Selected = picker.ItemCount > 0 ? 0 : -1;
     }
 
     private static CardDatabase LoadCards()
@@ -429,42 +425,15 @@ public partial class Lobby : Control
     private static void PopulateSeatPicker(OptionButton picker)
     {
         picker.Clear();
-        foreach (var choice in SeatChoiceOrder)
-        {
-            picker.AddItem(choice);
-        }
-
+        picker.AddItem("Player 1");
+        picker.AddItem("Player 2");
         picker.Selected = 0;
     }
 
-    private static void PopulateDifficultyPicker(OptionButton picker)
-    {
-        picker.Clear();
-        foreach (var iterations in MatchConfig.DifficultyPresets)
-        {
-            picker.AddItem($"{iterations} iterations");
-        }
-
-        // Middle preset by default -- matches SearchBudget.Default's own "visibly better than
-        // one iteration, still fast enough to feel interactive" balance.
-        picker.Selected = MatchConfig.DifficultyPresets.Length / 2;
-    }
-
-    // The difficulty picker only means anything for the two IS-MCTS kinds -- Random/Greedy have
-    // no search to budget, same as the console's BuildAgent never reading --iterations for them.
-    private void UpdateDifficultyVisibility()
-    {
-        _playerOneDifficulty!.Visible = IsSearchBased(KindOrder[_playerOneKind!.Selected]);
-        _playerTwoDifficulty!.Visible = IsSearchBased(KindOrder[_playerTwoKind!.Selected]);
-    }
-
-    private static bool IsSearchBased(AgentKind kind) =>
-        kind is AgentKind.IsMcts or AgentKind.IsMctsHeuristic;
-
     private void OnStartPressed()
     {
-        var playerOne = ReadSeat(_playerOneKind!, _playerOneDifficulty!);
-        var playerTwo = ReadSeat(_playerTwoKind!, _playerTwoDifficulty!);
+        var playerOne = ReadSeat(_playerOneKind!);
+        var playerTwo = ReadSeat(_playerTwoKind!);
         var seed = (ulong)DateTime.UtcNow.Ticks;
 
         // WHERE DECK LEGALITY IS ENFORCED (PLAN.md C2). The deckbuilder deliberately lets a
@@ -498,13 +467,16 @@ public partial class Lobby : Control
         GetTree().ChangeSceneToFile(GameScenePath);
     }
 
-    // The Deck this picker's selection plays, or null for the default deck -- the same
-    // null-means-default convention MatchConfig and GameSession.Start both use.
-    private Deck? ReadDeck(OptionButton picker)
+    // The Deck this picker's selection plays. PopulateDeckPicker only ever lists complete decks
+    // (see its own note), so the one failure mode left is the picker being empty -- no slot has
+    // been finished yet -- which is reported the same way an illegal deck used to be, via
+    // DeckBuildException, so OnStartPressed's existing catch handles it without a second path.
+    private Deck ReadDeck(OptionButton picker)
     {
-        if (picker.Selected <= DefaultDeckItemIndex)
+        if (picker.Selected < 0)
         {
-            return null;
+            throw new DeckBuildException(
+                "Build a complete 40-card deck in the deckbuilder before starting a match.");
         }
 
         // Slot index comes from item metadata, not item position -- see PopulateDeckPicker.
@@ -522,12 +494,10 @@ public partial class Lobby : Control
         GetTree().ChangeSceneToFile(GameScenePath);
     }
 
-    private static SeatConfig ReadSeat(OptionButton kindPicker, OptionButton difficultyPicker)
+    private static SeatConfig ReadSeat(OptionButton kindPicker)
     {
-        var kind = KindOrder[kindPicker.Selected];
-        return kind == AgentKind.Human
-            ? SeatConfig.Human
-            : new SeatConfig(kind, MatchConfig.DifficultyPresets[difficultyPicker.Selected]);
+        var (kind, iterations) = KindOrder[kindPicker.Selected];
+        return kind == AgentKind.Human ? SeatConfig.Human : new SeatConfig(kind, iterations);
     }
 
     private void ResetOnlineStatus()
@@ -637,12 +607,7 @@ public partial class Lobby : Control
             return;
         }
 
-        var hostSeat = SeatChoiceOrder[_onlineSeatPicker!.Selected] switch
-        {
-            "First" => PlayerId.One,
-            "Second" => PlayerId.Two,
-            _ => Random.Shared.Next(2) == 0 ? PlayerId.One : PlayerId.Two,
-        };
+        var hostSeat = PlayerChoiceOrder[_onlineSeatPicker!.Selected];
         var joinerSeat = hostSeat.Opponent();
         var seed = (ulong)DateTime.UtcNow.Ticks;
 
@@ -676,7 +641,7 @@ public partial class Lobby : Control
     // PLAN.md D5: opens a relay connection, asks to join a given code, then waits for the host's
     // MatchStart before handing off to GameRoot. Mirrors OnHostPressed's shape; the joiner is
     // never the seed/seat authority (RelayMatchTransport's own header explains why: exactly one
-    // side has to be, and the host -- the one who picked "First/Second/Random" -- is it).
+    // side has to be, and the host -- the one who picked "Player 1"/"Player 2" -- is it).
     private async void OnJoinPressed()
     {
         var code = _codeEntry!.Text?.Trim() ?? "";

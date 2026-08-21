@@ -39,8 +39,14 @@ theme_override_constants/separation = 16
 
 [node name="BackButton" type="Button" parent="Layout/TopBar"]
 layout_mode = 2
-custom_minimum_size = Vector2(120, 44)
+custom_minimum_size = Vector2(150, 44)
 text = "Back"
+
+[node name="CardBrowserButton" type="Button" parent="Layout/TopBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 44)
+theme_override_font_sizes/font_size = 15
+text = "Card Browser →"
 
 [node name="TitleLabel" type="Label" parent="Layout/TopBar"]
 layout_mode = 2
@@ -55,46 +61,6 @@ theme_override_colors/font_outline_color = Color(0.05, 0.06, 0.08, 0.95)
 theme_override_constants/outline_size = 6
 text = "Deckbuilding"
 
-[node name="CardBrowserButton" type="Button" parent="Layout/TopBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(150, 36)
-size_flags_vertical = 4
-theme_override_font_sizes/font_size = 15
-text = "Card Browser →"
-
-[node name="TopBarSpacer" type="Control" parent="Layout/TopBar"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="SlotLabel" type="Label" parent="Layout/TopBar"]
-layout_mode = 2
-vertical_alignment = 1
-text = "Deck"
-
-[node name="SlotPicker" type="OptionButton" parent="Layout/TopBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(220, 36)
-size_flags_vertical = 4
-
-[node name="NameEdit" type="LineEdit" parent="Layout/TopBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(220, 36)
-size_flags_vertical = 4
-placeholder_text = "Deck name..."
-
-[node name="CompleteDeckButton" type="Button" parent="Layout/TopBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(150, 36)
-size_flags_vertical = 4
-text = "Complete Deck"
-
-[node name="DeleteButton" type="Button" parent="Layout/TopBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(120, 36)
-size_flags_vertical = 4
-text = "Delete Deck"
-
 [node name="FilterPanel" type="PanelContainer" parent="Layout"]
 layout_mode = 2
 
@@ -103,34 +69,74 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_constants/separation = 12
 
-[node name="SearchLabel" type="Label" parent="Layout/FilterPanel/FilterBar"]
-layout_mode = 2
-vertical_alignment = 1
-text = "Search"
-
 [node name="SearchBar" type="LineEdit" parent="Layout/FilterPanel/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(220, 36)
 size_flags_vertical = 4
 placeholder_text = "Search by name..."
 
+[node name="CostTypeLabel" type="Label" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+vertical_alignment = 1
+text = "Type"
+
 [node name="CostTypeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterBar"]
 layout_mode = 2
-custom_minimum_size = Vector2(120, 36)
+custom_minimum_size = Vector2(100, 36)
 size_flags_vertical = 4
+
+[node name="CostAmountLabel" type="Label" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+vertical_alignment = 1
+text = "Cost"
+
+[node name="CostAmountFilter" type="OptionButton" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(90, 36)
+size_flags_vertical = 4
+
+[node name="KindLabel" type="Label" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+vertical_alignment = 1
+text = "Kind"
 
 [node name="KindFilter" type="OptionButton" parent="Layout/FilterPanel/FilterBar"]
 layout_mode = 2
-custom_minimum_size = Vector2(130, 36)
+custom_minimum_size = Vector2(110, 36)
 size_flags_vertical = 4
 
-[node name="HintLabel" type="Label" parent="Layout/FilterPanel/FilterBar"]
+[node name="FilterBarSpacer" type="Control" parent="Layout/FilterPanel/FilterBar"]
 layout_mode = 2
 size_flags_horizontal = 3
-horizontal_alignment = 2
+mouse_filter = 2
+
+[node name="SlotLabel" type="Label" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
 vertical_alignment = 1
-theme_override_font_sizes/font_size = 13
-text = "Left click adds a copy   |   Right click removes one   |   Hover for card detail"
+text = "Deck"
+
+[node name="SlotPicker" type="OptionButton" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 36)
+size_flags_vertical = 4
+
+[node name="NameEdit" type="LineEdit" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 36)
+size_flags_vertical = 4
+placeholder_text = "Deck name..."
+
+[node name="CompleteDeckButton" type="Button" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(150, 36)
+size_flags_vertical = 4
+text = "Complete Deck"
+
+[node name="DeleteButton" type="Button" parent="Layout/FilterPanel/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 36)
+size_flags_vertical = 4
+text = "Delete Deck"
 
 [node name="Columns" type="HBoxContainer" parent="Layout"]
 layout_mode = 2

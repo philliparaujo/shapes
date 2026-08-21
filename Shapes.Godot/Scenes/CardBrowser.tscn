@@ -37,16 +37,16 @@ theme_override_constants/separation = 16
 
 [node name="BackButton" type="Button" parent="Layout/TopBar"]
 layout_mode = 2
-custom_minimum_size = Vector2(120, 44)
+custom_minimum_size = Vector2(150, 44)
 text = "Back"
 
-[node name="TitleGroup" type="HBoxContainer" parent="Layout/TopBar"]
+[node name="DeckbuilderButton" type="Button" parent="Layout/TopBar"]
 layout_mode = 2
-size_flags_horizontal = 3
-alignment = 1
-theme_override_constants/separation = 16
+custom_minimum_size = Vector2(150, 44)
+theme_override_font_sizes/font_size = 15
+text = "Deckbuilding →"
 
-[node name="TitleLabel" type="Label" parent="Layout/TopBar/TitleGroup"]
+[node name="TitleLabel" type="Label" parent="Layout/TopBar"]
 layout_mode = 2
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 26
@@ -58,19 +58,6 @@ theme_override_constants/shadow_outline_size = 8
 theme_override_colors/font_outline_color = Color(0.05, 0.06, 0.08, 0.95)
 theme_override_constants/outline_size = 6
 text = "Card Browser"
-
-[node name="DeckbuilderButton" type="Button" parent="Layout/TopBar/TitleGroup"]
-layout_mode = 2
-custom_minimum_size = Vector2(150, 36)
-size_flags_vertical = 4
-theme_override_font_sizes/font_size = 15
-text = "Deckbuilding →"
-
-[node name="SearchBar" type="LineEdit" parent="Layout/TopBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(220, 36)
-size_flags_vertical = 4
-placeholder_text = "Search by name..."
 
 [node name="FilterPanel" type="PanelContainer" parent="Layout"]
 layout_mode = 2
@@ -84,6 +71,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 40)
 theme_override_constants/separation = 12
 
+[node name="SearchBar" type="LineEdit" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
+layout_mode = 2
+custom_minimum_size = Vector2(220, 36)
+size_flags_vertical = 4
+placeholder_text = "Search by name..."
+
 [node name="CostTypeLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 vertical_alignment = 1
@@ -92,6 +85,7 @@ text = "Type"
 [node name="CostTypeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(100, 36)
+size_flags_vertical = 4
 
 [node name="CostAmountLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
@@ -101,6 +95,7 @@ text = "Cost"
 [node name="CostAmountFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(90, 36)
+size_flags_vertical = 4
 
 [node name="KindLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
@@ -110,6 +105,7 @@ text = "Kind"
 [node name="KindFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(110, 36)
+size_flags_vertical = 4
 
 [node name="CreatureTypeLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
@@ -119,6 +115,7 @@ text = "Creature type"
 [node name="CreatureTypeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(110, 36)
+size_flags_vertical = 4
 
 [node name="ViewModeLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
@@ -128,6 +125,7 @@ text = "Creature view"
 [node name="ViewModeFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/FilterBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(120, 36)
+size_flags_vertical = 4
 
 [node name="MergeBar" type="HBoxContainer" parent="Layout/FilterPanel/FilterColumn"]
 layout_mode = 2
@@ -142,6 +140,7 @@ text = "First"
 [node name="FirstCreatureFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(160, 36)
+size_flags_vertical = 4
 
 [node name="SecondCreatureLabel" type="Label" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
@@ -151,6 +150,7 @@ text = "Second"
 [node name="SecondCreatureFilter" type="OptionButton" parent="Layout/FilterPanel/FilterColumn/MergeBar"]
 layout_mode = 2
 custom_minimum_size = Vector2(160, 36)
+size_flags_vertical = 4
 
 [node name="PageBar" type="HBoxContainer" parent="Layout"]
 layout_mode = 2

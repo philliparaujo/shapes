@@ -37,9 +37,9 @@ public partial class CardBrowser : Control
     [Export] public NodePath ScrollContainerPath { get; set; } = "Layout/ScrollContainer";
     [Export] public NodePath FilterPanelPath { get; set; } = "Layout/FilterPanel";
     [Export] public NodePath BackButtonPath { get; set; } = "Layout/TopBar/BackButton";
-    [Export] public NodePath DeckbuilderButtonPath { get; set; } =
-        "Layout/TopBar/TitleGroup/DeckbuilderButton";
-    [Export] public NodePath SearchBarPath { get; set; } = "Layout/TopBar/SearchBar";
+    [Export] public NodePath DeckbuilderButtonPath { get; set; } = "Layout/TopBar/DeckbuilderButton";
+    [Export] public NodePath SearchBarPath { get; set; } =
+        "Layout/FilterPanel/FilterColumn/FilterBar/SearchBar";
     [Export] public NodePath CostTypeFilterPath { get; set; } =
         "Layout/FilterPanel/FilterColumn/FilterBar/CostTypeFilter";
     [Export] public NodePath CostAmountFilterPath { get; set; } =
