@@ -33,6 +33,13 @@ compare.html
 .godot/
 *.translation
 
+# Exported builds (PLAN.md D6)
+Shapes.Godot/Exports/
+
+# Mirrored into the resource tree at build time from Shapes.Content (Shapes.Godot.csproj's
+# MirrorContentIntoResourceTree target) -- regenerated on every build, never edited in place.
+Shapes.Godot/Content/
+
 # OS
 Thumbs.db
 .DS_Store

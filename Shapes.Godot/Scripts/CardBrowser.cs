@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Godot;
 using Shapes.Core.Cards;
@@ -218,8 +217,7 @@ public partial class CardBrowser : Control
         // nothing behind it.
         _deckbuilderButton.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
 
-        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
-        _cards = CardLoader.FromDirectory(cardsDir);
+        _cards = ContentLoader.LoadCards();
         _creatureCards = [.. _cards.All.Where(c => c.IsCreature).OrderBy(SortKey)];
 
         PopulateFilters();

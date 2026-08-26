@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -186,8 +185,7 @@ public partial class GameRoot : Control
 
     private void StartNewGame(ulong seed, MatchConfig? config)
     {
-        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
-        _cards = CardLoader.FromDirectory(cardsDir);
+        _cards = ContentLoader.LoadCards();
 
         var rules = RuleSet.Default;
         var random = new SeededRandom(seed);
@@ -217,8 +215,7 @@ public partial class GameRoot : Control
     // rather than an approximation of it.
     private void ResumeGame(SavedMatch saved)
     {
-        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
-        _cards = CardLoader.FromDirectory(cardsDir);
+        _cards = ContentLoader.LoadCards();
 
         var rules = RuleSet.Default;
         var random = new SeededRandom(saved.Seed);

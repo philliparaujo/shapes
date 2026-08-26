@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Text.Json;
 using Godot;
 using Shapes.Core.Cards;
@@ -55,8 +54,7 @@ public static class DeckStore
             return;
         }
 
-        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
-        var cards = CardLoader.FromDirectory(cardsDir);
+        var cards = ContentLoader.LoadCards();
         var starter = DeckBuilder.Starter(cards);
 
         slot.Name = starter.Name;

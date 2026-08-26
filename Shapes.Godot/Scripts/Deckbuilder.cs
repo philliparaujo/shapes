@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Godot;
 using Shapes.Core.Cards;
@@ -182,8 +181,7 @@ public partial class Deckbuilder : Control
 
         HoverDetailPanelScene ??= GD.Load<PackedScene>("res://Scenes/HoverDetailPanel.tscn");
 
-        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
-        _cards = CardLoader.FromDirectory(cardsDir);
+        _cards = ContentLoader.LoadCards();
         _slots = DeckStore.Load();
 
         BuildHoverPanel();

@@ -7,7 +7,7 @@ namespace Shapes.Godot.Scripts;
 
 // Real card art, keyed on the stable card id (PLAN.md B1c).
 //
-// res://art/cards/{cardId}.png -- the CARD ID, never the JSON filename. Every card's id and
+// res://Art/cards/{cardId}.png -- the CARD ID, never the JSON filename. Every card's id and
 // filename agree today (safeguard.json carried id "patch_up" until its art silently fell back to
 // the placeholder, at which point the id was renamed to match), but the rule still holds: art
 // keyed to filenames detaches the next time a card is renamed for readability, and it detaches
@@ -18,7 +18,7 @@ namespace Shapes.Godot.Scripts;
 // so the set can be filled in one card at a time instead of needing all 36 before anything shows.
 public static class CardArt
 {
-    private const string ArtDirectory = "res://art/cards";
+    private const string ArtDirectory = "res://Art/cards";
 
     // Textures are cached by path: PlayerPanel.RenderSlots/RenderHand rebuild every SlotView and
     // CardFace from scratch on each render (see their own notes), so an uncached GD.Load would

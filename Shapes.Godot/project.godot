@@ -17,9 +17,6 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-; PLAN.md D4. An autoload because music must survive ChangeSceneToFile -- the lobby, deckbuilder,
-; card browser and a match are four separate scenes, and a player owned by any one of them would
-; stop (and restart from the top) at every transition. See AudioDirector's own header.
 AudioDirector="*res://Scripts/AudioDirector.cs"
 
 [display]
@@ -37,3 +34,4 @@ project/assembly_name="Shapes.Godot"
 [rendering]
 
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true

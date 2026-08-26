@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -416,11 +415,7 @@ public partial class Lobby : Control
         picker.Selected = picker.ItemCount > 0 ? 0 : -1;
     }
 
-    private static CardDatabase LoadCards()
-    {
-        var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
-        return CardLoader.FromDirectory(cardsDir);
-    }
+    private static CardDatabase LoadCards() => ContentLoader.LoadCards();
 
     private static void PopulateSeatPicker(OptionButton picker)
     {

@@ -11,7 +11,7 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 21 / 24    |
+| 5 — Godot client                         | 22 / 25    |
 
 1225 tests passing. **Phases 1, 2, 3, and 4 are complete.**
 
@@ -25,10 +25,12 @@ authoring remains outstanding from B). A hotseat game is playable end to end in 
 drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
 and the in-game pause menu, and the screen is drawn from a fixed seat when you are playing an AI
 rather than flipping to its side on its turn (D1). Two installs can also now host/join a real game
-over a relay (D5) — see that step's own notes for what's verified versus still needing a manual
-two-instance run through the Godot editor. Music and sound effects play, with a Sounds panel
-controlling both (D4, audio half). What remains in Milestone D: D4's transitions and menu restyle,
-and export (D6). Content is settled at `v1.7-final` and the balance
+over a relay (D5), now verified end to end on a real desktop/mobile pair, and export (D6) is done
+too — desktop and Android both build, install, and connect over the relay on real hardware. Music
+and sound effects play, with a Sounds panel controlling both (D4, audio half). What remains in
+Milestone D: D4's transitions and menu restyle, D3's phase 4 (feedback states), and a mobile UI
+pass (D7) fixing layout issues D6's on-device run surfaced. Content is settled at `v1.7-final`
+and the balance
 record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
 at large samples (see that phase's closing note).
 
@@ -530,7 +532,7 @@ games run ~2 turns shorter; the fix is a ruleset knob, not a card edit, and Phas
 will move it again. **Archetype balance was always out of scope** — not measurable on a symmetric
 deck where both seats hold every card.
 
-### Phase 5 — Godot client (desktop + mobile) — 21/24 complete, 3 part-done, in progress
+### Phase 5 — Godot client (desktop + mobile) — 22/25 complete, 2 part-done, in progress
 
 Target Windows/macOS/Linux desktop and Android from one codebase. Organised as four milestones:
 A got the full rules onto one screen with no art; B made it feel like a game (interaction model,
@@ -645,632 +647,159 @@ seeded Godot game matching the same seed's console result.
   .gif importer) live under `Art/rules/`, fit into a shared per-page image box so the panel reads as
   one consistent layout across very different source aspect ratios.
 
-#### Milestone D — ship — 3/6 complete (D3 and D4 both part-done)
+#### Milestone D — ship — 4/7 complete (D3 and D4 both part-done)
 
-- [x] **D1. Viewer seat — separate "whose turn" from "whose screen."** Replaced the cut determinizer
-  migration (whose reasoning now lives with the Deck model caveat above, where its standing
-  consequence already was), and took the client-side half of D5 (multiplayer) forward:
-  `BoardView.Render` computed
-  `self = state.ActivePlayer`, so the board flipped seats every turn. That is correct for hotseat,
-  which was the only mode that existed when it was written, and wrong for both modes that came after
-  it. **Sequenced first in this milestone because it was a correctness bug in shipped single-player,
-  not preparation for a feature that may never be built** — D5 already identified it as "a refactor
-  this codebase wants regardless," and doing it here leaves D5's decision step about the server and
-  nothing else.
+- [x] **D1. Viewer seat — separate "whose turn" from "whose screen."** `BoardView.Render` used to
+  compute `self = state.ActivePlayer`, so the board flipped seats every turn — correct for hotseat
+  (the only mode when it was written) but wrong once an AI seat existed: it fanned the AI's hand
+  face-up and mirrored the board mid-turn. Fixed with `ViewerMode` in `Shapes.Godot.Adapter`:
+  `FollowsActive` (hotseat) or `Fixed(PlayerId)` (one human seat, later a network client), derived
+  from seat config rather than stored, so old saves resume with the right perspective automatically.
+  `PlayerPanel` now separates `showHand: player == viewer` from `interactive: showHand && viewer ==
+  state.ActivePlayer` — on the AI's turn the human keeps seeing their own hand, inert, instead of the
+  board changing sides. Fixed three follow-on spots that used `ActivePlayer` as a stand-in for
+  "viewer" (move usability, playable/discardable highlighting, attack-animation direction), and added
+  an "Opponent's turn N" label to the disabled End Turn button. **Redaction (hiding hand contents over
+  a real network wire, vs. just not drawing them) stays out of scope here** — deferred to D5, since it
+  only matters once a server exists. Verified with two headless harnesses asserting against live state
+  and real nodes (reverting the fix produced 912 violations, confirming the check can go red); 1165
+  tests pass, `Shapes.Core` untouched. **Known gap, resolved in D2/D3:** the harnesses can't screenshot
+  under `--headless`, so nobody confirmed visually that the AI-turn hand *looks* inert rather than
+  broken — a later windowed pass found it renders identically whether playable or not, and that fix
+  was deferred to D3's feedback-state pass.
+- [x] **D2. Action legibility — make a played turn readable while it happens.** The client renders
+  state, not events: everything that isn't a lasting state change (which move fired, what was played)
+  existed only in the animation frame and vanished — invisible in hotseat, real friction watching an
+  AI or (later) a remote seat. Landed five changes, `Shapes.Core` untouched, 1187 tests (22 new):
+  paced AI moves slower (`MoveDelaySeconds` 1.2→~2.4, now `[Export]`-tunable); a recap panel showing
+  the last card played or move used, held ~4s then fading, filling an empty layout gap and reusing
+  `HoverDetailPanel`'s renderer so a recapped card looks like a hovered one; a "spent" treatment for
+  moves already used this turn (dark scrim + amber text, distinct from the other three "unusable"
+  reasons by changing hue rather than fading further), backed by a new `SpentMoveTracker` in the
+  adapter since the engine clears its own flag at the wrong time for display purposes; and a full
+  scrollable action log opened from a bottom-right icon, formatted from the `(GameAction, StateDiff)`
+  pairs `GameRoot` already computed for every action — so the log is ~200 lines of formatter, not new
+  bookkeeping, and is deliberately kept separate from C6's replay log (a resumed match starts with an
+  empty visible log). A second pass, driven entirely by reading windowed frames (not tests), fixed
+  z-index/sizing clipping on the recap panel, split start-of-turn income/scoring onto the correct
+  turn's log entry (keyed on active-seat-change, not `TurnNumber`), and rewrote log lines as
+  player-facing prose (named slots, no raw costs or resource glyphs) via a new `ActionLogText`,
+  separate from the console's `ActionText`. Deliberately still open: whether the recap should
+  suppress itself during animation (shipped without — no duplication observed) and log retention
+  being unbounded (fine on desktop, a D6 export question). The inert-hand frame from D1 was not
+  addressed here — moved to D3.
+- [~] **D3. Professional UI pass — IN PROGRESS, phases 1–2 of 4 done, phase 3 landed.** Visual/UX
+  polish beyond C-UI's board HUD: consistent styling across lobby/browser/deckbuilder/game-over,
+  feedback-state polish, card art integration. A windowed screenshot tour found the board, browser,
+  and deckbuilder already near shipping quality but **the lobby still stock Godot theme** (flat grey,
+  five identical buttons, no hierarchy) plus **edge-clipping** in the browser/deckbuilder from a
+  missing `MarginContainer` (`40 / 4` instead of `40 / 40`). Full findings in `d3-checklist.md`.
+  Scoped as four phases so the theme foundation lands before per-screen work: **(1)** `Palette` +
+  `UiTheme`, built in code (not an authored `.tres`) so values can't drift from `Palette`, applied at
+  four scene roots; **(2)** the clipping fix, one line per scene. Both verified by a before/after
+  screenshot pass, which caught a disabled-vs-enabled contrast regression in the rules overlay along
+  the way (fixed). A follow-up pass then fixed issues the theme itself caused: vanished scrollbars
+  (a bare `StyleBoxFlat` dropped Godot's default content margins), buttons reading as generic grey
+  instead of the game's felt-and-gold language, and in-play creature panels/move buttons picking up
+  card-like styling meant for actual cards — each fixed by styling the affected component explicitly
+  rather than letting it inherit the theme. Two more from a second read: enabled buttons lightened for
+  clearer affordance (contrast 1.40→1.85), and Godot's persistent post-click focus ring was removed
+  (it read as a stale "selected" marker; accepted losing keyboard-nav position feedback since nothing
+  here is keyboard-driven). **Phase 3 (structure) reorganised navigation**: Home is now a 4-button
+  title screen (Play primary/larger, Deckbuilding, Rules, Exit); match setup moved to its own Play
+  panel (seats, Resume/Start, an Edit Decks link); deckbuilder and card browser link to each other
+  directly instead of routing through the menu. Home and Play share one scene (both need the same
+  loaded state). Verified by a harness that walks the real button graph rather than screenshotting it,
+  which caught its own bug (`ChangeSceneToFile` frees a harness-hosted lobby mid-walk — fixed via
+  autoload). Two visual-grammar follow-ups: cross-links now sit beside each page's title rather than
+  among unrelated controls, and button sizing collapsed from four inconsistent heights to two clear
+  tiers (primary 68px/24pt, secondary 40px/15pt). **Remaining: phase 4** (hover/pressed/selected
+  feedback states), plus the inert-hand restyle carried from D1/D2.
+- [~] **D4. Polish: audio landed; transitions and the menu restyle remain.** Imported 14 SFX + 4
+  music tracks under a top-level `Audio/` folder. Shipped: a Sounds panel (music/SFX, 0–5 each,
+  default 3) reachable from Home and the pause menu, one scene instantiated twice; music auto-plays
+  and rotates through tracks by filename order; six SFX cues (card play, move, merge, score tick,
+  resource gain, click). `AudioDirector` is an autoload so music survives scene changes between the
+  four independent scenes; volume is applied per-bus (music/SFX) so it updates players already
+  mid-playback. The 0–5 scale is a hand-picked table (~6dB steps, level 5 = unity gain, level 0 = hard
+  mute) rather than linear amplitude, which would crowd all audible difference into the top two
+  steps. `SoundScript` (deliberately separate from the visual `AnimationCue`) takes both the action
+  and the diff and collapses to at most one instance of each cue per action, avoiding both a
+  three-damage-numbers-stacking bug and two diff-only false positives (silent targetless spells,
+  spend-reading-as-gain) that are now pinned by tests. 31 tests total, all pure-adapter. **Three real
+  bugs found only by running it**, each a reminder that Godot wiring can compile and run while being
+  simply wrong: a one-character filename typo silenced a cue with no error (fixed, plus a new startup
+  probe that now errors on any cue that resolves to a missing file); income and scoring cues
+  colliding on the same frame on a scoring turn, resolved by suppressing income's cue rather than
+  offsetting it (offsetting just moves the collision); and every button built in code (grid rows,
+  deckbuilder rows, move buttons) was silently unwired because click-sound hookup only walked
+  `.tscn`-authored trees at `_Ready` — replaced with a `node_added` hook plus a one-time catch-up walk
+  so any button is wired by existing, not by a call site remembering to wire it. Both defects verified
+  fixed via temporary headless harnesses (deleted after use) that measured wiring behaviourally rather
+  than by introspecting callables, which had initially misreported a working feature as broken.
+  **Still open under this step:** scene transitions (still hard-cut), the menu restyle including the
+  inert-hand-during-AI-turn problem carried from D1/D2/D3, and a cosmetic leaked-audio-resource
+  warning at process exit (autoloads don't run `_ExitTree` on shutdown; needs a different hook).
+- [x] **D5. Small-scale multiplayer — built.** Two installs can host/join over a relay and play a
+  real game: the host picks seat order and their deck, the joiner enters the resulting code and picks
+  theirs. Cheaper than expected because three Phase 1 decisions already fit a netcode protocol:
+  `GameAction` is flat/immutable/self-describing (no mid-resolution round trip needed), and full
+  determinism means the wire format is just **seed + ordered action log**, with `GameSession.Resume`
+  already serving as the reconnect path (built for C6). The client-side viewer-seat refactor this step
+  originally needed was absorbed into D1 instead, done there for single-player reasons but reusable
+  here as-is. Built: `IMatchTransport` as the seam (local modes construct none at all); `Shapes.Relay`,
+  a real minimal ASP.NET Core WebSocket relay (no `Shapes.Core` dependency, pairs sockets by a
+  6-character code, forwards frames verbatim, no persistence) runnable today on localhost/LAN and
+  movable to a real VM later with zero rework; `RelayMatchTransport` wrapping the handshake and reusing
+  `SavedMatch`'s existing DTOs; a new Play Online lobby panel (Host/Join tabs); and a `ViewerOverride`
+  on `MatchConfig` since a network match is Human-vs-Human, a shape `ViewerMode.For` would otherwise
+  misread as local hotseat.
 
-  **What was wrong.** `ActivePlayer` was doing three jobs at once: engine turn order, which row is
-  the bottom row, and whose hand is legible. Hand-hiding was `PlayerPanel.RenderHand` early-returning
-  unless `isActiveHand` — hiding by *not drawing*, the console's step 2.5 precedent, which is sound
-  only while one screen serves both seats. Against an AI seat this fanned the AI's hand face-up at
-  the bottom of the screen and mirrored the board mid-game, once per AI action, held for
-  `MoveDelaySeconds` by `RunAiTurns`' per-action `RefreshAll`. The player watched their opponent's
-  turn from inside their opponent's seat, holding their cards.
+  **Redaction shipped client-side only, deliberately, not as a gap.** A client holding the shared seed
+  can always re-derive both hands locally, so no amount of wire-level projection actually hides
+  anything from a modified client — real server-enforced hiding would mean withholding the seed and
+  sending per-seat deltas instead, which throws away everything that makes this approach cheap. At
+  friends-only scope (the stated threat model) that trade is correct: `ObservedState` remains a
+  rendering boundary, not a security one. **Re-open this decision if scope ever grows past
+  friends/self** (a public queue, strangers, a ladder) — that requires redesigning the wire format,
+  not patching it, which is why it's listed as an exclusion below rather than a future enhancement.
+  Direct P2P was considered and ruled out, not just deprioritized: NAT blocks unsolicited inbound
+  connections across two home networks, so a relay both sides dial out to is the only transport that
+  actually works remotely without the host configuring port forwarding.
 
-  **What landed.** `ViewerMode` in `Shapes.Godot.Adapter`: `FollowsActive` (hotseat, and the right
-  way to watch AI-vs-AI) or `Fixed(PlayerId)` (one human seat, later a network client), with
-  `ViewerMode.For(seatOne, seatTwo)` deriving which — exactly one `AgentKind.Human` seat gives
-  `Fixed(thatSeat)`, otherwise `FollowsActive`, so **local two-player hotseat kept its flipping
-  behaviour unchanged and needed no lobby control**. `MatchConfig.Viewer` is a *derived property*
-  rather than a stored field, which is why resume needed no changes at all: `SavedMatch` already
-  persists both `SeatConfig`s, so a save written before D1 resumes with the correct perspective
-  instead of a defaulted one. `GameRoot` resolves it per read (never cached — under `FollowsActive`
-  the answer changes with the turn) and passes it into `Render`, which stops deriving it; the rail,
-  avatars, identity and hand fan all follow from that one substitution.
-
-  **The load-bearing split was in `PlayerPanel`.** `isActiveHand` conflated "this is my hand" with "I
-  may act"; it became `showHand: player == viewer` and `interactive: showHand && viewer ==
-  state.ActivePlayer`. That is the piece that makes the AI case correct rather than merely stable: on
-  the AI's turn the human keeps seeing their own hand, inert, instead of the board changing sides.
-  One guard on `GameRoot.Submit` makes input outside your turn a no-op — D5's generalization of
-  `_aiTurnInProgress` to "not my turn," arriving early and testable with no transport.
-
-  **Four defects the plan for this step did not name, each found while implementing it.** Move
-  usability was gated on `slot.Owner == state.ActivePlayer`, a correct reading of "is this mine" only
-  while the viewer *was* the active player — under `Fixed` it lit the opponent's move buttons up as
-  usable on their own turn; merge-drag had the identical defect. `playableIds`/`discardableIds` are
-  built from the active player's action list, so applied to the viewer's cards during an opponent
-  turn they highlighted cards by card-id coincidence. And `PlayAnimation` was oriented by
-  `ActivePlayer`, which on a board that no longer turns around plays the AI's attack travelling *away*
-  from the human it is aimed at. All four are the same root cause as the headline bug — a seat
-  identity standing in for a perspective — which is the argument for having done this as one step.
-
-  **One thing added beyond the brief:** the End Turn button now reads "Opponent's turn N" when it is
-  not yours. The old design could leave that implicit because the board itself flipped; once the view
-  stops moving, a disabled button is too subtle to carry the distinction alone.
-
-  **Not in scope, deliberately: redaction.** Clients still hold the full `GameState` including both
-  hands; secrecy remains cosmetic. Fine for local play and *not* fine over a wire, but the fix (a
-  per-seat projection on the wire, for which `Shapes.Ai`'s `ObservedState` is already the right shape
-  and already written) only pays off against a real server — pulling it in would have made this step
-  depend on D5's decision instead of standing free of it. It stays listed under D5.
-
-  **Verified** by two headless harnesses that assert against the live `GameState` and the real
-  `CardFace` nodes rather than eyeballing a screenshot: the vs-AI case held the human's hand on
-  screen for all ~475 frames of the AI's turn with the viewer never moving off seat two (human in
-  seat *two* deliberately — seat one is the case a "just check player one" derivation gets right by
-  accident), and the hotseat case still follows the active seat across a handover. The check was
-  itself checked: reverting `Viewer` to the old expression produced **912 violations** naming the
-  AI's four visible cards, so the assertion can actually go red. 1165 unit tests pass;
-  `Shapes.Core` untouched.
-
-  **Debt:** the two harnesses (`ViewerSeatShotHarness`, `HotseatFlipShotHarness`) are temporary
-  scaffolding on the `UiShotHarness` pattern, and the read-only accessors they need
-  (`CardFace.CardId`/`IsDraggable`, `GameRoot.SessionForTesting`/`ViewerForTesting`) exist only for
-  them — delete together. Their screenshot half is a no-op under `--headless` (the dummy driver has
-  no viewport texture), so **nobody has visually confirmed the new frame reads well** — that the
-  inert hand looks deliberately inert rather than broken. **Partly answered since, and the answer
-  was "no"**: a windowed tour taken while scoping D2 caught the human's hand rendering at full
-  opacity and full colour during the AI's turn, visually identical to a playable hand, with only the
-  greyed "Opponent's turn N" button distinguishing the two states. **D2 answered the question and
-  deliberately did not take the fix**: item 3 there solved the same "which of four reasons is this
-  control inert" problem for move buttons, but the hand wants a panel-level restyle rather than a
-  legibility mechanism, so it now sits with **D3**'s feedback-state pass beside the "Opponent's turn
-  N" button it shares a frame with.
-- [x] **D2. Action legibility — make a played turn readable while it happens.** Five changes to the
-  board screen, all sharing one problem: **the client renders state, not events.** Every action
-  resolves instantly into a new board, so anything that is not a lasting state change — which move
-  fired, what card was played, what the damage was attributed to — exists only in the animation
-  frame that showed it and is gone. That is survivable in hotseat, where you performed the action
-  yourself, and it is the whole difficulty in the two modes that came after: watching an AI seat
-  (shipped) and watching a remote seat (D5). **Sequenced before D3's visual pass deliberately** —
-  these change what the board screen must *contain*, and restyling a screen before its content is
-  settled means styling it twice.
-
-  **D1 is the direct precedent and the reason this is one step, not five.** That step found four
-  unnamed defects that were all one root cause (a seat identity standing in for a perspective);
-  these five items are likewise one cause seen from five angles, and three of them (2, 4, 5) are the
-  same event stream rendered at three durations.
-
-  - **1. Pace every agent ~50-100% slower.** `GameRoot.MoveDelaySeconds` is `1.2` and paces every
-    agent uniformly (its own note explains why: the rhythm of watching shouldn't change with which
-    agent plays). Raise to ~2.0-2.4s. One constant, and the one item here that is purely a number.
-    **Make it a `[Export]` rather than a `const`** so the value is tunable from the editor during
-    this step's own playtesting instead of through a rebuild — the same reasoning C5 used when it
-    introduced the delay.
-  - **2. Recap panel: the last card played, held then faded.** Occupies the currently-empty left-edge
-    gap between the type chart (`offset_top` 14→178) and the hover detail panel (bottom-anchored,
-    −355→−12) — a real hole in the existing layout, not a new region. Reuses `HoverDetailPanel`'s
-    renderer (`Show(CardText)`), so a recapped card looks identical to the same card hovered, per the
-    C4/deckbuilder precedent of never adding a second card renderer. Holds ~4s, then fades; a newer
-    action replaces it outright rather than queueing. **Shows for both seats** — decided rather than
-    assumed: the uniform rule is simpler to reason about and to test, doubles as confirmation
-    feedback for your own plays, and is the only variant that behaves correctly for an AI-vs-AI
-    spectator, where *neither* seat is "yours".
-  - **3. Mark moves already used this turn.** `CreatureInstance.HasUsedMove(i)` is **already public
-    and already correct** — no engine change, so `Shapes.Core` stays untouched as the milestone
-    requires. `MoveButtonFactory` currently renders an unusable move only as `Disabled` +
-    `Modulate 0.55` alpha, which conflates *four* distinct reasons (used already / condition unmet /
-    unaffordable / not your turn) into one grey. Give "used" its own treatment. **Both seats**, which
-    costs nothing extra and is never ambiguous: `ResetMovesForNewTurn` clears the flags at the
-    **owner's turn end** (not the next turn's start), so at most one seat's flags are ever set —
-    "highlight both" reads as "what has been spent so far this turn" with no two-seat collision
-    possible. Worth pinning that with a test, since it is the assumption the whole item rests on.
-  - **4. Recap moves too, not just cards.** Same panel and same lifetime as item 2, showing move name
-    plus the creature that used it. This is what makes item 2 worth building: **a card play is
-    already visible** (a card leaves the hand and a creature appears), whereas a move firing is the
-    single least legible action in the game — the only trace is a health number changing somewhere.
-  - **5. Full action log, opened from a bottom-right icon button.** Bottom-**right** because the
-    hover detail panel owns the bottom-left; the corner is currently free (the ⚙ button is
-    top-right/preset 1) and `HandFan` spans that band with `mouse_filter = 2`, so nothing there
-    swallows the click. A scrollable overlay on the `TutorialOverlay`/`MenuPanel` pattern (dimmed
-    backdrop, ESC to close, `BoardView` owning which overlay is on top) rather than a fourth kind of
-    modal. **Separate from the recap, not an expansion of it** — the recap auto-fades, so making it
-    the click target means the affordance disappears exactly when a player wants it.
-
-    **The log is a rendering of `StateDiff`, not new bookkeeping** — this is why item 5 is much
-    smaller than it sounds. `GameRoot` already computes a `StateDiff` for *every* action at both
-    seams (`Submit` for human, `RunAiTurns` for AI) and already appends the `GameAction` to
-    `_actionLog`; A2 built `StateDiff` precisely because `GameState.TurnEvents` "has no
-    damage/move-used/resource-change entries and is cleared on EndTurn." The pairing
-    `(GameAction, StateDiff)` already carries every effect this item asks to log: health via
-    `SlotDiff`/`CreatureSnapshot`, and score/resources/hand/deck/discard via `PlayerDiff`. So the
-    work is a formatter over a stream that exists, plus retaining it. Describe actions through
-    `EffectText`/`CardText`, never hand-authored strings (A4's rule).
-
-  **Where this lands architecturally.** Formatting and the retained entry list belong in
-  `Shapes.Godot.Adapter` (plain class library, `dotnet test`-reachable — the whole reason it exists);
-  only the panels/overlay are `Shapes.Godot`. That split is what lets the log formatter be tested
-  without the editor, which the screenshot harnesses notably cannot be.
-
-  **Two things to decide while building, not before.** Whether the recap should suppress itself
-  during animation (two cues for one action may read as duplication); and whether the log retains
-  the whole match or a bounded tail — unbounded is correct for `SavedMatch`'s replay model but is a
-  live-memory question on mobile.
-
-  **Verification.** Item 1 is visual. Items 2/4 want a windowed run — **`--headless` cannot see any
-  of this**, since the dummy driver has no viewport texture and `SavePng` silently no-ops (D1's
-  standing debt, and the reason its harnesses never confirmed anything visually). Items 3 and 5 are
-  the testable half: `HasUsedMove` reset timing, and log formatting as a pure function of
-  `(GameAction, StateDiff)` in `Shapes.Godot.Adapter`. **Take the D1 debt's windowed run during this
-  step** — it is already outstanding, it needs exactly the same windowed session, and item 3's
-  treatment of "not your turn" is the thing that would fix the inert-hand frame it asks about.
-
-  ---
-
-  **What landed.** All five, `Shapes.Core` untouched, 1187 tests passing (22 new).
-
-  **A second pass fixed four things the first cut got wrong**, all caught by reading the windowed
-  frames rather than by any test — which is the standing argument for taking the windowed run as
-  part of the step rather than after it:
-
-  - **The recap's header was clipped by its own card.** `HoverDetailPanel.tscn` is authored with
-    `z_index = 100` (it is normally the board's floating tooltip, drawn over everything), so a
-    sibling header at the default z drew *underneath* it. Fixed by raising the header rather than
-    resetting the card's z, which would fight the scene's authored value on every instantiation.
-    The labels also needed an explicit `Size`: nothing lays out a child of a `Panel`, so
-    `CustomMinimumSize` alone left `ClipText` with nothing to clip against.
-  - **The spent marking took three cuts to land.** A strike-through hairline read as a rendering
-    artifact, cutting through wrapped icon-embedded text at whatever height the row happened to be.
-    A corner "USED" chip was legible but noisy — a second object crowding a row that already holds a
-    cost pip, a name and a description. **What shipped is a dark scrim plus the row's own text
-    recoloured amber**, which carries the same information in space the row already spends: nothing
-    is added to the layout, and the whole row changes at once. **Precedence over the other three
-    unusable reasons is the property being protected**, and the hue shift preserves it better than
-    either predecessor: unaffordable / condition-unmet / not-your-turn all express themselves by
-    *removing* contrast, so shifting HUE moves on an axis none of them touch. Spent is applied
-    **instead of** the disabled fade rather than on top, or the amber would wash toward the same grey
-    every other unusable move wears. The scrim is added *before* the content host so it draws under
-    the text rather than veiling the colour the marking depends on.
-  - **The marking now lasts until that seat's own next turn**, so a move stays flagged through the
-    opponent's whole turn. **This required a new adapter component and is the one place D2 could not
-    just read the engine.** `CreatureInstance.HasUsedMove` is the right source for *legality* — it
-    is what `ActionGenerator` consults — but `ResetMovesForNewTurn` clears it at the owner's turn
-    END, because that is all the engine needs. So the display it fed vanished at exactly the moment
-    a spectator most wants it: "what did they just spend" is a question asked *while watching
-    someone else's turn*. Changing the engine's timing was doubly wrong — the milestone forbids
-    touching `Shapes.Core`, and that timing is correct for the job the engine has. How long a cue
-    stays on screen is a view concern, so `SpentMoveTracker` holds the memory in the adapter, keyed
-    by slot rather than by creature identity (a `CreatureInstance` is mutable and a merge folds one
-    away entirely). Its subtleties, each pinned by test: a seat's record clears at the start of that
-    seat's **own** turn so the two seats' markings coexist; the handover is processed **before** the
-    action is recorded, so a move used as a turn's first action is not wiped by that same turn's
-    start; and markings are dropped for emptied slots on every render, which covers death, merge and
-    replacement without modelling any of them.
-  - **Start-of-turn effects were filed under the wrong turn.** `ActionExecutor.Apply` runs
-    `AdvanceToActions()` internally, so one `EndTurn` submit carries both the act of ending a go and
-    the *next* seat's scoring, income and draw. Now split into two entries. **The subtle half:
-    splitting on `TurnNumber` was not enough** — only the P2→P1 handover increments it, so P2's
-    scoring stayed attributed to P1's End Turn line. The correct key is the **active seat changing**,
-    which happens on every handover.
-  - **The recap has two presentations and no caption above either.** The captioned header was
-    dropped entirely: it overlapped the card it captioned (the card panel is authored at
-    `z_index = 100` and wins against an ordinary sibling), and it spent ~60px the left edge does not
-    have. **A played card now shows the card alone** — the face already carries its name, cost, art
-    and moves, so a caption repeating the name was pure duplication and context already says a card
-    appearing here was played. **A used move shows a compact 60px strip** — move name over creature
-    name beside that creature's art — because a move has no card face of its own, and rendering the
-    whole creature to say "it used one of these two" both buries the answer and costs the height the
-    card case needs. Carried as an `ActionRecapKind` rather than inferred by string-sniffing the
-    title. The card case also re-fits from `GetCombinedMinimumSize` after every `Show` (deferred a
-    frame, since move-row heights are not settled until layout runs), so a one-line spell no longer
-    paints the same box as a four-move creature.
-  - **Sizing, not a visibility rule, is what resolves the left-edge crowding.** An earlier cut had
-    the recap hide whenever the hover tooltip appeared. That fixed the overlap and broke the common
-    case: playing a card yourself puts the cursor over your hand, so your own recap flashed up and
-    vanished instantly. Removed. The type-cycle chart shrank instead (164px square → 140, with orbit
-    and shape diameters scaled to match) — it is static reference material, where the other three
-    things in that column are live.
-
-    **The real bug took four rounds to find, and every earlier round "fixed" a non-problem.** The
-    symptom was a played-card recap painting over the chart's caption while every rect the code
-    could read said there was no overlap (chart ending 154, card reported 176–386). Three rounds
-    went into nudging offsets and clamps against measurements that were *correct and irrelevant*.
-    The cause: `HoverDetailPanel`'s root is a plain `Control`, so `GetCombinedMinimumSize()` on it
-    returns **0** — the fit silently collapsed to the 210px floor every time — and the inner
-    `PanelContainer`, which will not shrink below its children's minimum, responded by painting at
-    its own 327px height *centred* on the rect it was given, overhanging 58px above a control whose
-    own rect measured innocent. Measuring the inner panel instead made paint and measurement agree,
-    after which the clamp worked as written. **Two lessons worth keeping**: a `Control` root reports
-    no minimum for its children, and a container handed too small a rect overhangs rather than
-    clips — so a parent's rect is not evidence about what its child paints. (A separate red herring
-    along the way: `CallDeferred(nameof(PrivateMethod))` resolves through Godot's method table,
-    which does not see an ordinary private C# method, so that call never fired at all.)
-  - **The log now reads as prose.** `ActionLogText` is a log-specific describer, deliberately
-    separate from `ActionText`: that one renders an action as an *identity* for the console's action
-    menu (ids, exact costs) and is pinned by tests asserting that contract. A log line answers a
-    different question, so it uses card names, names slots the way a player points at them
-    ("Player 2's middle slot", never `P2:1`), and restates no costs — the effect lines underneath
-    already say what was spent. Resource glyphs are gone too: these strings render into plain
-    `Label`s, where `InlineResourceIcons`' sentinels mean nothing, so emitting `△▢◯` would have put
-    a second, worse icon vocabulary on screen beside the real ones.
-
-  **The estimate held: item 5 was the smallest of the five, not the largest.** `ActionLog` is ~200
-  lines of formatter over a stream that already existed — `GameRoot` was already computing a
-  `StateDiff` per action at both seams, so nothing new observes the engine. The one design call
-  worth recording is that the readable log is **kept separate from C6's replay log** rather than
-  widening it: `SavedMatch` serializes that one, and a save file should not grow a rendering concern
-  it has no use for. Consequence, accepted and documented at the call site: **a resumed match starts
-  with an empty log**, because `GameSession.Resume` replays actions below both seams and produces no
-  diffs. Recovering that scrollback would mean replaying the whole match a second time purely to
-  observe it.
-
-  **Item 3 needed no engine change and no new state**, as predicted — `CreatureInstance.HasUsedMove`
-  was already public and is the same flag `ActionGenerator` reads for legality, so the marking cannot
-  disagree with the rule it depicts. `SlotView.Render` already held the `CreatureInstance`, so the
-  flag is read there rather than threaded through the moves tuple. The treatment is a **strike-through
-  plus a cooler, dimmer modulate**, deliberately not "more alpha": dimming further would have emitted
-  the same signal as the other three unusable reasons, reading as *more* unavailable rather than as a
-  different KIND of unavailable. Verified in a real frame on the case that motivated it — a creature
-  with one move spent and one live, the two visibly distinct on the same card.
-
-  **Both seat-scope questions were settled by a timing detail, not by taste.**
-  `ResetMovesForNewTurn` fires at the **owner's turn end**, so at most one seat's flags are ever set
-  and "highlight both" can never show two seats at once. That is non-obvious, sits under an
-  unrelated-looking method name, and nothing in the UI would fail loudly if it changed — so it is now
-  pinned by `SpentMoveMarkingTests`.
-
-  **One thing the plan flagged to decide during the build, now decided:** the recap holds 1.7s then
-  fades over 0.7s, against `MoveDelaySeconds` 2.4 — sized so an entry completes its fade *before* the
-  next AI action arrives, rather than every entry being replaced mid-life and the fade never being
-  seen. That coupling is why item 1's constant and item 2's timings had to be chosen together.
-
-  **Deliberately still open:** whether the recap should suppress itself during animation. In the
-  windowed run the two cues did not read as duplication, so it ships without suppression rather than
-  adding a mechanism against a problem that did not appear. Log retention is likewise unbounded — the
-  mobile memory question is real but is a D6 export concern, not a desktop one.
-
-  **Not addressed here, and moved to D3:** the inert-hand frame. The windowed run confirmed D1's open
-  question (the human's hand renders identically whether or not it is actionable), but the fix is a
-  panel-level restyle rather than a legibility mechanism, so it belongs with D3's feedback-state pass
-  alongside the "Opponent's turn N" button it sits next to.
-- [~] **D3. Professional UI pass — IN PROGRESS, phases 1–2 of 4 done.** A full visual/UX polish beyond C-UI's board-screen HUD:
-  consistent styling across lobby/card browser/deckbuilder/game-over, animation and feedback-state
-  polish (hover/selected/legal-target states), and card art integration once B1c completes.
-  **The lobby is the priority and is not a uniform pass**: a windowed screenshot tour of all five
-  screens found the card browser, deckbuilder, and board already near shipping quality, while the
-  **lobby never received C-UI's treatment and is still stock Godot theme** — flat grey, five
-  identical button slabs, no hierarchy between "Start Game" and "Exit Game", on the first screen a
-  player sees. Also found: **real edge-clipping in the deckbuilder and card browser** (both anchor
-  their root `Layout` full-rect with no `MarginContainer`, so the deck count renders as `40 / 4` and
-  the browser's search field truncates) — one root cause, one fix. Full findings in
-  `d3-checklist.md`.
-
-  **Scoped as four phases, so the foundation lands before the per-screen work rather than during
-  it.** 1: `Palette` + `Theme`. 2: the clipping bugs. 3: per-screen passes (lobby hierarchy, then
-  the checklist residuals). 4: hover/pressed/selected feedback states, which are cheap once a theme
-  exists and near-impossible before. **Concept art was considered and dropped from scope** — the art
-  pipeline already succeeded (48 cards, rules images, avatars), and these screens are not failing
-  for want of art direction.
-
-  **Phases 1–2 done.** `Palette` is the single source for colour and `UiTheme` builds the project
-  Theme from it in code — **not** an authored `.tres`, which would have restated every value as a
-  literal and drifted from `Palette` the first time one moved (the same reasoning `CardStyle` and
-  `MoveRowFactory` each already carry). **Deliberately not a redesign**: every value is one already
-  in use, moved rather than re-picked, so the styled screens stay put and only the lobby moves. The
-  theme is applied at four scene roots and inherited by everything beneath; `CardStyle`,
-  `TableBackdrop`, `BoardFrame` and `MoveRowFactory` now read from `Palette` rather than holding
-  their own literals. The lobby and both collection screens also gained the `TableBackdrop` only the
-  board had, which was the other half of why they read as flat grey. Phase 2 was one line per scene
-  (offsets on the root `Layout`), and `40 / 4` now reads `40 / 40`.
-
-  **Verified by a before/after screenshot pass over all five screens**, taken windowed because
-  `--headless` cannot see any of this. That baseline earned itself immediately: it caught a
-  regression the change had introduced but nobody would have gone looking for — the first disabled
-  style sat so close to the resting one that the rules overlay's disabled `< Prev` and enabled
-  `Next >` became indistinguishable. Fixed by dropping `ControlDisabled` clearly below the resting
-  surface. **66 colour literals remain** in component-local files (badges, charts, animator cues);
-  those are phase 3's business, and the structural sources are consolidated.
-
-  **A follow-up pass then fixed three things the theme itself caused or left undone**, two of them
-  regressions it introduced — which is the argument for treating "apply a theme" as a change needing
-  the same scrutiny as a feature, not a free win:
-
-  - **Scrollbars vanished on both collection screens.** A `ScrollBar` has no minimum size of its
-    own: it is exactly as wide as its stylebox's content margins make it. Godot's default boxes
-    carry those margins, a bare `StyleBoxFlat` does not, so styling the bar without restoring them
-    collapsed it to a hairline. Now sized explicitly from a `ScrollThickness` constant.
-  - **Buttons were felt-and-gold, not grey.** The board is the game's signature surface, and a grey
-    button beside it reads as generic UI bolted onto a themed game. `Control`/`ControlHover`/
-    `ControlPressed` are now the felt darkened toward the backdrop, with the board's own frame gold
-    arriving on the border at hover and on the label when pressed.
-  - **In-play creatures had been damaged by the theme.** `SlotView`'s HP/status band is a bare
-    `PanelContainer`, so giving *every* `PanelContainer` card stock plus a 2px border turned it into
-    a second card nested inside the first; the move buttons likewise inherited the new green and made
-    each creature read as a control panel bolted over its art. Both are now styled explicitly at the
-    component — a band on a card is not a card, and a move row is part of a printed face, not app
-    chrome. **The general lesson: a theme sets the floor for chrome, and anything that is really
-    *artwork* has to opt out of it deliberately** rather than inherit and hope.
-
-  Then two more, from reading the result again:
-
-  - **Enabled buttons lightened** so "can I press this" needs no second look — the felt-vs-disabled
-    contrast ratio went 1.40 → 1.85, with the label at 5.64 on an enabled control and 2.40 on a
-    disabled one.
-  - **Focus draws nothing at all.** Godot leaves focus on a button after a click, so a visible focus
-    style is not a focus indicator — it is a permanent marker on the last thing you pressed, which
-    reads as "this is selected" when nothing is. Worst on a spent move, which kept an outline for the
-    rest of the turn on top of its amber. Hover already answers "what is under the cursor", which is
-    the question a mouse player asks. **The tradeoff is explicit**: keyboard/gamepad navigation loses
-    its position indicator, accepted because nothing here is keyboard-driven, and the fix if that
-    changes is to show focus only when it arrived from a key — not to restore it unconditionally.
-
-  **Phase 3 (structure) then reorganised navigation**, which was the half of P0 that theming could
-  not reach: the lobby had five peer buttons in one stack, so "Start Game" and "Exit Game" carried
-  identical weight. Now **Home** is a title screen of four — Play (primary, larger), Deckbuilding,
-  Rules, Exit — and match setup moved to its own **Play** panel holding both seats, Resume vs. Start,
-  and a direct "Edit Decks" link, since "these decks are wrong" is the thought a player has *inside*
-  match setup. **Deckbuilder and Card Browser now link to each other** rather than routing through
-  the menu; they render cards with the same components and answer the same question, so the round
-  trip was friction with nothing behind it. The browser consequently left the home menu — it is
-  reached from the deckbuilder, where looking cards up is what you are already doing.
-
-  **Home and Play are one scene, not two.** Everything Play needs — the loaded `CardDatabase`, the
-  deck slots, the `PendingMatch` handoff, the deck-legality check — is already owned by `Lobby`, so a
-  second scene would mean duplicating that or inventing a way to share it. The deck pickers are
-  repopulated on entry to Play rather than only in `_Ready`, because Play → Edit Decks → Back lands
-  on Home without rebuilding the scene, and the next Play must not list decks as they were.
-
-  **Verified by WALKING the graph, not photographing it.** A harness pressed the six real buttons in
-  sequence (Home → Play → back → Deckbuilding → Card Browser → Deckbuilding), failing loudly on any
-  button that was missing, disabled, or invisible — which is what actually proves the wiring after
-  moving every control into two new panels. It found its own bug first: `ChangeSceneToFile` replaces
-  the scene root, so a harness that instantiated the lobby as its own child was freed at the first
-  scene change and the walk stopped silently. **Driving a multi-scene flow requires an autoload**,
-  which sits outside the swapped tree.
-
-  **Two follow-ups then settled the visual grammar.** The cross-link moved to sit **beside each page
-  title** rather than out among that screen's own controls — on the deckbuilder it had landed next to
-  "Delete Deck", pairing a navigation link with the one destructive action on the screen. Title and
-  link now travel together as a unit on both screens, with a `→` marking it as an exit rather than a
-  control that acts on the current page.
-
-  **Button sizing collapsed to two tiers.** It had drifted to four heights (44/48/52/62) across three
-  font sizes with no rule, so "tall" and "short" were not reliably distinguishable and the tiers
-  carried no meaning. Now **primary is 68px/24pt and secondary is 40px/15pt** — a 1.7× height and
-  1.6× font ratio, wide enough that the distinction survives a glance. Exactly one primary per screen
-  (Play on Home, Start Game on Play); the seat dropdowns stay at 44px because they are inputs, not
-  actions, and should not read as either tier.
-- [~] **D4. Polish: audio landed; transitions and the menu restyle remain.** The asset-source
-  decision this step was waiting on resolved outside it — 14 SFX and 4 music tracks were imported
-  under `Audio/Sfx` and `Audio/Music`, a top-level folder parallel to `Art/` rather than nested
-  inside it, since sound is not a visual asset and the two are loaded by different subsystems.
-
-  **What landed.** A **Sounds panel** (music and SFX, each 0–5, defaulting to 3) reachable from
-  directly below Rules in both places Rules itself is reachable — the home screen and the in-game
-  pause menu — because it is one panel scene instantiated twice, exactly the arrangement C7 chose
-  for the rules overlay and for the same reason: there is one Sounds page, not a lobby copy and a
-  board copy that could drift. **Music plays automatically and rotates 1→2→3→4→1** off filename
-  order, so adding a `5.ogg` extends the cycle with no code change. **Six SFX cues** are wired:
-  card play, move use, merge, the turn-start score tick, resource gain, and button click.
-
-  **`AudioDirector` is an autoload, and that is the load-bearing decision.** The lobby, deckbuilder,
-  card browser and a match are four separate scenes; a music player owned by any one of them stops
-  dead — and restarts from the top — at every `ChangeSceneToFile`. An autoload is the only node that
-  outlives a scene change, so the track survives the boundary. Volume is applied to **two audio
-  buses**, not per-player: several SFX players exist, and a bus is one number every routed player
-  inherits live, including sounds already mid-playback.
-
-  **The 0–5 scale is a table, not a formula.** The obvious linear-amplitude mapping crowds every
-  audible difference into the top two steps, leaving levels 1 and 2 indistinguishable. The six
-  values sit on the amplitude curve at roughly 6 dB apart — the interval that reads as "about
-  half/twice as loud" — with level 5 at unity gain so the loudest setting cannot clip an
-  already-normalized source, and level 0 hard-muting its bus rather than merely attenuating to
-  inaudibility.
-
-  **The cue vocabulary is deliberately NOT `AnimationCue`**, despite three members sharing names.
-  `AnimationScript` emits **per slot**, which is right for three damage numbers floating up and
-  wrong for audio: three identical samples starting on the same frame sum into one distorted
-  impact rather than reading as three events. `SoundScript` therefore collapses to at most one of
-  each cue per action. It also **takes the action as well as the diff**, splitting the two along a
-  real seam — the action says what the player *did* (play/move/merge), the diff says what *followed*
-  (income, scoring). A diff-only version gets two cases wrong that tests now pin: a targetless spell
-  changes no slot and would have been silent, and spending resources looks like gaining them to any
-  naive "did resources change" check.
-
-  **31 tests**, all pure-adapter (no editor needed), covering the volume curve's monotonicity, the
-  rotation's wrap, and both diff-derivation traps above. **Verified by a temporary headless harness**
-  asserting against live engine state rather than the type checker — that the autoload ran, both
-  buses carried the settings' volume, music was actually playing track 1, all six cues resolved to
-  real files, that setting level 5 moved the bus to 0 dB and level 0 muted it, and that the panel
-  opened from the real Lobby with six steps per row. Deleted after use, per the D1 harness precedent.
-
-  **One real defect found by running it, invisible to a clean build:** the process exited with
-  "resources still in use". Stopping playback did *not* fix it — the retained references were the
-  cached `AudioStream` objects themselves (the track list and `SoundBank`'s cue cache), which an
-  autoload's fields keep alive past the point Godot's resource system expects everything released.
-  Cleared in `_ExitTree`; shutdown is now silent. Harmless in a shipped session, but it is noise in
-  exactly the headless logs this project uses to verify Godot behaviour, and a genuine warning is
-  worth more than a familiar one.
-
-  **The SFX assignments are a deliberate first pass.** They were chosen by matching each cue's
-  physical metaphor to the imported library by name and character — wood for a card meeting the
-  table, metal plate for a move connecting, a duller heavier body for a merge, the heaviest impact
-  for the score tick (the only cue that moves the win condition), a non-percussive tick for income
-  since it fires every turn and must be the least fatiguing sound in the set, and the shortest
-  sample for a UI click. **Nobody has heard them**: they are mapped in one table in `SoundBank` so
-  re-pointing a cue is a one-line edit, with the reasoning recorded beside each so a listening pass
-  can tell "deliberate but wrong" from "arbitrary".
-
-  **Three defects found by playing it, each invisible to a passing build.** All three are the same
-  category as A3's original lesson — Godot wiring that compiles, runs, and is simply wrong.
-
-  **(1) A one-character typo silenced a cue.** `HeroDamage` was mapped to `imapctPlate_light_000.ogg`
-  and reported as a cue-priority bug ("I only hear the resource sound"), because that is exactly what
-  it looks like from the outside. `SoundBank` degrades a missing file to silence *by design* — one
-  bad filename must not take the game down — but that makes an authoring mistake undetectable at the
-  only moment anyone could act on it. Fixed, and `SoundBank.WarnOnMissingFiles` now probes every cue
-  at startup and pushes an error for any that will be silent. **A silent fallback needs a loud
-  counterpart**; the runtime behaviour was right and the authoring experience was not.
-
-  **(2) Income and scoring genuinely do collide, and scoring now wins.** Both resolve in the same
-  `AdvanceToActions` step, so on any scoring turn start the two cues fire on one frame and the louder
-  sample simply masks the other — which one you hear being an accident of their waveforms. Offsetting
-  was rejected: a delay only *moves* the collision, since the player can act again before it elapses
-  and the deferred cue then lands on the next action's sounds. Suppression is also the honest reading
-  — income arrives every turn and is the least informative sound in the set, while a score is the only
-  event that moves the win condition. Income still sounds on every turn that does not score.
-
-  **(3) The first screen a player saw had silent buttons.** Click sounds were wired by walking each
-  screen's tree from its `_Ready`, which covers `.tscn`-authored buttons and misses everything built
-  in code — the browser's grid, the deckbuilder's rows, the board's move buttons, every rebuilt
-  paginator. Replaced with a `node_added` hook so a button is wired **by the fact of existing** rather
-  than by a call site remembering. That alone reintroduced the bug at the other end: `node_added` only
-  reports nodes entering *after* it connects, and the main scene is already in the tree when an
-  autoload's `_Ready` runs — so the lobby was silent until the player navigated away and back. The hook
-  is now paired with a one-time catch-up walk of the existing tree, plus a `wired` meta flag so the two
-  paths cannot double-wire one button. `CardFace`/`SlotView`/move buttons are exempt by type, since
-  they already sound their own cue and would otherwise click *and* thump on one press.
-
-  **Verified by two temporary harnesses**, both deleted after use. The click harness measures the hook
-  **behaviourally** — instantiating each screen twice, with the hook connected and disconnected, and
-  diffing total `Pressed` connections — after a first attempt that introspected callables reported
-  "0 wired" on a working feature (a C# lambda connects as a `CallableCustom` Godot will not describe,
-  so *the detector* was broken, not the code). Result: 40/40 lobby, 42/42 deckbuilder, 11/11 browser,
-  and 26 of 37 on the board with exactly the 11 card/slot buttons exempt. The startup harness ran as a
-  second autoload against the real lobby boot — the only way to reproduce (3), since instantiating the
-  lobby from another harness adds it *after* startup and the hook catches it. **The check was itself
-  checked**: disabling the catch-up walk turned it red with 9 silent buttons, and those 9 are the
-  dropdowns — the ones with no handler of their own, which is why the symptom read as partial.
-
-  **Still open under this step:** transitions (scene changes still hard-cut) and the menu restyle,
-  including the **inert-hand-during-AI-turn** legibility problem D1's debt note raised and D2/D3 each
-  deferred to here. Also **cosmetic**: the music stream and its playback object are reported leaked at
-  process exit, because `_ExitTree` does not run on an autoload at shutdown, so the cleanup there never
-  fires. Visible only under `--quit-after` in headless runs; it needs a `NOTIFICATION_PREDELETE`-style
-  hook rather than `_ExitTree`.
-- [x] **D5. Small-scale multiplayer — built.** Decided: build it. Two installs can host/join over a
-  relay and play a real game against each other, with the host choosing seat order (First/Second/
-  Random) and their own deck, and the joiner entering the resulting code and choosing theirs.
-
-  **Why this is cheaper than it looks.** Three Phase 1 decisions, taken for unrelated reasons,
-  happen to be exactly what a netcode protocol needs. `GameAction` is flat, immutable, value-equal,
-  and **fully self-describing — nothing asks the player a question at apply time** (a choice is
-  pre-resolved by *being* a distinct legal action), so the wire protocol never needs a mid-resolution
-  round trip. `SavedMatch`'s `ActionDto` is already a serialization of it. Determinism (`IRandomSource`,
-  no `Random.Shared`/`DateTime.Now` in `Shapes.Core`, stable across platforms and .NET versions) means
-  the wire format is **seed + ordered action log**, not board snapshots — and `GameSession.Resume`
-  *is* the reconnect path, already written and already exercised by C6.
-
-  **The client-side seat refactor is no longer part of this step — D1 took it.** What was the bulk
-  of this item's effort (threading a viewer seat through `BoardView`/`PlayerPanel`/`SideRail` and the
-  targeting paths, and generalizing `_aiTurnInProgress` to "not my turn") is done standalone there,
-  for the single-player reasons in D1's own entry, so a `Fixed(PlayerId)` viewer already exists for a
-  network client to reuse. Three pieces remain here. **Redaction**, which D1 explicitly left alone:
-  clients today hold the full `GameState` including both hands, so hidden information is enforced by
-  what is drawn rather than by what is sent — over a wire it becomes a per-seat projection, and
-  `Shapes.Ai`'s `ObservedState` is already that projection. `GameRoot.Submit` must accept actions
-  arriving unprompted rather than only submit-then-refresh. And the failure states — disconnect,
-  timeout, concede, rejected action — which are boring, unavoidable, and always underestimated.
-
-  **Redaction is CLIENT-SIDE ONLY, and that is a decision rather than an oversight.** Seed + action
-  log and true redaction are in direct tension: a client holding the seed can re-run the same
-  deterministic shuffle the server did and derive both hands, so *no* amount of projection on the
-  wire hides information from a client that already has the seed. Server-enforced hiding would mean
-  withholding the seed entirely and sending per-seat state deltas instead — which discards the whole
-  reason this step is cheap (`GameSession.Resume` as the reconnect path, `ActionDto` as the wire
-  format, replay-from-seed as the desync check) and replaces it with a second, separately-verified
-  serialization of `GameState` — precisely the round-trip contract C6 rejected. **At friends-only
-  scope the seed is shared and `ObservedState` is a client-side rendering boundary, not a security
-  boundary.** It stops the UI from drawing what a player shouldn't see; it does not stop a modified
-  client from computing it. Accepted because the threat model is "my friend", where a referee for
-  honest disagreement is the thing worth paying for and cheat-proofing is not. **The line to
-  re-open this at:** anything beyond friends/self — a public queue, strangers, or a ladder — makes
-  the shared seed indefensible, and that is a redesign of the wire format, not a patch to it. It is
-  therefore listed under the exclusions below rather than as a later enhancement.
-
-  **Direct P2P was ruled out, not just deprioritized.** The original plan text above framed the
-  server as an optional matchmaking convenience over a possibly-P2P transport. Confirmed with the
-  user instead: plain direct TCP (host prints a LAN IP, friend types it in) only works when both
-  players share a network — across two different homes, NAT blocks the unsolicited inbound
-  connection direct play needs, with no workaround short of the host configuring port forwarding
-  per session. A **relay both clients dial out to** is not optional at this scope; it is the only
-  transport that actually satisfies "works remotely between friends," since outbound connections
-  are never blocked. This is a stronger claim than the original plan text made, and it is why the
-  relay shape below is not "the fancy option" but the only one that meets the exit bar.
-
-  **`IMatchTransport` — the seam, done as planned.** `Shapes.Godot.Adapter/IMatchTransport.cs`:
-  `ActionReceived`/`PeerDisconnected` events, `SendAsync`. Every local mode (hotseat, vs-AI, C6
-  resume) needed no implementation at all — `GameRoot` simply never constructs one, which already
-  *is* the "no server running" case the plan called for; only a network match builds a real one.
-
-  **`Shapes.Relay` — a real, minimal relay, built now rather than deferred to a VM that doesn't
-  exist yet.** The user had not stood up an Oracle Cloud (or any) server, and didn't want the
-  networking work to sit idle waiting on that. So the relay shipped as its own ordinary
-  `dotnet run`-able ASP.NET Core project (`Microsoft.NET.Sdk.Web`, WebSockets, ConcurrentDictionary
-  match table, no persistence) rather than a design document — usable today on `localhost` for
-  same-machine/LAN testing, and movable to a real VM later with zero rework: "copy the binary,
-  `dotnet run -- --port <n>`, open that port, change the client's one `ws://` URL setting." It
-  deliberately does **not** reference `Shapes.Core`/`Shapes.Ai` (see its own header): it is a dumb
-  pipe that pairs two sockets by a 6-character code and forwards frames verbatim, never inspecting
-  or validating a `GameAction` — the referee-when-clients-disagree role the original plan text
-  described for a full server is **not** implemented; see "left undone" below. The host is the
-  seed/seat authority (it resolves "First/Second/Random" and computes the seed), sent to the
-  joiner as `MatchStart` once paired, keeping the relay itself rules-free per the redaction
-  decision below. **Where Oracle Cloud fits:** exactly where the original plan put it, as the
-  eventual host for this same binary — nothing about that changed, it's just not blocking today.
-
-  **`RelayMatchTransport` (`Shapes.Godot.Adapter`)** wraps a `ClientWebSocket` for the host/join
-  handshake and then forwards `GameAction`s both ways for the match, reusing `SavedMatch.cs`'s
-  existing `ActionDto`/`SeatDto`/`DeckListDto` conversions rather than a second serialization —
-  the "cheaper than it looks" case above held up exactly as described. `Lobby.cs` gained a third
-  Home panel (**Play Online**, Host/Join tabs) alongside Home/Play, following D3's own panel-swap
-  pattern rather than a new scene. `MatchConfig` gained one new field, `ViewerOverride`, because a
-  network match is `SeatConfig.Human` vs `SeatConfig.Human` — the exact shape `ViewerMode.For`
-  reads as local hotseat and flips every turn, correct only when one screen serves both seats.
-  Checked first in `MatchConfig.Viewer`, so every existing local mode (which never sets it) is
-  unaffected — pinned by test (`MatchConfigTests`).
-
-  **Redaction shipped exactly as scoped: client-side only.** Both processes still hold the full
-  `GameState`; `ObservedState` was not wired into the wire protocol, matching the decision below
-  that a shared seed makes server-enforced hiding pointless at friends-only scope.
-
-  **What was cut from this pass, deliberately, to keep the exit bar (two installs, a real game)
-  achievable without also rebuilding C6:**
-  - **No resumable network match.** `SaveProgress` is a no-op when a transport is present — a
-    disconnect ends the match (`BoardView.ShowDisconnected`, reusing the game-over modal) rather
-    than leaving a resumable save, since C6's replay-from-seed has no peer to replay against once
-    the connection is gone. This is `reconnect-to-stranger`'s exclusion generalized to
-    "reconnect at all" for this cut, not a silent gap — flagged here for exactly that reason.
-  - **No state hashing.** The plan's "add it in the same commit as the first networked action"
-    did not happen — both sides deriving state independently from one seed is trusted, not
-    verified, so a desync (a bug, not an adversarial client) would currently surface later and
-    confusingly rather than as an immediate assertion. **Left as the clearest follow-up** if this
-    gets more real-world use: a per-action state hash, checked on both `RelayMatchTransport` and
-    (for symmetry) `LocalTransport`.
-  - **No referee.** The relay never calls `LegalActions().Contains(action)` — it doesn't load
-    `Shapes.Core` at all (see above). Fine at friends-only scope (the threat model is "my friend,"
-    not an adversarial client) but is the piece a public release would need back.
-  - **Verification gap, and it's a real one, not a formality: no Godot editor was available in
-    this environment**, so the actual Lobby → Host/Join → GameRoot UI flow has not been run or
-    screenshotted end-to-end — only its non-Godot half is proven. What **is** verified: the full
-    solution builds clean (`dotnet build`) including `Shapes.Godot`/`Shapes.Godot.Adapter`; all
-    1194 tests pass (1187 prior + 7 new: `RelayProtocolTests` DTO round-trips, `MatchConfigTests`'
-    two new `ViewerOverride` cases); and a live two-client run against a real running
-    `Shapes.Relay` instance (host code issued, joiner paired, `MatchStart` delivered with the
-    correct per-recipient seat, a `GameAction` forwarded in both directions, and a disconnect
-    correctly raising `PeerDisconnected` on the still-connected side) — everything below the
-    Godot node tree. **The user still needs to run two real instances through the Lobby's Host/Join
-    buttons at least once** before this is trusted the way D1/D2's own playtesting-found-real-bugs
-    precedent would want.
-
-  **Explicitly out of scope, unchanged from the original plan:** accounts, rating/ladder, chat,
-  spectating, reconnect-to-stranger, and server-enforced hidden information (see the client-side
-  redaction decision above) — each comparable in size to the whole core system, and each a
-  public-release concern this step was never scoped to cover.
-- [ ] **D6. Export pipeline — the last step, after everything above.** Desktop + signed Android
-  `.aab`, reusing/re-verifying the step 1.13 toolchain: export templates need the .NET 9 SDK
-  alongside .NET 8, Editor Settings needs explicit Java/Android SDK paths, and rebuilds need
-  `adb install -r` or a stale APK silently masks the change.
+  **Deliberately cut from this pass:** resumable network matches (a disconnect just ends the match —
+  C6's replay-from-seed has no peer to replay against once the connection drops); state hashing to
+  catch desyncs (both sides trust, rather than verify, that they derived the same state — flagged as
+  the clearest follow-up); and a referee (the relay never validates actions against `Shapes.Core`
+  rules — fine for the friends-only threat model, needed for any public release). **Verification gap
+  closed in D6:** a real desktop↔mobile Host/Join run surfaced and fixed the Android
+  `INTERNET`-permission bug (see D6); Lobby → Host/Join → GameRoot is now confirmed working
+  end-to-end between two real instances, not just below the Godot node tree. Out of scope, unchanged
+  from the original plan: accounts, ranking, chat, spectating, reconnect-to-a-stranger, and
+  server-enforced hidden information.
+- [x] **D6. Export pipeline — done.** Desktop export and Android APK export both verified on real
+  hardware, re-confirming the step 1.13 toolchain: export templates need the .NET 9 SDK alongside
+  .NET 8, Editor Settings needs explicit Java/Android SDK paths, and rebuilds need
+  `adb install -r` or a stale APK silently masks the change. **One real bug found only by running
+  it on a physical phone**, same lesson as every other Godot step this phase: the Android export
+  preset shipped with `permissions/internet=false`, so the generated manifest carried no
+  `INTERNET` permission and the OS silently blocked every socket before it reached D5's relay —
+  host failed with "could not reach the relay" and join misread the same failure as a bad code.
+  Fixed by enabling Internet + Access Network State in the Android export preset. **Signed `.aab`
+  and Play Store submission are out of scope** — `.aab` only matters for Play ingestion, not for
+  installing or sideloading, and this project's threat model has always been friends-only (see D5);
+  revisit only if store distribution becomes an actual goal.
+- [ ] **D7. Mobile UI pass.** The UI so far has been built and eyeballed primarily on desktop
+  (C-UI, D3); D6's first real on-device run surfaced layout issues that only show up on an actual
+  phone screen/DPI/aspect ratio, not in the editor at a desktop window size. Scope: fix rounded-
+  corner clipping on panels/buttons/cards (a `StyleBoxFlat` corner radius that reads fine at
+  desktop scale can get cropped by a parent's clip rect or safe-area inset at phone resolution),
+  increase touch-target sizes where buttons were sized for a mouse cursor rather than a finger
+  (Android's own guidance is a 48dp minimum), and reposition/reflow elements that crowd or overlap
+  at phone aspect ratios rather than the wider desktop window the rest of Milestone D was tuned
+  against. Verify on the same physical Android device D6 used, not just the editor's mobile
+  preview, since D3/D4 already established that Godot layout bugs compile and run clean while
+  being visibly wrong.
 
 **Exit criteria:** full game playable with visuals on desktop and on a physical Android device;
 a seeded hotseat game matches the console's result for the same seed; deckbuilder validates

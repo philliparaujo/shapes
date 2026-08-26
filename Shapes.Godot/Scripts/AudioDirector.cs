@@ -151,35 +151,19 @@ public partial class AudioDirector : Node
     // rotation the request asked for fall out of the file names themselves rather than out of a
     // hard-coded list here -- adding a 5.ogg extends the cycle with no code change.
     //
-    // DirAccess rather than a glob: res:// is a virtual filesystem in an exported build (the files
-    // are inside the .pck, not on disk), so System.IO cannot enumerate them.
+    // ResourceLoader.ListDirectory, not DirAccess: res:// is a virtual filesystem in an exported
+    // build (the files are inside the .pck, not on disk), and DirAccess.GetNext's directory walk
+    // does not reliably enumerate res:// contents post-export (Godot #99047, #87552) -- it silently
+    // returned zero entries in the Windows export, which is why music loaded in-editor but not from
+    // a built .exe. ResourceLoader.ListDirectory is the documented export-safe replacement.
     private void LoadTracks()
     {
         _tracks.Clear();
 
-        using var dir = DirAccess.Open("res://Audio/Music");
-        if (dir is null)
-        {
-            GD.PushWarning("AudioDirector: res://Audio/Music not found; music is disabled.");
-            return;
-        }
-
         var names = new List<string>();
-        dir.ListDirBegin();
-        while (true)
+        foreach (var name in ResourceLoader.ListDirectory("res://Audio/Music"))
         {
-            var name = dir.GetNext();
-            if (name.Length == 0)
-            {
-                break;
-            }
-
-            if (dir.CurrentIsDir())
-            {
-                continue;
-            }
-
-            // An EXPORTED build renames .ogg to .ogg.import-backed resources but GetNext still
+            // An EXPORTED build renames .ogg to .ogg.import-backed resources but the listing still
             // reports the source name; in the editor both the .ogg and its .import sidecar are
             // listed. Filtering to .ogg covers both, and the .import entries are what would
             // otherwise be loaded as null and played as silence.
@@ -189,7 +173,11 @@ public partial class AudioDirector : Node
             }
         }
 
-        dir.ListDirEnd();
+        if (names.Count == 0)
+        {
+            GD.PushWarning("AudioDirector: res://Audio/Music has no .ogg files; music is disabled.");
+            return;
+        }
 
         // Ordinal sort so "10.ogg" lands after "9.ogg" only if someone pads it -- documented
         // rather than solved, because the current set is 1-4 and a natural-order comparer would be
