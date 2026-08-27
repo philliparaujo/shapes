@@ -25,9 +25,9 @@ coverage*.xml
 # Balance run outputs (experiment logs are committed; raw data is not)
 balance/**/*.csv
 balance/**/raw/
-metrics.json
-report.html
-compare.html
+# Sim run artifacts (--metrics-json / --report / --compare-report output).
+# PLAN.md's runbook writes these into out/; the whole directory is generated.
+out/
 
 # Godot (Phase 4)
 .godot/
@@ -43,3 +43,9 @@ Shapes.Godot/Content/
 # OS
 Thumbs.db
 .DS_Store
+
+# Secrets -- SSH keys for the relay VM live here, never committed.
+# See PLAN.md "SSH into the relay VM" for the deploy commands that read them.
+.secrets/
+server/
+*.key

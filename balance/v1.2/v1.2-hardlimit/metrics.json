@@ -1,0 +1,4203 @@
+{
+  "Provenance": {
+    "Agents": [
+      "ismcts"
+    ],
+    "GamesPerPairing": 400,
+    "BaseSeed": 1,
+    "Iterations": 200,
+    "RuleSetName": "default",
+    "CardSetHash": "2537824855cd2e86",
+    "CardCount": 42,
+    "RunAtUtc": "2026-08-06T04:57:22.7093784+00:00"
+  },
+  "GameCount": 400,
+  "SeatOneWinRate": {
+    "Rate": 0.5725,
+    "Low": 0.5235553047379993,
+    "High": 0.6200654125619756,
+    "Successes": 229,
+    "Trials": 400,
+    "Margin": 0.048255053911988144
+  },
+  "SeatTwoWinRate": {
+    "Rate": 0.4275,
+    "Low": 0.3799345874380245,
+    "High": 0.4764446952620008,
+    "Successes": 171,
+    "Trials": 400,
+    "Margin": 0.048255053911988144
+  },
+  "FinalScoreMargin": {
+    "Mean": 1.3325,
+    "StandardDeviation": 6.243347838345744,
+    "Low": 0.7206631498682261,
+    "High": 1.944336850131774,
+    "Count": 400
+  },
+  "AbsoluteScoreMargin": {
+    "Mean": 5.7225,
+    "StandardDeviation": 2.816082305060023,
+    "Low": 5.446529003052267,
+    "High": 5.9984709969477334,
+    "Count": 400
+  },
+  "ScoreMarginByTurn": [
+    {
+      "Mean": 0,
+      "StandardDeviation": 0,
+      "Low": 0,
+      "High": 0,
+      "Count": 400
+    },
+    {
+      "Mean": 0.6175,
+      "StandardDeviation": 0.6836389071640598,
+      "Low": 0.5505046176479551,
+      "High": 0.684495382352045,
+      "Count": 400
+    },
+    {
+      "Mean": 0.9975,
+      "StandardDeviation": 1.084173570433754,
+      "Low": 0.891252941609919,
+      "High": 1.1037470583900812,
+      "Count": 400
+    },
+    {
+      "Mean": 1.2975,
+      "StandardDeviation": 1.5378250924723524,
+      "Low": 1.146795909022876,
+      "High": 1.448204090977124,
+      "Count": 400
+    },
+    {
+      "Mean": 1.5525,
+      "StandardDeviation": 2.0948065031678382,
+      "Low": 1.3472127333412576,
+      "High": 1.7577872666587424,
+      "Count": 400
+    },
+    {
+      "Mean": 1.73,
+      "StandardDeviation": 2.5843368573932484,
+      "Low": 1.476739639781805,
+      "High": 1.983260360218195,
+      "Count": 400
+    },
+    {
+      "Mean": 1.7844611528822054,
+      "StandardDeviation": 3.0905365600514694,
+      "Low": 1.4812148378614074,
+      "High": 2.0877074679030034,
+      "Count": 399
+    },
+    {
+      "Mean": 1.8451776649746192,
+      "StandardDeviation": 3.500474645229091,
+      "Low": 1.4995353383567513,
+      "High": 2.190819991592487,
+      "Count": 394
+    },
+    {
+      "Mean": 1.8710526315789473,
+      "StandardDeviation": 3.781876507511444,
+      "Low": 1.4908075199584332,
+      "High": 2.251297743199461,
+      "Count": 380
+    },
+    {
+      "Mean": 1.7534626038781163,
+      "StandardDeviation": 3.8819590457171795,
+      "Low": 1.353015236558115,
+      "High": 2.1539099711981176,
+      "Count": 361
+    },
+    {
+      "Mean": 1.7784256559766765,
+      "StandardDeviation": 4.089338709552566,
+      "Low": 1.3456586748165287,
+      "High": 2.2111926371368242,
+      "Count": 343
+    },
+    {
+      "Mean": 1.7041800643086817,
+      "StandardDeviation": 3.9978964492699354,
+      "Low": 1.259856403020914,
+      "High": 2.1485037255964494,
+      "Count": 311
+    },
+    {
+      "Mean": 1.529616724738676,
+      "StandardDeviation": 3.782319125149878,
+      "Low": 1.0920288144115498,
+      "High": 1.9672046350658023,
+      "Count": 287
+    },
+    {
+      "Mean": 1.3601532567049808,
+      "StandardDeviation": 3.785674207745733,
+      "Low": 0.9008800850290895,
+      "High": 1.819426428380872,
+      "Count": 261
+    },
+    {
+      "Mean": 1.394736842105263,
+      "StandardDeviation": 3.7147602268218662,
+      "Low": 0.9125543270034209,
+      "High": 1.8769193572071052,
+      "Count": 228
+    },
+    {
+      "Mean": 1.3282828282828283,
+      "StandardDeviation": 3.677108232719714,
+      "Low": 0.8161036577306091,
+      "High": 1.8404619988350475,
+      "Count": 198
+    },
+    {
+      "Mean": 1.2976190476190477,
+      "StandardDeviation": 3.572281050240932,
+      "Low": 0.7574383350907324,
+      "High": 1.8377997601473628,
+      "Count": 168
+    },
+    {
+      "Mean": 1.0472972972972974,
+      "StandardDeviation": 3.4726030924284528,
+      "Low": 0.48783299028655214,
+      "High": 1.6067616043080426,
+      "Count": 148
+    },
+    {
+      "Mean": 1.0338983050847457,
+      "StandardDeviation": 3.5347655621431726,
+      "Low": 0.3961229900212896,
+      "High": 1.6716736201482019,
+      "Count": 118
+    },
+    {
+      "Mean": 0.6907216494845361,
+      "StandardDeviation": 3.189699648681244,
+      "Low": 0.05595804460359399,
+      "High": 1.325485254365478,
+      "Count": 97
+    },
+    {
+      "Mean": 0.5063291139240507,
+      "StandardDeviation": 2.973702767040717,
+      "Low": -0.1494115344516933,
+      "High": 1.1620697622997946,
+      "Count": 79
+    },
+    {
+      "Mean": 0.5573770491803278,
+      "StandardDeviation": 2.735718005472143,
+      "Low": -0.12914502468087252,
+      "High": 1.2438991230415282,
+      "Count": 61
+    },
+    {
+      "Mean": 0.6111111111111112,
+      "StandardDeviation": 2.602006966088355,
+      "Low": -0.08288920688815471,
+      "High": 1.3051114291103771,
+      "Count": 54
+    },
+    {
+      "Mean": 0.4772727272727273,
+      "StandardDeviation": 2.628012215146617,
+      "Low": -0.2992409965928654,
+      "High": 1.2537864511383199,
+      "Count": 44
+    },
+    {
+      "Mean": 0.4473684210526316,
+      "StandardDeviation": 2.7675471471952906,
+      "Low": -0.43256806183008206,
+      "High": 1.3273049039353453,
+      "Count": 38
+    },
+    {
+      "Mean": 0.64,
+      "StandardDeviation": 2.2708295107001457,
+      "Low": -0.2501488182219801,
+      "High": 1.53014881822198,
+      "Count": 25
+    },
+    {
+      "Mean": 1.1666666666666667,
+      "StandardDeviation": 2.357715743980127,
+      "Low": 0.07747756930478067,
+      "High": 2.255855764028553,
+      "Count": 18
+    },
+    {
+      "Mean": 1.6,
+      "StandardDeviation": 2.8735244660769563,
+      "Low": 0.14582268933711173,
+      "High": 3.0541773106628884,
+      "Count": 15
+    },
+    {
+      "Mean": 0.25,
+      "StandardDeviation": 3.1052950170405937,
+      "Low": -1.9018201368985612,
+      "High": 2.401820136898561,
+      "Count": 8
+    },
+    {
+      "Mean": 0.5,
+      "StandardDeviation": 3.2093613071762426,
+      "Low": -2.0679767158001003,
+      "High": 3.0679767158001003,
+      "Count": 6
+    },
+    {
+      "Mean": 1.75,
+      "StandardDeviation": 1.5,
+      "Low": 0.280027,
+      "High": 3.219973,
+      "Count": 4
+    },
+    {
+      "Mean": 2.3333333333333335,
+      "StandardDeviation": 2.5166114784235836,
+      "Low": -0.5144283363259179,
+      "High": 5.181095002992585,
+      "Count": 3
+    },
+    {
+      "Mean": 1,
+      "StandardDeviation": 0,
+      "Low": 1,
+      "High": 1,
+      "Count": 1
+    },
+    {
+      "Mean": 1,
+      "StandardDeviation": 0,
+      "Low": 1,
+      "High": 1,
+      "Count": 1
+    },
+    {
+      "Mean": 2,
+      "StandardDeviation": 0,
+      "Low": 2,
+      "High": 2,
+      "Count": 1
+    }
+  ],
+  "GameLength": {
+    "Mean": 16.1275,
+    "StandardDeviation": 5.4147523125731505,
+    "Low": 15.596864019921995,
+    "High": 16.658135980078008,
+    "Count": 400
+  },
+  "CardStats": [
+    {
+      "CardId": "t_juggler",
+      "PlayCount": 484,
+      "GamesPlayedIn": 404,
+      "WinsWhenPlayed": 215,
+      "OfferCount": 1702,
+      "PlayTakeRate": {
+        "Rate": 0.28437132784958874,
+        "Low": 0.2634439257465183,
+        "High": 0.3062698972008012,
+        "Successes": 484,
+        "Trials": 1702,
+        "Margin": 0.021412985727141454
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5321782178217822,
+        "Low": 0.48344901029131115,
+        "High": 0.5803012520565083,
+        "Successes": 215,
+        "Trials": 404,
+        "Margin": 0.04842612088259857
+      },
+      "TimesDrawn": 552,
+      "GamesDrawnIn": 440,
+      "WinsWhenDrawn": 245,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5568181818181818,
+        "Low": 0.5101089224568355,
+        "High": 0.6025439156219351,
+        "Successes": 245,
+        "Trials": 440,
+        "Margin": 0.04621749658254981
+      },
+      "BlockedByCostCount": 691,
+      "CostPressure": {
+        "Rate": 0.2887588800668617,
+        "Low": 0.27095147158584704,
+        "High": 0.3072434080738718,
+        "Successes": 691,
+        "Trials": 2393,
+        "Margin": 0.018145968244012378
+      },
+      "SurvivalSteps": {
+        "Mean": 3.6634615384615383,
+        "StandardDeviation": 4.008697722777255,
+        "Low": 3.2186519844868156,
+        "High": 4.108271092436261,
+        "Count": 312
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.26282051282051283,
+        "Low": 0.21707624478686793,
+        "High": 0.31433422765644914,
+        "Successes": 82,
+        "Trials": 312,
+        "Margin": 0.0486289914347906
+      }
+    },
+    {
+      "CardId": "execute",
+      "PlayCount": 478,
+      "GamesPlayedIn": 404,
+      "WinsWhenPlayed": 211,
+      "OfferCount": 1785,
+      "PlayTakeRate": {
+        "Rate": 0.26778711484593837,
+        "Low": 0.24775980228753372,
+        "High": 0.2888117614560531,
+        "Successes": 478,
+        "Trials": 1785,
+        "Margin": 0.020525979584259682
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5222772277227723,
+        "Low": 0.4735893650730796,
+        "High": 0.5705454319369492,
+        "Successes": 211,
+        "Trials": 404,
+        "Margin": 0.0484780334319348
+      },
+      "TimesDrawn": 547,
+      "GamesDrawnIn": 449,
+      "WinsWhenDrawn": 239,
+      "WinRateWhenDrawn": {
+        "Rate": 0.532293986636971,
+        "Low": 0.48606374471971026,
+        "High": 0.5779763280943864,
+        "Successes": 239,
+        "Trials": 449,
+        "Margin": 0.04595629168733806
+      },
+      "BlockedByCostCount": 796,
+      "CostPressure": {
+        "Rate": 0.30840759395583106,
+        "Low": 0.29088600316892904,
+        "High": 0.3264986543690101,
+        "Successes": 796,
+        "Trials": 2581,
+        "Margin": 0.01780632560004053
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "basic_square",
+      "PlayCount": 471,
+      "GamesPlayedIn": 406,
+      "WinsWhenPlayed": 187,
+      "OfferCount": 1821,
+      "PlayTakeRate": {
+        "Rate": 0.2586490939044481,
+        "Low": 0.23905967366990608,
+        "High": 0.27925464578946013,
+        "Successes": 471,
+        "Trials": 1821,
+        "Margin": 0.02009748605977703
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4605911330049261,
+        "Low": 0.412702471446237,
+        "High": 0.5092185560473034,
+        "Successes": 187,
+        "Trials": 406,
+        "Margin": 0.04825804230053318
+      },
+      "TimesDrawn": 546,
+      "GamesDrawnIn": 450,
+      "WinsWhenDrawn": 217,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4822222222222222,
+        "Low": 0.43640067219118794,
+        "High": 0.5283447258175362,
+        "Successes": 217,
+        "Trials": 450,
+        "Margin": 0.04597202681317414
+      },
+      "BlockedByCostCount": 292,
+      "CostPressure": {
+        "Rate": 0.13819214387127307,
+        "Low": 0.1241329327523378,
+        "High": 0.15356450954547005,
+        "Successes": 292,
+        "Trials": 2113,
+        "Margin": 0.01471578839656612
+      },
+      "SurvivalSteps": {
+        "Mean": 3.6634615384615383,
+        "StandardDeviation": 4.7251340890272795,
+        "Low": 3.139155409149586,
+        "High": 4.187767667773491,
+        "Count": 312
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.22435897435897437,
+        "Low": 0.1815833788485961,
+        "High": 0.2738396026395832,
+        "Successes": 70,
+        "Trials": 312,
+        "Margin": 0.04612811189549354
+      }
+    },
+    {
+      "CardId": "basic_t",
+      "PlayCount": 463,
+      "GamesPlayedIn": 382,
+      "WinsWhenPlayed": 187,
+      "OfferCount": 1782,
+      "PlayTakeRate": {
+        "Rate": 0.25982042648709314,
+        "Low": 0.23999140245857903,
+        "High": 0.2806827336787778,
+        "Successes": 463,
+        "Trials": 1782,
+        "Margin": 0.020345665610099373
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4895287958115183,
+        "Low": 0.4397538632883427,
+        "High": 0.5395122321095049,
+        "Successes": 187,
+        "Trials": 382,
+        "Margin": 0.04987918441058112
+      },
+      "TimesDrawn": 522,
+      "GamesDrawnIn": 423,
+      "WinsWhenDrawn": 212,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5011820330969267,
+        "Low": 0.453738066921292,
+        "High": 0.548604723309584,
+        "Successes": 212,
+        "Trials": 423,
+        "Margin": 0.047433328194146
+      },
+      "BlockedByCostCount": 403,
+      "CostPressure": {
+        "Rate": 0.18443935926773455,
+        "Low": 0.16873588953963553,
+        "High": 0.20125045898978294,
+        "Successes": 403,
+        "Trials": 2185,
+        "Margin": 0.016257284725073706
+      },
+      "SurvivalSteps": {
+        "Mean": 2.8035714285714284,
+        "StandardDeviation": 3.0708235631629424,
+        "Low": 2.4752242263213904,
+        "High": 3.1319186308214664,
+        "Count": 336
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2261904761904762,
+        "Low": 0.1846980481273155,
+        "High": 0.27387301437430306,
+        "Successes": 76,
+        "Trials": 336,
+        "Margin": 0.04458748312349378
+      }
+    },
+    {
+      "CardId": "t_body",
+      "PlayCount": 459,
+      "GamesPlayedIn": 380,
+      "WinsWhenPlayed": 181,
+      "OfferCount": 1723,
+      "PlayTakeRate": {
+        "Rate": 0.2663958212420197,
+        "Low": 0.24605851285732616,
+        "High": 0.28777246168882287,
+        "Successes": 459,
+        "Trials": 1723,
+        "Margin": 0.020856974415748353
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4763157894736842,
+        "Low": 0.42658858125139487,
+        "High": 0.5265170575911082,
+        "Successes": 181,
+        "Trials": 380,
+        "Margin": 0.04996423816985668
+      },
+      "TimesDrawn": 552,
+      "GamesDrawnIn": 441,
+      "WinsWhenDrawn": 220,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4988662131519274,
+        "Low": 0.4524122427335546,
+        "High": 0.5453397653582388,
+        "Successes": 220,
+        "Trials": 441,
+        "Margin": 0.04646376131234209
+      },
+      "BlockedByCostCount": 802,
+      "CostPressure": {
+        "Rate": 0.31762376237623763,
+        "Low": 0.2997537395507417,
+        "High": 0.33604786566043265,
+        "Successes": 802,
+        "Trials": 2525,
+        "Margin": 0.01814706305484548
+      },
+      "SurvivalSteps": {
+        "Mean": 3.7567567567567566,
+        "StandardDeviation": 3.7940571220946158,
+        "Low": 3.324535517591411,
+        "High": 4.188977995922102,
+        "Count": 296
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.3141891891891892,
+        "Low": 0.26397462222074997,
+        "High": 0.36916483617700335,
+        "Successes": 93,
+        "Trials": 296,
+        "Margin": 0.05259510697812669
+      }
+    },
+    {
+      "CardId": "anchor",
+      "PlayCount": 456,
+      "GamesPlayedIn": 370,
+      "WinsWhenPlayed": 192,
+      "OfferCount": 1617,
+      "PlayTakeRate": {
+        "Rate": 0.2820037105751391,
+        "Low": 0.26060811443843535,
+        "High": 0.3044326265069556,
+        "Successes": 456,
+        "Trials": 1617,
+        "Margin": 0.021912256034260114
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.518918918918919,
+        "Low": 0.4680760306439198,
+        "High": 0.5693729993323018,
+        "Successes": 192,
+        "Trials": 370,
+        "Margin": 0.050648484344191
+      },
+      "TimesDrawn": 517,
+      "GamesDrawnIn": 414,
+      "WinsWhenDrawn": 210,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5072463768115942,
+        "Low": 0.4592431664184803,
+        "High": 0.5551163469147923,
+        "Successes": 210,
+        "Trials": 414,
+        "Margin": 0.047936590248156
+      },
+      "BlockedByCostCount": 610,
+      "CostPressure": {
+        "Rate": 0.27391109115401885,
+        "Low": 0.2557902784022762,
+        "High": 0.292810543950657,
+        "Successes": 610,
+        "Trials": 2227,
+        "Margin": 0.01851013277419039
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "circle_cadet",
+      "PlayCount": 453,
+      "GamesPlayedIn": 374,
+      "WinsWhenPlayed": 196,
+      "OfferCount": 1654,
+      "PlayTakeRate": {
+        "Rate": 0.27388149939540507,
+        "Low": 0.25293253297408175,
+        "High": 0.295878364477628,
+        "Successes": 453,
+        "Trials": 1654,
+        "Margin": 0.021472915751773125
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5240641711229946,
+        "Low": 0.47346193437235984,
+        "High": 0.5741770940531972,
+        "Successes": 196,
+        "Trials": 374,
+        "Margin": 0.050357579840418665
+      },
+      "TimesDrawn": 521,
+      "GamesDrawnIn": 421,
+      "WinsWhenDrawn": 227,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5391923990498813,
+        "Low": 0.49143800187191733,
+        "High": 0.5862380330586106,
+        "Successes": 227,
+        "Trials": 421,
+        "Margin": 0.04740001559334661
+      },
+      "BlockedByCostCount": 271,
+      "CostPressure": {
+        "Rate": 0.14077922077922078,
+        "Low": 0.12595709737276567,
+        "High": 0.15703218428539473,
+        "Successes": 271,
+        "Trials": 1925,
+        "Margin": 0.015537543456314529
+      },
+      "SurvivalSteps": {
+        "Mean": 3.1864951768488745,
+        "StandardDeviation": 3.88926698448301,
+        "Low": 2.754244524987519,
+        "High": 3.61874582871023,
+        "Count": 311
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.17684887459807075,
+        "Low": 0.138462976639047,
+        "High": 0.22312046693220577,
+        "Successes": 55,
+        "Trials": 311,
+        "Margin": 0.04232874514657939
+      }
+    },
+    {
+      "CardId": "columns",
+      "PlayCount": 453,
+      "GamesPlayedIn": 382,
+      "WinsWhenPlayed": 192,
+      "OfferCount": 1501,
+      "PlayTakeRate": {
+        "Rate": 0.301798800799467,
+        "Low": 0.27910651290974126,
+        "High": 0.325502998285993,
+        "Successes": 453,
+        "Trials": 1501,
+        "Margin": 0.02319824268812587
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5026178010471204,
+        "Low": 0.4527023978971078,
+        "High": 0.5524810782534302,
+        "Successes": 192,
+        "Trials": 382,
+        "Margin": 0.049889340178161184
+      },
+      "TimesDrawn": 518,
+      "GamesDrawnIn": 428,
+      "WinsWhenDrawn": 222,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5186915887850467,
+        "Low": 0.4713999270211888,
+        "High": 0.5656507073515475,
+        "Successes": 222,
+        "Trials": 428,
+        "Margin": 0.04712539016517936
+      },
+      "BlockedByCostCount": 623,
+      "CostPressure": {
+        "Rate": 0.2933145009416196,
+        "Low": 0.2743395023370721,
+        "High": 0.31303577116586795,
+        "Successes": 623,
+        "Trials": 2124,
+        "Margin": 0.01934813441439792
+      },
+      "SurvivalSteps": {
+        "Mean": 4.63671875,
+        "StandardDeviation": 5.4121196035325365,
+        "Low": 3.973746275836372,
+        "High": 5.299691224163627,
+        "Count": 256
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2734375,
+        "Low": 0.22248853880962782,
+        "High": 0.3310853962374636,
+        "Successes": 70,
+        "Trials": 256,
+        "Margin": 0.05429842871391788
+      }
+    },
+    {
+      "CardId": "gravewarden",
+      "PlayCount": 453,
+      "GamesPlayedIn": 375,
+      "WinsWhenPlayed": 181,
+      "OfferCount": 1752,
+      "PlayTakeRate": {
+        "Rate": 0.2585616438356164,
+        "Low": 0.2386032883255607,
+        "High": 0.27957644497506756,
+        "Successes": 453,
+        "Trials": 1752,
+        "Margin": 0.020486578324753438
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4826666666666667,
+        "Low": 0.43252355712822266,
+        "High": 0.5331612967988303,
+        "Successes": 181,
+        "Trials": 375,
+        "Margin": 0.050318869835303814
+      },
+      "TimesDrawn": 525,
+      "GamesDrawnIn": 425,
+      "WinsWhenDrawn": 219,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5152941176470588,
+        "Low": 0.4678563400020987,
+        "High": 0.5624578932203901,
+        "Successes": 219,
+        "Trials": 425,
+        "Margin": 0.047300776609145695
+      },
+      "BlockedByCostCount": 782,
+      "CostPressure": {
+        "Rate": 0.30860299921073403,
+        "Low": 0.2909190692189803,
+        "High": 0.32686635366256384,
+        "Successes": 782,
+        "Trials": 2534,
+        "Margin": 0.017973642221791764
+      },
+      "SurvivalSteps": {
+        "Mean": 2.7567567567567566,
+        "StandardDeviation": 2.9438165510770022,
+        "Low": 2.421395428069248,
+        "High": 3.092118085444265,
+        "Count": 296
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.1891891891891892,
+        "Low": 0.14866143379083507,
+        "High": 0.23768093298358878,
+        "Successes": 56,
+        "Trials": 296,
+        "Margin": 0.04450974959637685
+      }
+    },
+    {
+      "CardId": "siphon",
+      "PlayCount": 449,
+      "GamesPlayedIn": 379,
+      "WinsWhenPlayed": 185,
+      "OfferCount": 2042,
+      "PlayTakeRate": {
+        "Rate": 0.2198824681684623,
+        "Low": 0.2024539199221704,
+        "High": 0.2383629649670622,
+        "Successes": 449,
+        "Trials": 2042,
+        "Margin": 0.017954522522445893
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.48812664907651715,
+        "Low": 0.43817466069682653,
+        "High": 0.5383169135796404,
+        "Successes": 185,
+        "Trials": 379,
+        "Margin": 0.05007112644140693
+      },
+      "TimesDrawn": 521,
+      "GamesDrawnIn": 430,
+      "WinsWhenDrawn": 219,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5093023255813953,
+        "Low": 0.462178793470294,
+        "High": 0.5562611223935076,
+        "Successes": 219,
+        "Trials": 430,
+        "Margin": 0.04704116446160678
+      },
+      "BlockedByCostCount": 336,
+      "CostPressure": {
+        "Rate": 0.14129520605550883,
+        "Low": 0.12787307215914104,
+        "High": 0.15587438565810827,
+        "Successes": 336,
+        "Trials": 2378,
+        "Margin": 0.014000656749483614
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "anvil_op",
+      "PlayCount": 448,
+      "GamesPlayedIn": 367,
+      "WinsWhenPlayed": 182,
+      "OfferCount": 2157,
+      "PlayTakeRate": {
+        "Rate": 0.2076958738989337,
+        "Low": 0.19110367399153055,
+        "High": 0.22532736734324604,
+        "Successes": 448,
+        "Trials": 2157,
+        "Margin": 0.017111846675857745
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.49591280653950953,
+        "Low": 0.44506782257631194,
+        "High": 0.5468424670416558,
+        "Successes": 182,
+        "Trials": 367,
+        "Margin": 0.05088732223267195
+      },
+      "TimesDrawn": 501,
+      "GamesDrawnIn": 403,
+      "WinsWhenDrawn": 206,
+      "WinRateWhenDrawn": {
+        "Rate": 0.511166253101737,
+        "Low": 0.46248745439708416,
+        "High": 0.5596341848890093,
+        "Successes": 206,
+        "Trials": 403,
+        "Margin": 0.04857336524596256
+      },
+      "BlockedByCostCount": 337,
+      "CostPressure": {
+        "Rate": 0.1351242983159583,
+        "Low": 0.12226739677904741,
+        "High": 0.14910349286295554,
+        "Successes": 337,
+        "Trials": 2494,
+        "Margin": 0.013418048041954067
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "circle_bender",
+      "PlayCount": 448,
+      "GamesPlayedIn": 378,
+      "WinsWhenPlayed": 160,
+      "OfferCount": 2037,
+      "PlayTakeRate": {
+        "Rate": 0.21993127147766323,
+        "Low": 0.20248049197111873,
+        "High": 0.23843639305460562,
+        "Successes": 448,
+        "Trials": 2037,
+        "Margin": 0.017977950541743448
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.42328042328042326,
+        "Low": 0.37448946902401825,
+        "High": 0.4736150291886009,
+        "Successes": 160,
+        "Trials": 378,
+        "Margin": 0.04956278008229131
+      },
+      "TimesDrawn": 572,
+      "GamesDrawnIn": 465,
+      "WinsWhenDrawn": 217,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4666666666666667,
+        "Low": 0.42178063083732603,
+        "High": 0.5120989367376724,
+        "Successes": 217,
+        "Trials": 465,
+        "Margin": 0.04515915295017317
+      },
+      "BlockedByCostCount": 877,
+      "CostPressure": {
+        "Rate": 0.3009608785175017,
+        "Low": 0.28457818848530925,
+        "High": 0.3178676550099897,
+        "Successes": 877,
+        "Trials": 2914,
+        "Margin": 0.016644733262340228
+      },
+      "SurvivalSteps": {
+        "Mean": 4.194805194805195,
+        "StandardDeviation": 5.1398398206678415,
+        "Low": 3.6207914114131152,
+        "High": 4.768818978197274,
+        "Count": 308
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.21103896103896103,
+        "Low": 0.16917014817145126,
+        "High": 0.2600269809127973,
+        "Successes": 65,
+        "Trials": 308,
+        "Margin": 0.04542841637067302
+      }
+    },
+    {
+      "CardId": "monk",
+      "PlayCount": 447,
+      "GamesPlayedIn": 379,
+      "WinsWhenPlayed": 195,
+      "OfferCount": 1595,
+      "PlayTakeRate": {
+        "Rate": 0.28025078369905954,
+        "Low": 0.25875790434106605,
+        "High": 0.30279962463964516,
+        "Successes": 447,
+        "Trials": 1595,
+        "Margin": 0.022020860149289556
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5145118733509235,
+        "Low": 0.46430203980365387,
+        "High": 0.5644304805251088,
+        "Successes": 195,
+        "Trials": 379,
+        "Margin": 0.05006422036072747
+      },
+      "TimesDrawn": 512,
+      "GamesDrawnIn": 423,
+      "WinsWhenDrawn": 227,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5366430260047281,
+        "Low": 0.4890061899593651,
+        "High": 0.5836203071977937,
+        "Successes": 227,
+        "Trials": 423,
+        "Margin": 0.047307058619214276
+      },
+      "BlockedByCostCount": 318,
+      "CostPressure": {
+        "Rate": 0.16623105070569785,
+        "Low": 0.1502204270481543,
+        "High": 0.18357945813104004,
+        "Successes": 318,
+        "Trials": 1913,
+        "Margin": 0.01667951554144287
+      },
+      "SurvivalSteps": {
+        "Mean": 3.049056603773585,
+        "StandardDeviation": 3.3745719504933755,
+        "Low": 2.64275938467643,
+        "High": 3.45535382287074,
+        "Count": 265
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.21132075471698114,
+        "Low": 0.16647149065667863,
+        "High": 0.26441985833144205,
+        "Successes": 56,
+        "Trials": 265,
+        "Margin": 0.04897418383738171
+      }
+    },
+    {
+      "CardId": "enrage",
+      "PlayCount": 446,
+      "GamesPlayedIn": 376,
+      "WinsWhenPlayed": 182,
+      "OfferCount": 2690,
+      "PlayTakeRate": {
+        "Rate": 0.1657992565055762,
+        "Low": 0.15222381804803364,
+        "High": 0.18032784564687537,
+        "Successes": 446,
+        "Trials": 2690,
+        "Margin": 0.014052013799420865
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.48404255319148937,
+        "Low": 0.43394678504740053,
+        "High": 0.5344610869228098,
+        "Successes": 182,
+        "Trials": 376,
+        "Margin": 0.05025715093770464
+      },
+      "TimesDrawn": 516,
+      "GamesDrawnIn": 424,
+      "WinsWhenDrawn": 214,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5047169811320755,
+        "Low": 0.4572987245489894,
+        "High": 0.5520505330252045,
+        "Successes": 214,
+        "Trials": 424,
+        "Margin": 0.04737590423810753
+      },
+      "BlockedByCostCount": 519,
+      "CostPressure": {
+        "Rate": 0.16173262698660018,
+        "Low": 0.14939874688334856,
+        "High": 0.1748754111213426,
+        "Successes": 519,
+        "Trials": 3209,
+        "Margin": 0.012738332118997026
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "circle_mouse",
+      "PlayCount": 445,
+      "GamesPlayedIn": 379,
+      "WinsWhenPlayed": 186,
+      "OfferCount": 1491,
+      "PlayTakeRate": {
+        "Rate": 0.29845741113346747,
+        "Low": 0.27577325515765455,
+        "High": 0.3221774195247467,
+        "Successes": 445,
+        "Trials": 1491,
+        "Margin": 0.02320208218354608
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.49076517150395776,
+        "Low": 0.4407811838206394,
+        "High": 0.540934485061057,
+        "Successes": 186,
+        "Trials": 379,
+        "Margin": 0.0500766506202088
+      },
+      "TimesDrawn": 514,
+      "GamesDrawnIn": 423,
+      "WinsWhenDrawn": 219,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5177304964539007,
+        "Low": 0.4701670313541496,
+        "High": 0.5649748221089917,
+        "Successes": 219,
+        "Trials": 423,
+        "Margin": 0.04740389537742107
+      },
+      "BlockedByCostCount": 584,
+      "CostPressure": {
+        "Rate": 0.2814457831325301,
+        "Low": 0.262513972395704,
+        "High": 0.3011853197628758,
+        "Successes": 584,
+        "Trials": 2075,
+        "Margin": 0.019335673683585908
+      },
+      "SurvivalSteps": {
+        "Mean": 3.996598639455782,
+        "StandardDeviation": 4.174110274344371,
+        "Low": 3.5194668558233095,
+        "High": 4.473730423088255,
+        "Count": 294
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.25510204081632654,
+        "Low": 0.20865364490871555,
+        "High": 0.3078676596105762,
+        "Successes": 75,
+        "Trials": 294,
+        "Margin": 0.049607007350930335
+      }
+    },
+    {
+      "CardId": "t_battery",
+      "PlayCount": 440,
+      "GamesPlayedIn": 366,
+      "WinsWhenPlayed": 174,
+      "OfferCount": 1706,
+      "PlayTakeRate": {
+        "Rate": 0.25791324736225085,
+        "Low": 0.23771355961670643,
+        "High": 0.27920071585042966,
+        "Successes": 440,
+        "Trials": 1706,
+        "Margin": 0.020743578116861616
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.47540983606557374,
+        "Low": 0.4247685139873669,
+        "High": 0.5265619829924827,
+        "Successes": 174,
+        "Trials": 366,
+        "Margin": 0.05089673450255788
+      },
+      "TimesDrawn": 506,
+      "GamesDrawnIn": 406,
+      "WinsWhenDrawn": 200,
+      "WinRateWhenDrawn": {
+        "Rate": 0.49261083743842365,
+        "Low": 0.44427811173311627,
+        "High": 0.5410820809219224,
+        "Successes": 200,
+        "Trials": 406,
+        "Margin": 0.04840198459440309
+      },
+      "BlockedByCostCount": 380,
+      "CostPressure": {
+        "Rate": 0.18216682646212848,
+        "Low": 0.16619225221416692,
+        "High": 0.19930985591712871,
+        "Successes": 380,
+        "Trials": 2086,
+        "Margin": 0.016558801851480898
+      },
+      "SurvivalSteps": {
+        "Mean": 2.5345911949685536,
+        "StandardDeviation": 2.6648308265119853,
+        "Low": 2.24170144179177,
+        "High": 2.827480948145337,
+        "Count": 318
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2389937106918239,
+        "Low": 0.19541268001808548,
+        "High": 0.2888054173736947,
+        "Successes": 76,
+        "Trials": 318,
+        "Margin": 0.046696368677804606
+      }
+    },
+    {
+      "CardId": "basic_circle",
+      "PlayCount": 439,
+      "GamesPlayedIn": 353,
+      "WinsWhenPlayed": 166,
+      "OfferCount": 1779,
+      "PlayTakeRate": {
+        "Rate": 0.24676784710511523,
+        "Low": 0.22729358684113685,
+        "High": 0.2673333775972138,
+        "Successes": 439,
+        "Trials": 1779,
+        "Margin": 0.020019895378038485
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4702549575070821,
+        "Low": 0.4187883906580682,
+        "High": 0.5223619452198441,
+        "Successes": 166,
+        "Trials": 353,
+        "Margin": 0.05178677728088796
+      },
+      "TimesDrawn": 514,
+      "GamesDrawnIn": 405,
+      "WinsWhenDrawn": 203,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5012345679012346,
+        "Low": 0.4527567286033988,
+        "High": 0.5496892072924767,
+        "Successes": 203,
+        "Trials": 405,
+        "Margin": 0.048466239344538975
+      },
+      "BlockedByCostCount": 385,
+      "CostPressure": {
+        "Rate": 0.1779112754158965,
+        "Low": 0.16237303815201087,
+        "High": 0.1945910081397475,
+        "Successes": 385,
+        "Trials": 2164,
+        "Margin": 0.016108984993868314
+      },
+      "SurvivalSteps": {
+        "Mean": 2.8794788273615635,
+        "StandardDeviation": 3.6926621800345423,
+        "Low": 2.466413744219505,
+        "High": 3.292543910503622,
+        "Count": 307
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.23127035830618892,
+        "Low": 0.18760059751457242,
+        "High": 0.2815821794746125,
+        "Successes": 71,
+        "Trials": 307,
+        "Margin": 0.04699079098002004
+      }
+    },
+    {
+      "CardId": "patch_up",
+      "PlayCount": 439,
+      "GamesPlayedIn": 368,
+      "WinsWhenPlayed": 192,
+      "OfferCount": 2046,
+      "PlayTakeRate": {
+        "Rate": 0.21456500488758554,
+        "Low": 0.1973204331365799,
+        "High": 0.23287940259245368,
+        "Successes": 439,
+        "Trials": 2046,
+        "Margin": 0.01777948472793689
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5217391304347826,
+        "Low": 0.47074157564681174,
+        "High": 0.5722875154290915,
+        "Successes": 192,
+        "Trials": 368,
+        "Margin": 0.050772969891139885
+      },
+      "TimesDrawn": 516,
+      "GamesDrawnIn": 420,
+      "WinsWhenDrawn": 212,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5047619047619047,
+        "Low": 0.45711985144834005,
+        "High": 0.5523176396610897,
+        "Successes": 212,
+        "Trials": 420,
+        "Margin": 0.04759889410637483
+      },
+      "BlockedByCostCount": 350,
+      "CostPressure": {
+        "Rate": 0.14607679465776294,
+        "Low": 0.13250149441809894,
+        "High": 0.16078515427968498,
+        "Successes": 350,
+        "Trials": 2396,
+        "Margin": 0.01414182993079302
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "suffocate",
+      "PlayCount": 431,
+      "GamesPlayedIn": 367,
+      "WinsWhenPlayed": 187,
+      "OfferCount": 1419,
+      "PlayTakeRate": {
+        "Rate": 0.3037350246652572,
+        "Low": 0.2803641728022931,
+        "High": 0.328165648617207,
+        "Successes": 431,
+        "Trials": 1419,
+        "Margin": 0.023900737907456948
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5095367847411444,
+        "Low": 0.4585581522535284,
+        "High": 0.5603178386378801,
+        "Successes": 187,
+        "Trials": 367,
+        "Margin": 0.05087984319217584
+      },
+      "TimesDrawn": 537,
+      "GamesDrawnIn": 441,
+      "WinsWhenDrawn": 233,
+      "WinRateWhenDrawn": {
+        "Rate": 0.528344671201814,
+        "Low": 0.4817100934858843,
+        "High": 0.5744897042192822,
+        "Successes": 233,
+        "Trials": 441,
+        "Margin": 0.04638980536669898
+      },
+      "BlockedByCostCount": 2914,
+      "CostPressure": {
+        "Rate": 0.6725132702515578,
+        "Low": 0.6583924507725694,
+        "High": 0.6863284743925486,
+        "Successes": 2914,
+        "Trials": 4333,
+        "Margin": 0.013968011809989633
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "wheel_op",
+      "PlayCount": 431,
+      "GamesPlayedIn": 362,
+      "WinsWhenPlayed": 189,
+      "OfferCount": 2365,
+      "PlayTakeRate": {
+        "Rate": 0.18224101479915433,
+        "Low": 0.1672018761198258,
+        "High": 0.19831074847354668,
+        "Successes": 431,
+        "Trials": 2365,
+        "Margin": 0.015554436176860448
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5220994475138122,
+        "Low": 0.4706813618963466,
+        "High": 0.5730534298053,
+        "Successes": 189,
+        "Trials": 362,
+        "Margin": 0.05118603395447674
+      },
+      "TimesDrawn": 503,
+      "GamesDrawnIn": 410,
+      "WinsWhenDrawn": 219,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5341463414634147,
+        "Low": 0.48576808986588504,
+        "High": 0.5818906702682257,
+        "Successes": 219,
+        "Trials": 410,
+        "Margin": 0.04806129020117034
+      },
+      "BlockedByCostCount": 392,
+      "CostPressure": {
+        "Rate": 0.142183532825535,
+        "Low": 0.1296447479206555,
+        "High": 0.15571805563581254,
+        "Successes": 392,
+        "Trials": 2757,
+        "Margin": 0.013036653857578517
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "bubbles",
+      "PlayCount": 430,
+      "GamesPlayedIn": 365,
+      "WinsWhenPlayed": 205,
+      "OfferCount": 1283,
+      "PlayTakeRate": {
+        "Rate": 0.33515198752922837,
+        "Low": 0.3098484259155908,
+        "High": 0.36143975253046956,
+        "Successes": 430,
+        "Trials": 1283,
+        "Margin": 0.025795663307439376
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5616438356164384,
+        "Low": 0.5103602459288631,
+        "High": 0.6116433925354406,
+        "Successes": 205,
+        "Trials": 365,
+        "Margin": 0.05064157330328878
+      },
+      "TimesDrawn": 498,
+      "GamesDrawnIn": 408,
+      "WinsWhenDrawn": 234,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5735294117647058,
+        "Low": 0.5250741172406618,
+        "High": 0.6206130123722254,
+        "Successes": 234,
+        "Trials": 408,
+        "Margin": 0.04776944756578183
+      },
+      "BlockedByCostCount": 1550,
+      "CostPressure": {
+        "Rate": 0.5471231909636428,
+        "Low": 0.5287418968140756,
+        "High": 0.5653768630355818,
+        "Successes": 1550,
+        "Trials": 2833,
+        "Margin": 0.018317483110753097
+      },
+      "SurvivalSteps": {
+        "Mean": 1.9401993355481728,
+        "StandardDeviation": 2.4852388135012045,
+        "Low": 1.6594407962218765,
+        "High": 2.220957874874469,
+        "Count": 301
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.18272425249169436,
+        "Low": 0.14315815417992694,
+        "High": 0.23028664988009234,
+        "Successes": 55,
+        "Trials": 301,
+        "Margin": 0.0435642478500827
+      }
+    },
+    {
+      "CardId": "circle_planner",
+      "PlayCount": 429,
+      "GamesPlayedIn": 360,
+      "WinsWhenPlayed": 180,
+      "OfferCount": 1681,
+      "PlayTakeRate": {
+        "Rate": 0.2552052349791791,
+        "Low": 0.2349382408646331,
+        "High": 0.2765884991370898,
+        "Successes": 429,
+        "Trials": 1681,
+        "Margin": 0.02082512913622836
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5,
+        "Low": 0.4486237967209133,
+        "High": 0.5513762032790868,
+        "Successes": 180,
+        "Trials": 360,
+        "Margin": 0.051376203279086735
+      },
+      "TimesDrawn": 514,
+      "GamesDrawnIn": 423,
+      "WinsWhenDrawn": 222,
+      "WinRateWhenDrawn": {
+        "Rate": 0.524822695035461,
+        "Low": 0.4772238010091763,
+        "High": 0.5719747938392217,
+        "Successes": 222,
+        "Trials": 423,
+        "Margin": 0.0473754964150227
+      },
+      "BlockedByCostCount": 662,
+      "CostPressure": {
+        "Rate": 0.2825437473324797,
+        "Low": 0.26468047771544956,
+        "High": 0.30111890931014773,
+        "Successes": 662,
+        "Trials": 2343,
+        "Margin": 0.018219215797349086
+      },
+      "SurvivalSteps": {
+        "Mean": 3.092063492063492,
+        "StandardDeviation": 3.4272838211709797,
+        "Low": 2.7135835327235855,
+        "High": 3.470543451403399,
+        "Count": 315
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.20952380952380953,
+        "Low": 0.16821603606372162,
+        "High": 0.2578310010998785,
+        "Successes": 66,
+        "Trials": 315,
+        "Margin": 0.04480748251807844
+      }
+    },
+    {
+      "CardId": "t_dealer",
+      "PlayCount": 429,
+      "GamesPlayedIn": 362,
+      "WinsWhenPlayed": 202,
+      "OfferCount": 1645,
+      "PlayTakeRate": {
+        "Rate": 0.260790273556231,
+        "Low": 0.2401474640742235,
+        "High": 0.2825477012123392,
+        "Successes": 429,
+        "Trials": 1645,
+        "Margin": 0.021200118569057846
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5580110497237569,
+        "Low": 0.5065087034876534,
+        "High": 0.608295124729169,
+        "Successes": 202,
+        "Trials": 362,
+        "Margin": 0.0508932106207578
+      },
+      "TimesDrawn": 497,
+      "GamesDrawnIn": 400,
+      "WinsWhenDrawn": 228,
+      "WinRateWhenDrawn": {
+        "Rate": 0.57,
+        "Low": 0.521044319049774,
+        "High": 0.6176239597226154,
+        "Successes": 228,
+        "Trials": 400,
+        "Margin": 0.04828982033642071
+      },
+      "BlockedByCostCount": 2056,
+      "CostPressure": {
+        "Rate": 0.5555255336395569,
+        "Low": 0.5394671673538729,
+        "High": 0.5714687538080827,
+        "Successes": 2056,
+        "Trials": 3701,
+        "Margin": 0.016000793227104904
+      },
+      "SurvivalSteps": {
+        "Mean": 4.3029045643153525,
+        "StandardDeviation": 4.004626473845065,
+        "Low": 3.79731094173945,
+        "High": 4.8084981868912555,
+        "Count": 241
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.35684647302904565,
+        "Low": 0.29904323341795946,
+        "High": 0.4191417491611038,
+        "Successes": 86,
+        "Trials": 241,
+        "Margin": 0.06004925787157217
+      }
+    },
+    {
+      "CardId": "spike_op",
+      "PlayCount": 425,
+      "GamesPlayedIn": 354,
+      "WinsWhenPlayed": 192,
+      "OfferCount": 2196,
+      "PlayTakeRate": {
+        "Rate": 0.1935336976320583,
+        "Low": 0.1775510748979248,
+        "High": 0.21058664995225926,
+        "Successes": 425,
+        "Trials": 2196,
+        "Margin": 0.016517787527167233
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5423728813559322,
+        "Low": 0.4902972336625903,
+        "High": 0.5935387759875707,
+        "Successes": 192,
+        "Trials": 354,
+        "Margin": 0.05162077116249017
+      },
+      "TimesDrawn": 489,
+      "GamesDrawnIn": 401,
+      "WinsWhenDrawn": 219,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5461346633416458,
+        "Low": 0.4971974663564085,
+        "High": 0.5941963353116384,
+        "Successes": 219,
+        "Trials": 401,
+        "Margin": 0.048499434477614956
+      },
+      "BlockedByCostCount": 392,
+      "CostPressure": {
+        "Rate": 0.15146831530139104,
+        "Low": 0.13817332488418316,
+        "High": 0.16579644771963503,
+        "Successes": 392,
+        "Trials": 2588,
+        "Margin": 0.013811561417725937
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "circle_surfer",
+      "PlayCount": 424,
+      "GamesPlayedIn": 379,
+      "WinsWhenPlayed": 203,
+      "OfferCount": 1372,
+      "PlayTakeRate": {
+        "Rate": 0.30903790087463556,
+        "Low": 0.2851480040666504,
+        "High": 0.3339941604483897,
+        "Successes": 424,
+        "Trials": 1372,
+        "Margin": 0.02442307819086964
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5356200527704486,
+        "Low": 0.4853035081884188,
+        "High": 0.5852217689821805,
+        "Successes": 203,
+        "Trials": 379,
+        "Margin": 0.04995913039688085
+      },
+      "TimesDrawn": 492,
+      "GamesDrawnIn": 419,
+      "WinsWhenDrawn": 234,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5584725536992841,
+        "Low": 0.5106080762598225,
+        "High": 0.6052746002630484,
+        "Successes": 234,
+        "Trials": 419,
+        "Margin": 0.04733326200161292
+      },
+      "BlockedByCostCount": 1781,
+      "CostPressure": {
+        "Rate": 0.5648588645734222,
+        "Low": 0.5474853098871527,
+        "High": 0.5820745699254176,
+        "Successes": 1781,
+        "Trials": 3153,
+        "Margin": 0.01729463001913245
+      },
+      "SurvivalSteps": {
+        "Mean": 2.7680608365019013,
+        "StandardDeviation": 3.153122595643094,
+        "Low": 2.386985293660073,
+        "High": 3.1491363793437297,
+        "Count": 263
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2585551330798479,
+        "Low": 0.20938248355151376,
+        "High": 0.31467947993634227,
+        "Successes": 68,
+        "Trials": 263,
+        "Margin": 0.05264849819241425
+      }
+    },
+    {
+      "CardId": "guardian",
+      "PlayCount": 422,
+      "GamesPlayedIn": 357,
+      "WinsWhenPlayed": 189,
+      "OfferCount": 1191,
+      "PlayTakeRate": {
+        "Rate": 0.35432409739714527,
+        "Low": 0.3276677262284401,
+        "High": 0.38191717524887525,
+        "Successes": 422,
+        "Trials": 1191,
+        "Margin": 0.02712472451021758
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5294117647058824,
+        "Low": 0.4775977027580337,
+        "High": 0.5805996010249229,
+        "Successes": 189,
+        "Trials": 357,
+        "Margin": 0.05150094913344461
+      },
+      "TimesDrawn": 485,
+      "GamesDrawnIn": 392,
+      "WinsWhenDrawn": 217,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5535714285714286,
+        "Low": 0.5040765081127728,
+        "High": 0.6020265769928096,
+        "Successes": 217,
+        "Trials": 392,
+        "Margin": 0.04897503444001838
+      },
+      "BlockedByCostCount": 1448,
+      "CostPressure": {
+        "Rate": 0.5486926866237211,
+        "Low": 0.5296497696578074,
+        "High": 0.5675940506766847,
+        "Successes": 1448,
+        "Trials": 2639,
+        "Margin": 0.01897214050943863
+      },
+      "SurvivalSteps": {
+        "Mean": 7.1138613861386135,
+        "StandardDeviation": 6.6048305811403125,
+        "Low": 6.203038170122928,
+        "High": 8.024684602154299,
+        "Count": 202
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.3465346534653465,
+        "Low": 0.284327677537759,
+        "High": 0.4144696379449593,
+        "Successes": 70,
+        "Trials": 202,
+        "Margin": 0.06507098020360014
+      }
+    },
+    {
+      "CardId": "t_medic",
+      "PlayCount": 420,
+      "GamesPlayedIn": 361,
+      "WinsWhenPlayed": 176,
+      "OfferCount": 1759,
+      "PlayTakeRate": {
+        "Rate": 0.23877202956225127,
+        "Low": 0.21943142187074863,
+        "High": 0.2592511361267245,
+        "Successes": 420,
+        "Trials": 1759,
+        "Margin": 0.019909857127987943
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.48753462603878117,
+        "Low": 0.4363759083021274,
+        "High": 0.5389558425696171,
+        "Successes": 176,
+        "Trials": 361,
+        "Margin": 0.05128996713374487
+      },
+      "TimesDrawn": 500,
+      "GamesDrawnIn": 415,
+      "WinsWhenDrawn": 207,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4987951807228916,
+        "Low": 0.450922054957215,
+        "High": 0.546690406801774,
+        "Successes": 207,
+        "Trials": 415,
+        "Margin": 0.04788417592227953
+      },
+      "BlockedByCostCount": 406,
+      "CostPressure": {
+        "Rate": 0.18752886836027713,
+        "Low": 0.17164546948050455,
+        "High": 0.20451916696189956,
+        "Successes": 406,
+        "Trials": 2165,
+        "Margin": 0.016436848740697507
+      },
+      "SurvivalSteps": {
+        "Mean": 2.9517684887459805,
+        "StandardDeviation": 2.763982941529912,
+        "Low": 2.6445811876487317,
+        "High": 3.2589557898432293,
+        "Count": 311
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2508038585209003,
+        "Low": 0.20586650397845224,
+        "High": 0.30182222116355867,
+        "Successes": 78,
+        "Trials": 311,
+        "Margin": 0.04797785859255321
+      }
+    },
+    {
+      "CardId": "worshipper",
+      "PlayCount": 414,
+      "GamesPlayedIn": 346,
+      "WinsWhenPlayed": 166,
+      "OfferCount": 1834,
+      "PlayTakeRate": {
+        "Rate": 0.2257360959651036,
+        "Low": 0.20718731780286342,
+        "High": 0.24543140774685962,
+        "Successes": 414,
+        "Trials": 1834,
+        "Margin": 0.019122044971998098
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4797687861271676,
+        "Low": 0.4276392634398683,
+        "High": 0.5323426093639771,
+        "Successes": 166,
+        "Trials": 346,
+        "Margin": 0.052351672962054424
+      },
+      "TimesDrawn": 484,
+      "GamesDrawnIn": 394,
+      "WinsWhenDrawn": 195,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4949238578680203,
+        "Low": 0.44584353372631036,
+        "High": 0.5441022099595093,
+        "Successes": 195,
+        "Trials": 394,
+        "Margin": 0.049129338116599475
+      },
+      "BlockedByCostCount": 349,
+      "CostPressure": {
+        "Rate": 0.15987173614292258,
+        "Low": 0.14509735479597552,
+        "High": 0.1758410726473798,
+        "Successes": 349,
+        "Trials": 2183,
+        "Margin": 0.015371858925702142
+      },
+      "SurvivalSteps": {
+        "Mean": 2.68976897689769,
+        "StandardDeviation": 3.0627208847648504,
+        "Low": 2.3449158246148203,
+        "High": 3.0346221291805593,
+        "Count": 303
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.18811881188118812,
+        "Low": 0.14812200912865148,
+        "High": 0.23592472077196436,
+        "Successes": 57,
+        "Trials": 303,
+        "Margin": 0.04390135582165644
+      }
+    },
+    {
+      "CardId": "circle_priest",
+      "PlayCount": 411,
+      "GamesPlayedIn": 353,
+      "WinsWhenPlayed": 159,
+      "OfferCount": 1668,
+      "PlayTakeRate": {
+        "Rate": 0.24640287769784172,
+        "Low": 0.22632151177882437,
+        "High": 0.2676496446930958,
+        "Successes": 411,
+        "Trials": 1668,
+        "Margin": 0.020664066457135727
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.45042492917847027,
+        "Low": 0.39933381460476103,
+        "High": 0.5025834118584264,
+        "Successes": 159,
+        "Trials": 353,
+        "Margin": 0.05162479862683267
+      },
+      "TimesDrawn": 512,
+      "GamesDrawnIn": 415,
+      "WinsWhenDrawn": 203,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4891566265060241,
+        "Low": 0.44138292263091194,
+        "High": 0.5371292331999876,
+        "Successes": 203,
+        "Trials": 415,
+        "Margin": 0.04787315528453784
+      },
+      "BlockedByCostCount": 347,
+      "CostPressure": {
+        "Rate": 0.17220843672456576,
+        "Low": 0.15635069101735233,
+        "High": 0.18931362839284643,
+        "Successes": 347,
+        "Trials": 2015,
+        "Margin": 0.016481468687747053
+      },
+      "SurvivalSteps": {
+        "Mean": 4.571917808219178,
+        "StandardDeviation": 5.561740229907711,
+        "Low": 3.933996117586438,
+        "High": 5.209839498851918,
+        "Count": 292
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.21575342465753425,
+        "Low": 0.17242612806577964,
+        "High": 0.26646252321481667,
+        "Successes": 63,
+        "Trials": 292,
+        "Margin": 0.047018197574518514
+      }
+    },
+    {
+      "CardId": "zealot",
+      "PlayCount": 404,
+      "GamesPlayedIn": 349,
+      "WinsWhenPlayed": 163,
+      "OfferCount": 1571,
+      "PlayTakeRate": {
+        "Rate": 0.25716104392106937,
+        "Low": 0.23615889804390436,
+        "High": 0.2793478879267897,
+        "Successes": 404,
+        "Trials": 1571,
+        "Margin": 0.02159449494144268
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4670487106017192,
+        "Low": 0.4153487425163595,
+        "High": 0.5194661738686855,
+        "Successes": 163,
+        "Trials": 349,
+        "Margin": 0.05205871567616302
+      },
+      "TimesDrawn": 488,
+      "GamesDrawnIn": 406,
+      "WinsWhenDrawn": 197,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4852216748768473,
+        "Low": 0.43697392179762606,
+        "High": 0.5337464635124515,
+        "Successes": 197,
+        "Trials": 406,
+        "Margin": 0.048386270857412705
+      },
+      "BlockedByCostCount": 660,
+      "CostPressure": {
+        "Rate": 0.2958314657104437,
+        "Low": 0.27725636363513356,
+        "High": 0.315108456527088,
+        "Successes": 660,
+        "Trials": 2231,
+        "Margin": 0.01892604644597723
+      },
+      "SurvivalSteps": {
+        "Mean": 4.367647058823529,
+        "StandardDeviation": 4.45611454126374,
+        "Low": 3.8380811882278008,
+        "High": 4.897212929419258,
+        "Count": 272
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.28308823529411764,
+        "Low": 0.2328599480358434,
+        "High": 0.3393580917085758,
+        "Successes": 77,
+        "Trials": 272,
+        "Margin": 0.053249071836366194
+      }
+    },
+    {
+      "CardId": "champion_t",
+      "PlayCount": 400,
+      "GamesPlayedIn": 342,
+      "WinsWhenPlayed": 164,
+      "OfferCount": 1352,
+      "PlayTakeRate": {
+        "Rate": 0.2958579881656805,
+        "Low": 0.27213457592827456,
+        "High": 0.32073817745732053,
+        "Successes": 400,
+        "Trials": 1352,
+        "Margin": 0.024301800764522985
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.47953216374269003,
+        "Low": 0.42710695859627956,
+        "High": 0.5324120648161065,
+        "Successes": 164,
+        "Trials": 342,
+        "Margin": 0.05265255310991346
+      },
+      "TimesDrawn": 483,
+      "GamesDrawnIn": 399,
+      "WinsWhenDrawn": 200,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5012531328320802,
+        "Low": 0.45241534935443684,
+        "High": 0.550067016792228,
+        "Successes": 200,
+        "Trials": 399,
+        "Margin": 0.048825833718895595
+      },
+      "BlockedByCostCount": 1764,
+      "CostPressure": {
+        "Rate": 0.5661103979460848,
+        "Low": 0.5486379072958987,
+        "High": 0.5834200852111098,
+        "Successes": 1764,
+        "Trials": 3116,
+        "Margin": 0.01739108895760555
+      },
+      "SurvivalSteps": {
+        "Mean": 4.651260504201681,
+        "StandardDeviation": 5.0105604181571515,
+        "Low": 4.014690868165813,
+        "High": 5.287830140237549,
+        "Count": 238
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2689075630252101,
+        "Low": 0.21657605432767332,
+        "High": 0.3285805101884556,
+        "Successes": 64,
+        "Trials": 238,
+        "Margin": 0.05600222793039113
+      }
+    },
+    {
+      "CardId": "circle_captain",
+      "PlayCount": 392,
+      "GamesPlayedIn": 341,
+      "WinsWhenPlayed": 163,
+      "OfferCount": 1488,
+      "PlayTakeRate": {
+        "Rate": 0.26344086021505375,
+        "Low": 0.24168888601783167,
+        "High": 0.2864111035561835,
+        "Successes": 392,
+        "Trials": 1488,
+        "Margin": 0.022361108769175908
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4780058651026393,
+        "Low": 0.4255288027754364,
+        "High": 0.5309729471920367,
+        "Successes": 163,
+        "Trials": 341,
+        "Margin": 0.052722072208300136
+      },
+      "TimesDrawn": 526,
+      "GamesDrawnIn": 429,
+      "WinsWhenDrawn": 222,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5174825174825175,
+        "Low": 0.47025235330853177,
+        "High": 0.5644023677035644,
+        "Successes": 222,
+        "Trials": 429,
+        "Margin": 0.04707500719751634
+      },
+      "BlockedByCostCount": 3227,
+      "CostPressure": {
+        "Rate": 0.6844114528101802,
+        "Low": 0.6710002924159815,
+        "High": 0.6975223661969798,
+        "Successes": 3227,
+        "Trials": 4715,
+        "Margin": 0.013261036890499178
+      },
+      "SurvivalSteps": {
+        "Mean": 3.445414847161572,
+        "StandardDeviation": 3.8277425012785757,
+        "Low": 2.94965303840888,
+        "High": 3.941176655914264,
+        "Count": 229
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2576419213973799,
+        "Low": 0.20532457466140436,
+        "High": 0.3179561995902787,
+        "Successes": 59,
+        "Trials": 229,
+        "Margin": 0.056315812464437176
+      }
+    },
+    {
+      "CardId": "relic",
+      "PlayCount": 390,
+      "GamesPlayedIn": 331,
+      "WinsWhenPlayed": 173,
+      "OfferCount": 1511,
+      "PlayTakeRate": {
+        "Rate": 0.25810721376571805,
+        "Low": 0.2366759682646649,
+        "High": 0.28076528229376624,
+        "Successes": 390,
+        "Trials": 1511,
+        "Margin": 0.022044657014550675
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5226586102719033,
+        "Low": 0.4688982377939585,
+        "High": 0.5758990822574919,
+        "Successes": 173,
+        "Trials": 331,
+        "Margin": 0.05350042223176668
+      },
+      "TimesDrawn": 508,
+      "GamesDrawnIn": 415,
+      "WinsWhenDrawn": 215,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5180722891566265,
+        "Low": 0.47005322506688524,
+        "High": 0.5657598485482821,
+        "Successes": 215,
+        "Trials": 415,
+        "Margin": 0.04785331174069843
+      },
+      "BlockedByCostCount": 2755,
+      "CostPressure": {
+        "Rate": 0.6458040318799813,
+        "Low": 0.6313267988074102,
+        "High": 0.6600189132008126,
+        "Successes": 2755,
+        "Trials": 4266,
+        "Margin": 0.014346057196701234
+      },
+      "SurvivalSteps": {
+        "Mean": 4.560165975103734,
+        "StandardDeviation": 3.869419418853964,
+        "Low": 4.0716425649876555,
+        "High": 5.048689385219813,
+        "Count": 241
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.3153526970954357,
+        "Low": 0.25997575487301383,
+        "High": 0.37652371541012575,
+        "Successes": 76,
+        "Trials": 241,
+        "Margin": 0.05827398026855596
+      }
+    },
+    {
+      "CardId": "t_flare",
+      "PlayCount": 388,
+      "GamesPlayedIn": 325,
+      "WinsWhenPlayed": 160,
+      "OfferCount": 1878,
+      "PlayTakeRate": {
+        "Rate": 0.2066027689030884,
+        "Low": 0.18889951679699307,
+        "High": 0.22550386197907596,
+        "Successes": 388,
+        "Trials": 1878,
+        "Margin": 0.018302172591041443
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.49230769230769234,
+        "Low": 0.4383626943023965,
+        "High": 0.5464324102534288,
+        "Successes": 160,
+        "Trials": 325,
+        "Margin": 0.05403485797551616
+      },
+      "TimesDrawn": 513,
+      "GamesDrawnIn": 406,
+      "WinsWhenDrawn": 210,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5172413793103449,
+        "Low": 0.4687010720720729,
+        "High": 0.5654584783995033,
+        "Successes": 210,
+        "Trials": 406,
+        "Margin": 0.048378703163715175
+      },
+      "BlockedByCostCount": 740,
+      "CostPressure": {
+        "Rate": 0.2826585179526356,
+        "Low": 0.2657379244781431,
+        "High": 0.30021599842398033,
+        "Successes": 740,
+        "Trials": 2618,
+        "Margin": 0.01723903697291862
+      },
+      "SurvivalSteps": {
+        "Mean": 1.286908077994429,
+        "StandardDeviation": 1.7364386497265494,
+        "Low": 1.107285752806337,
+        "High": 1.4665304031825213,
+        "Count": 359
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.1532033426183844,
+        "Low": 0.11963282966746937,
+        "High": 0.1941170357208168,
+        "Successes": 55,
+        "Trials": 359,
+        "Margin": 0.03724210302667371
+      }
+    },
+    {
+      "CardId": "shieldbearer",
+      "PlayCount": 386,
+      "GamesPlayedIn": 330,
+      "WinsWhenPlayed": 175,
+      "OfferCount": 1316,
+      "PlayTakeRate": {
+        "Rate": 0.2933130699088146,
+        "Low": 0.2693451220527591,
+        "High": 0.3184841612756362,
+        "Successes": 386,
+        "Trials": 1316,
+        "Margin": 0.02456951961143855
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5303030303030303,
+        "Low": 0.47641683617025216,
+        "High": 0.5834918404423532,
+        "Successes": 175,
+        "Trials": 330,
+        "Margin": 0.05353750213605055
+      },
+      "TimesDrawn": 463,
+      "GamesDrawnIn": 381,
+      "WinsWhenDrawn": 207,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5433070866141733,
+        "Low": 0.4931058605879816,
+        "High": 0.5926437363913262,
+        "Successes": 207,
+        "Trials": 381,
+        "Margin": 0.04976893790167228
+      },
+      "BlockedByCostCount": 1824,
+      "CostPressure": {
+        "Rate": 0.5808917197452229,
+        "Low": 0.5635450021923004,
+        "High": 0.598040754164754,
+        "Successes": 1824,
+        "Trials": 3140,
+        "Margin": 0.01724787598622679
+      },
+      "SurvivalSteps": {
+        "Mean": 4.4222222222222225,
+        "StandardDeviation": 4.729697631195857,
+        "Low": 3.804219749686945,
+        "High": 5.0402246947575,
+        "Count": 225
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.26666666666666666,
+        "Low": 0.21315491932715347,
+        "High": 0.3280121379303109,
+        "Successes": 60,
+        "Trials": 225,
+        "Margin": 0.057428609301578726
+      }
+    },
+    {
+      "CardId": "wave_crash",
+      "PlayCount": 386,
+      "GamesPlayedIn": 329,
+      "WinsWhenPlayed": 168,
+      "OfferCount": 2512,
+      "PlayTakeRate": {
+        "Rate": 0.1536624203821656,
+        "Low": 0.14008966837574896,
+        "High": 0.16829282374928525,
+        "Successes": 386,
+        "Trials": 2512,
+        "Margin": 0.014101577686768146
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.5106382978723404,
+        "Low": 0.4568120650178863,
+        "High": 0.5642189688669171,
+        "Successes": 168,
+        "Trials": 329,
+        "Margin": 0.05370345192451542
+      },
+      "TimesDrawn": 485,
+      "GamesDrawnIn": 394,
+      "WinsWhenDrawn": 204,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5177664974619289,
+        "Low": 0.4684938297333773,
+        "High": 0.5666960673662541,
+        "Successes": 204,
+        "Trials": 394,
+        "Margin": 0.049101118816438416
+      },
+      "BlockedByCostCount": 923,
+      "CostPressure": {
+        "Rate": 0.26870451237263465,
+        "Low": 0.25414480647533316,
+        "High": 0.2837809691092951,
+        "Successes": 923,
+        "Trials": 3435,
+        "Margin": 0.01481808131698098
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "def_stance",
+      "PlayCount": 377,
+      "GamesPlayedIn": 329,
+      "WinsWhenPlayed": 155,
+      "OfferCount": 2559,
+      "PlayTakeRate": {
+        "Rate": 0.14732317311449786,
+        "Low": 0.1341197005200421,
+        "High": 0.16158390465423225,
+        "Successes": 377,
+        "Trials": 2559,
+        "Margin": 0.013732102067095076
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.47112462006079026,
+        "Low": 0.4178310251768508,
+        "High": 0.525084739992968,
+        "Successes": 155,
+        "Trials": 329,
+        "Margin": 0.053626857408058615
+      },
+      "TimesDrawn": 493,
+      "GamesDrawnIn": 408,
+      "WinsWhenDrawn": 192,
+      "WinRateWhenDrawn": {
+        "Rate": 0.47058823529411764,
+        "Low": 0.4226558719280822,
+        "High": 0.5190692762267628,
+        "Successes": 192,
+        "Trials": 408,
+        "Margin": 0.04820670214934031
+      },
+      "BlockedByCostCount": 968,
+      "CostPressure": {
+        "Rate": 0.274454210377091,
+        "Low": 0.25997861901508745,
+        "High": 0.28942057703261914,
+        "Successes": 968,
+        "Trials": 3527,
+        "Margin": 0.014720979008765844
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "anvil_up",
+      "PlayCount": 368,
+      "GamesPlayedIn": 317,
+      "WinsWhenPlayed": 139,
+      "OfferCount": 1613,
+      "PlayTakeRate": {
+        "Rate": 0.22814631122132673,
+        "Low": 0.20832752686919848,
+        "High": 0.24925689170032383,
+        "Successes": 368,
+        "Trials": 1613,
+        "Margin": 0.02046468241556268
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4384858044164038,
+        "Low": 0.38492217894378494,
+        "High": 0.49352245805548417,
+        "Successes": 139,
+        "Trials": 317,
+        "Margin": 0.054300139555849614
+      },
+      "TimesDrawn": 496,
+      "GamesDrawnIn": 413,
+      "WinsWhenDrawn": 195,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4721549636803874,
+        "Low": 0.42448632556666593,
+        "High": 0.5203368211958309,
+        "Successes": 195,
+        "Trials": 413,
+        "Margin": 0.04792524781458249
+      },
+      "BlockedByCostCount": 2305,
+      "CostPressure": {
+        "Rate": 0.5883103624298112,
+        "Low": 0.5728211164577137,
+        "High": 0.6036266077186208,
+        "Successes": 2305,
+        "Trials": 3918,
+        "Margin": 0.015402745630453518
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "t_swarm",
+      "PlayCount": 367,
+      "GamesPlayedIn": 327,
+      "WinsWhenPlayed": 163,
+      "OfferCount": 1514,
+      "PlayTakeRate": {
+        "Rate": 0.24240422721268165,
+        "Low": 0.2214875545114296,
+        "High": 0.26462478256039607,
+        "Successes": 367,
+        "Trials": 1514,
+        "Margin": 0.021568614024483235
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4984709480122324,
+        "Low": 0.44461136432347803,
+        "High": 0.5523660398888555,
+        "Successes": 163,
+        "Trials": 327,
+        "Margin": 0.05387733778268872
+      },
+      "TimesDrawn": 486,
+      "GamesDrawnIn": 411,
+      "WinsWhenDrawn": 215,
+      "WinRateWhenDrawn": {
+        "Rate": 0.5231143552311436,
+        "Low": 0.474836662615982,
+        "High": 0.570963966981738,
+        "Successes": 215,
+        "Trials": 411,
+        "Margin": 0.048063652182878
+      },
+      "BlockedByCostCount": 2865,
+      "CostPressure": {
+        "Rate": 0.654258963233615,
+        "Low": 0.6400425305263875,
+        "High": 0.6682049871341846,
+        "Successes": 2865,
+        "Trials": 4379,
+        "Margin": 0.014081228303898574
+      },
+      "SurvivalSteps": {
+        "Mean": 5.25668449197861,
+        "StandardDeviation": 4.536399467761004,
+        "Low": 4.60649704263909,
+        "High": 5.90687194131813,
+        "Count": 187
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0.2887700534759358,
+        "Low": 0.22858416998516207,
+        "High": 0.3574596568484074,
+        "Successes": 54,
+        "Trials": 187,
+        "Margin": 0.06443774343162267
+      }
+    },
+    {
+      "CardId": "spike_up",
+      "PlayCount": 364,
+      "GamesPlayedIn": 312,
+      "WinsWhenPlayed": 131,
+      "OfferCount": 1842,
+      "PlayTakeRate": {
+        "Rate": 0.1976112920738328,
+        "Low": 0.18006413231205934,
+        "High": 0.21641707974438731,
+        "Successes": 364,
+        "Trials": 1842,
+        "Margin": 0.018176473716163988
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4198717948717949,
+        "Low": 0.36640819923699774,
+        "High": 0.4752845279397986,
+        "Successes": 131,
+        "Trials": 312,
+        "Margin": 0.05443816435140042
+      },
+      "TimesDrawn": 537,
+      "GamesDrawnIn": 435,
+      "WinsWhenDrawn": 206,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4735632183908046,
+        "Low": 0.42707906204611235,
+        "High": 0.5205102107207952,
+        "Successes": 206,
+        "Trials": 435,
+        "Margin": 0.046715574337341415
+      },
+      "BlockedByCostCount": 2135,
+      "CostPressure": {
+        "Rate": 0.5368368116670857,
+        "Low": 0.5213113166725348,
+        "High": 0.5522912125983342,
+        "Successes": 2135,
+        "Trials": 3977,
+        "Margin": 0.015489947962899708
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "wheel_up",
+      "PlayCount": 358,
+      "GamesPlayedIn": 315,
+      "WinsWhenPlayed": 145,
+      "OfferCount": 1895,
+      "PlayTakeRate": {
+        "Rate": 0.18891820580474933,
+        "Low": 0.17192979933369062,
+        "High": 0.20716528283572389,
+        "Successes": 358,
+        "Trials": 1895,
+        "Margin": 0.01761774175101663
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4603174603174603,
+        "Low": 0.40608449477116615,
+        "High": 0.5155066305244076,
+        "Successes": 145,
+        "Trials": 315,
+        "Margin": 0.05471106787662072
+      },
+      "TimesDrawn": 529,
+      "GamesDrawnIn": 438,
+      "WinsWhenDrawn": 209,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4771689497716895,
+        "Low": 0.4307943009685598,
+        "High": 0.5239405940984666,
+        "Successes": 209,
+        "Trials": 438,
+        "Margin": 0.0465731465649534
+      },
+      "BlockedByCostCount": 2750,
+      "CostPressure": {
+        "Rate": 0.5920344456404736,
+        "Low": 0.5778308321022073,
+        "High": 0.6060859582556527,
+        "Successes": 2750,
+        "Trials": 4645,
+        "Margin": 0.014127563076722693
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    },
+    {
+      "CardId": "rally",
+      "PlayCount": 343,
+      "GamesPlayedIn": 304,
+      "WinsWhenPlayed": 145,
+      "OfferCount": 2447,
+      "PlayTakeRate": {
+        "Rate": 0.14017163874131588,
+        "Low": 0.12697964755089772,
+        "High": 0.15449162280870313,
+        "Successes": 343,
+        "Trials": 2447,
+        "Margin": 0.013755987628902705
+      },
+      "WinRateWhenPlayed": {
+        "Rate": 0.4769736842105263,
+        "Low": 0.421465509020167,
+        "High": 0.5330565360257591,
+        "Successes": 145,
+        "Trials": 304,
+        "Margin": 0.055795513502796046
+      },
+      "TimesDrawn": 532,
+      "GamesDrawnIn": 438,
+      "WinsWhenDrawn": 217,
+      "WinRateWhenDrawn": {
+        "Rate": 0.4954337899543379,
+        "Low": 0.44885406446167203,
+        "High": 0.5420929145517333,
+        "Successes": 217,
+        "Trials": 438,
+        "Margin": 0.04661942504503061
+      },
+      "BlockedByCostCount": 2505,
+      "CostPressure": {
+        "Rate": 0.5058562197092084,
+        "Low": 0.4919319882286031,
+        "High": 0.5197713724380418,
+        "Successes": 2505,
+        "Trials": 4952,
+        "Margin": 0.013919692104719356
+      },
+      "SurvivalSteps": {
+        "Mean": 0,
+        "StandardDeviation": 0,
+        "Low": 0,
+        "High": 0,
+        "Count": 0
+      },
+      "ScoredWhileAliveRate": {
+        "Rate": 0,
+        "Low": 0,
+        "High": 1,
+        "Successes": 0,
+        "Trials": 0,
+        "Margin": 0.5
+      }
+    }
+  ],
+  "MoveStats": [
+    {
+      "CardId": "guardian",
+      "MoveName": "Bulwark",
+      "UseCount": 879,
+      "GamesUsedIn": 304,
+      "WinsWhenUsed": 170,
+      "OfferCount": 4949,
+      "UseTakeRate": {
+        "Rate": 0.17761163871489188,
+        "Low": 0.1672149888164606,
+        "High": 0.18850838200172124,
+        "Successes": 879,
+        "Trials": 4949,
+        "Margin": 0.010646696592630317
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5592105263157895,
+        "Low": 0.5030057194635661,
+        "High": 0.6139375932754813,
+        "Successes": 170,
+        "Trials": 304,
+        "Margin": 0.05546593690595758
+      }
+    },
+    {
+      "CardId": "t_juggler",
+      "MoveName": "Catch and Throw",
+      "UseCount": 804,
+      "GamesUsedIn": 319,
+      "WinsWhenUsed": 171,
+      "OfferCount": 3471,
+      "UseTakeRate": {
+        "Rate": 0.23163353500432152,
+        "Low": 0.21790005544230864,
+        "High": 0.24596037616432306,
+        "Successes": 804,
+        "Trials": 3471,
+        "Margin": 0.01403016036100721
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5360501567398119,
+        "Low": 0.48122041336492716,
+        "High": 0.5900219855503148,
+        "Successes": 171,
+        "Trials": 319,
+        "Margin": 0.05440078609269383
+      }
+    },
+    {
+      "CardId": "columns",
+      "MoveName": "Brace",
+      "UseCount": 685,
+      "GamesUsedIn": 273,
+      "WinsWhenUsed": 139,
+      "OfferCount": 4327,
+      "UseTakeRate": {
+        "Rate": 0.15830829674139127,
+        "Low": 0.1477356325000945,
+        "High": 0.1694871224599022,
+        "Successes": 685,
+        "Trials": 4327,
+        "Margin": 0.010875744979903845
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5091575091575091,
+        "Low": 0.4501419120790121,
+        "High": 0.5679189665921406,
+        "Successes": 139,
+        "Trials": 273,
+        "Margin": 0.05888852725656424
+      }
+    },
+    {
+      "CardId": "columns",
+      "MoveName": "Slam",
+      "UseCount": 679,
+      "GamesUsedIn": 286,
+      "WinsWhenUsed": 145,
+      "OfferCount": 4443,
+      "UseTakeRate": {
+        "Rate": 0.15282466801710556,
+        "Low": 0.14254471250006046,
+        "High": 0.16370444692553737,
+        "Successes": 679,
+        "Trials": 4443,
+        "Margin": 0.010579867212738459
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.506993006993007,
+        "Low": 0.4493436184505321,
+        "High": 0.564457029722572,
+        "Successes": 145,
+        "Trials": 286,
+        "Margin": 0.05755670563601992
+      }
+    },
+    {
+      "CardId": "champion_t",
+      "MoveName": "Barrage",
+      "UseCount": 646,
+      "GamesUsedIn": 251,
+      "WinsWhenUsed": 128,
+      "OfferCount": 3644,
+      "UseTakeRate": {
+        "Rate": 0.17727771679473106,
+        "Low": 0.16521969902112316,
+        "High": 0.19001543756255368,
+        "Successes": 646,
+        "Trials": 3644,
+        "Margin": 0.012397869270715262
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5099601593625498,
+        "Low": 0.4484340786300241,
+        "High": 0.5711859628732266,
+        "Successes": 128,
+        "Trials": 251,
+        "Margin": 0.061375942121601273
+      }
+    },
+    {
+      "CardId": "t_body",
+      "MoveName": "Piston",
+      "UseCount": 627,
+      "GamesUsedIn": 280,
+      "WinsWhenUsed": 140,
+      "OfferCount": 3237,
+      "UseTakeRate": {
+        "Rate": 0.1936978683966636,
+        "Low": 0.1804500916337658,
+        "High": 0.20767178191060975,
+        "Successes": 627,
+        "Trials": 3237,
+        "Margin": 0.013610845138421979
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5,
+        "Low": 0.4418325287827339,
+        "High": 0.5581674712172661,
+        "Successes": 140,
+        "Trials": 280,
+        "Margin": 0.05816747121726609
+      }
+    },
+    {
+      "CardId": "circle_mouse",
+      "MoveName": "Splash",
+      "UseCount": 618,
+      "GamesUsedIn": 276,
+      "WinsWhenUsed": 140,
+      "OfferCount": 3023,
+      "UseTakeRate": {
+        "Rate": 0.20443268276546478,
+        "Low": 0.19043587396382483,
+        "High": 0.21917971896502808,
+        "Successes": 618,
+        "Trials": 3023,
+        "Margin": 0.014371922500601625
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5072463768115942,
+        "Low": 0.4485712584414704,
+        "High": 0.5657225492594705,
+        "Successes": 140,
+        "Trials": 276,
+        "Margin": 0.058575645409000066
+      }
+    },
+    {
+      "CardId": "basic_square",
+      "MoveName": "Jab",
+      "UseCount": 617,
+      "GamesUsedIn": 298,
+      "WinsWhenUsed": 137,
+      "OfferCount": 3704,
+      "UseTakeRate": {
+        "Rate": 0.1665766738660907,
+        "Low": 0.15492414971845275,
+        "High": 0.17892007544827504,
+        "Successes": 617,
+        "Trials": 3704,
+        "Margin": 0.011997962864911144
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4597315436241611,
+        "Low": 0.4040184883237288,
+        "High": 0.5164695715705272,
+        "Successes": 137,
+        "Trials": 298,
+        "Margin": 0.05622554162339921
+      }
+    },
+    {
+      "CardId": "circle_surfer",
+      "MoveName": "Wipeout",
+      "UseCount": 617,
+      "GamesUsedIn": 305,
+      "WinsWhenUsed": 165,
+      "OfferCount": 2803,
+      "UseTakeRate": {
+        "Rate": 0.2201212986086336,
+        "Low": 0.20517161946613063,
+        "High": 0.23583706485573133,
+        "Successes": 617,
+        "Trials": 2803,
+        "Margin": 0.01533272269480035
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5409836065573771,
+        "Low": 0.4848956101228585,
+        "High": 0.5960520712232811,
+        "Successes": 165,
+        "Trials": 305,
+        "Margin": 0.0555782305502113
+      }
+    },
+    {
+      "CardId": "t_dealer",
+      "MoveName": "Deal Out",
+      "UseCount": 615,
+      "GamesUsedIn": 292,
+      "WinsWhenUsed": 177,
+      "OfferCount": 3265,
+      "UseTakeRate": {
+        "Rate": 0.1883614088820827,
+        "Low": 0.1753188197688097,
+        "High": 0.20213645739949837,
+        "Successes": 615,
+        "Trials": 3265,
+        "Margin": 0.013408818815344337
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.6061643835616438,
+        "Low": 0.5490923739707912,
+        "High": 0.6604793345870582,
+        "Successes": 177,
+        "Trials": 292,
+        "Margin": 0.05569348030813348
+      }
+    },
+    {
+      "CardId": "shieldbearer",
+      "MoveName": "Brace For Impact",
+      "UseCount": 599,
+      "GamesUsedIn": 277,
+      "WinsWhenUsed": 154,
+      "OfferCount": 3589,
+      "UseTakeRate": {
+        "Rate": 0.1668988576205071,
+        "Low": 0.15505697554246745,
+        "High": 0.1794530418451391,
+        "Successes": 599,
+        "Trials": 3589,
+        "Margin": 0.01219803315133583
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.555956678700361,
+        "Low": 0.4970762736051357,
+        "High": 0.6133062892952476,
+        "Successes": 154,
+        "Trials": 277,
+        "Margin": 0.05811500784505594
+      }
+    },
+    {
+      "CardId": "guardian",
+      "MoveName": "Smash",
+      "UseCount": 594,
+      "GamesUsedIn": 249,
+      "WinsWhenUsed": 140,
+      "OfferCount": 4472,
+      "UseTakeRate": {
+        "Rate": 0.13282647584973167,
+        "Low": 0.1231938754754158,
+        "High": 0.14308934072661386,
+        "Successes": 594,
+        "Trials": 4472,
+        "Margin": 0.009947732625599032
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5622489959839357,
+        "Low": 0.50014516275352,
+        "High": 0.6224613122176353,
+        "Successes": 140,
+        "Trials": 249,
+        "Margin": 0.0611580747320577
+      }
+    },
+    {
+      "CardId": "t_dealer",
+      "MoveName": "Ace",
+      "UseCount": 583,
+      "GamesUsedIn": 290,
+      "WinsWhenUsed": 173,
+      "OfferCount": 4039,
+      "UseTakeRate": {
+        "Rate": 0.1443426590740282,
+        "Low": 0.1338422485608695,
+        "High": 0.15551895216378256,
+        "Successes": 583,
+        "Trials": 4039,
+        "Margin": 0.010838351801456536
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.596551724137931,
+        "Low": 0.5391821674397604,
+        "High": 0.6513967937905624,
+        "Successes": 173,
+        "Trials": 290,
+        "Margin": 0.056107313175400964
+      }
+    },
+    {
+      "CardId": "circle_captain",
+      "MoveName": "Rally Charge",
+      "UseCount": 579,
+      "GamesUsedIn": 254,
+      "WinsWhenUsed": 126,
+      "OfferCount": 2859,
+      "UseTakeRate": {
+        "Rate": 0.2025183630640084,
+        "Low": 0.18819096453921152,
+        "High": 0.21764410372031595,
+        "Successes": 579,
+        "Trials": 2859,
+        "Margin": 0.014726569590552213
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.49606299212598426,
+        "Low": 0.43509374284193075,
+        "High": 0.5571495526750995,
+        "Successes": 126,
+        "Trials": 254,
+        "Margin": 0.06102790491658436
+      }
+    },
+    {
+      "CardId": "t_juggler",
+      "MoveName": "Toss",
+      "UseCount": 579,
+      "GamesUsedIn": 265,
+      "WinsWhenUsed": 153,
+      "OfferCount": 3809,
+      "UseTakeRate": {
+        "Rate": 0.15200840115515885,
+        "Low": 0.14095759034164113,
+        "High": 0.16376041889396592,
+        "Successes": 579,
+        "Trials": 3809,
+        "Margin": 0.011401414276162397
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5773584905660377,
+        "Low": 0.5171942807203636,
+        "High": 0.6353119590932772,
+        "Successes": 153,
+        "Trials": 265,
+        "Margin": 0.059058839186456824
+      }
+    },
+    {
+      "CardId": "zealot",
+      "MoveName": "Smite",
+      "UseCount": 570,
+      "GamesUsedIn": 242,
+      "WinsWhenUsed": 124,
+      "OfferCount": 3762,
+      "UseTakeRate": {
+        "Rate": 0.15151515151515152,
+        "Low": 0.1404134917400465,
+        "High": 0.16332777601398493,
+        "Successes": 570,
+        "Trials": 3762,
+        "Margin": 0.011457142136969217
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.512396694214876,
+        "Low": 0.4497203855364225,
+        "High": 0.5746855874321037,
+        "Successes": 124,
+        "Trials": 242,
+        "Margin": 0.06248260094784061
+      }
+    },
+    {
+      "CardId": "shieldbearer",
+      "MoveName": "Shield Bash",
+      "UseCount": 568,
+      "GamesUsedIn": 247,
+      "WinsWhenUsed": 142,
+      "OfferCount": 3664,
+      "UseTakeRate": {
+        "Rate": 0.15502183406113537,
+        "Low": 0.14366473624787182,
+        "High": 0.1671015473168904,
+        "Successes": 568,
+        "Trials": 3664,
+        "Margin": 0.011718405534509285
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5748987854251012,
+        "Low": 0.5125637120810074,
+        "High": 0.6349398153064221,
+        "Successes": 142,
+        "Trials": 247,
+        "Margin": 0.06118805161270735
+      }
+    },
+    {
+      "CardId": "circle_surfer",
+      "MoveName": "Cutback",
+      "UseCount": 567,
+      "GamesUsedIn": 266,
+      "WinsWhenUsed": 146,
+      "OfferCount": 2861,
+      "UseTakeRate": {
+        "Rate": 0.19818245368752185,
+        "Low": 0.18398439737837557,
+        "High": 0.21318992281092264,
+        "Successes": 567,
+        "Trials": 2861,
+        "Margin": 0.014602762716273532
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5488721804511278,
+        "Low": 0.48880070334417197,
+        "High": 0.6075521703313203,
+        "Successes": 146,
+        "Trials": 266,
+        "Margin": 0.05937573349357414
+      }
+    },
+    {
+      "CardId": "basic_square",
+      "MoveName": "Fortify",
+      "UseCount": 558,
+      "GamesUsedIn": 262,
+      "WinsWhenUsed": 117,
+      "OfferCount": 3943,
+      "UseTakeRate": {
+        "Rate": 0.14151661171696678,
+        "Low": 0.13098583744804423,
+        "High": 0.15274520940244338,
+        "Successes": 558,
+        "Trials": 3943,
+        "Margin": 0.010879685977199571
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.44656488549618323,
+        "Low": 0.3875717983762708,
+        "High": 0.5071022674454089,
+        "Successes": 117,
+        "Trials": 262,
+        "Margin": 0.05976523453456903
+      }
+    },
+    {
+      "CardId": "t_swarm",
+      "MoveName": "Grow",
+      "UseCount": 553,
+      "GamesUsedIn": 242,
+      "WinsWhenUsed": 118,
+      "OfferCount": 3880,
+      "UseTakeRate": {
+        "Rate": 0.14252577319587628,
+        "Low": 0.13187918529517495,
+        "High": 0.15387950764616237,
+        "Successes": 553,
+        "Trials": 3880,
+        "Margin": 0.011000161175493711
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.48760330578512395,
+        "Low": 0.4253144125678962,
+        "High": 0.5502796144635774,
+        "Successes": 118,
+        "Trials": 242,
+        "Margin": 0.06248260094784061
+      }
+    },
+    {
+      "CardId": "t_swarm",
+      "MoveName": "Swarm",
+      "UseCount": 548,
+      "GamesUsedIn": 243,
+      "WinsWhenUsed": 128,
+      "OfferCount": 3244,
+      "UseTakeRate": {
+        "Rate": 0.16892725030826142,
+        "Low": 0.15642682840165287,
+        "High": 0.18221083997152307,
+        "Successes": 548,
+        "Trials": 3244,
+        "Margin": 0.012892005784935101
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5267489711934157,
+        "Low": 0.4640458408629116,
+        "High": 0.5886195422494593,
+        "Successes": 128,
+        "Trials": 243,
+        "Margin": 0.06228685069327386
+      }
+    },
+    {
+      "CardId": "zealot",
+      "MoveName": "Martyrdom",
+      "UseCount": 531,
+      "GamesUsedIn": 233,
+      "WinsWhenUsed": 117,
+      "OfferCount": 3693,
+      "UseTakeRate": {
+        "Rate": 0.1437855402112104,
+        "Low": 0.13283914049564885,
+        "High": 0.15547223848456612,
+        "Successes": 531,
+        "Trials": 3693,
+        "Margin": 0.011316548994458636
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5021459227467812,
+        "Low": 0.4384337201704027,
+        "High": 0.5657885135750043,
+        "Successes": 117,
+        "Trials": 233,
+        "Margin": 0.06367739670230077
+      }
+    },
+    {
+      "CardId": "relic",
+      "MoveName": "Crumble",
+      "UseCount": 529,
+      "GamesUsedIn": 240,
+      "WinsWhenUsed": 128,
+      "OfferCount": 2507,
+      "UseTakeRate": {
+        "Rate": 0.21100917431192662,
+        "Low": 0.1954854785710947,
+        "High": 0.22741715238769114,
+        "Successes": 529,
+        "Trials": 2507,
+        "Margin": 0.015965836908298225
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5333333333333333,
+        "Low": 0.4701883060380254,
+        "High": 0.5954280992828964,
+        "Successes": 128,
+        "Trials": 240,
+        "Margin": 0.0626198966224355
+      }
+    },
+    {
+      "CardId": "circle_bender",
+      "MoveName": "Anticipate",
+      "UseCount": 504,
+      "GamesUsedIn": 226,
+      "WinsWhenUsed": 96,
+      "OfferCount": 3692,
+      "UseTakeRate": {
+        "Rate": 0.13651137594799567,
+        "Low": 0.12581384794163444,
+        "High": 0.14796452435563748,
+        "Successes": 504,
+        "Trials": 3692,
+        "Margin": 0.011075338207001517
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4247787610619469,
+        "Low": 0.362118912409952,
+        "High": 0.4899530324624495,
+        "Successes": 96,
+        "Trials": 226,
+        "Margin": 0.06391706002624875
+      }
+    },
+    {
+      "CardId": "basic_t",
+      "MoveName": "Poke",
+      "UseCount": 496,
+      "GamesUsedIn": 263,
+      "WinsWhenUsed": 138,
+      "OfferCount": 2878,
+      "UseTakeRate": {
+        "Rate": 0.1723419041000695,
+        "Low": 0.15898271447049803,
+        "High": 0.18657462207634742,
+        "Successes": 496,
+        "Trials": 2878,
+        "Margin": 0.013795953802924699
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5247148288973384,
+        "Low": 0.46443957224517024,
+        "High": 0.5842784944844194,
+        "Successes": 138,
+        "Trials": 263,
+        "Margin": 0.05991946111962457
+      }
+    },
+    {
+      "CardId": "gravewarden",
+      "MoveName": "Blight",
+      "UseCount": 496,
+      "GamesUsedIn": 252,
+      "WinsWhenUsed": 131,
+      "OfferCount": 2681,
+      "UseTakeRate": {
+        "Rate": 0.18500559492726595,
+        "Low": 0.17076151468653092,
+        "High": 0.20015106027654986,
+        "Successes": 496,
+        "Trials": 2681,
+        "Margin": 0.01469477279500947
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5198412698412699,
+        "Low": 0.45832303714462297,
+        "High": 0.5807636693013396,
+        "Successes": 131,
+        "Trials": 252,
+        "Margin": 0.06122031607835832
+      }
+    },
+    {
+      "CardId": "basic_t",
+      "MoveName": "Finish",
+      "UseCount": 486,
+      "GamesUsedIn": 266,
+      "WinsWhenUsed": 140,
+      "OfferCount": 3065,
+      "UseTakeRate": {
+        "Rate": 0.15856443719412724,
+        "Low": 0.14606144493004652,
+        "High": 0.171922221530529,
+        "Successes": 486,
+        "Trials": 3065,
+        "Margin": 0.012930388300241236
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5263157894736842,
+        "Low": 0.466365342654537,
+        "High": 0.5855169739399587,
+        "Successes": 140,
+        "Trials": 266,
+        "Margin": 0.05957581564271086
+      }
+    },
+    {
+      "CardId": "basic_circle",
+      "MoveName": "Deal 1",
+      "UseCount": 484,
+      "GamesUsedIn": 251,
+      "WinsWhenUsed": 120,
+      "OfferCount": 2695,
+      "UseTakeRate": {
+        "Rate": 0.17959183673469387,
+        "Low": 0.16555907962667638,
+        "High": 0.19453671469394912,
+        "Successes": 484,
+        "Trials": 2695,
+        "Margin": 0.014488817533636372
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.47808764940239046,
+        "Low": 0.417088104535576,
+        "High": 0.5397478041572724,
+        "Successes": 120,
+        "Trials": 251,
+        "Margin": 0.061329849810848214
+      }
+    },
+    {
+      "CardId": "circle_cadet",
+      "MoveName": "Rebound",
+      "UseCount": 472,
+      "GamesUsedIn": 241,
+      "WinsWhenUsed": 143,
+      "OfferCount": 3145,
+      "UseTakeRate": {
+        "Rate": 0.15007949125596184,
+        "Low": 0.13802459579886356,
+        "High": 0.16298816437294905,
+        "Successes": 472,
+        "Trials": 3145,
+        "Margin": 0.012481784287042746
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5933609958506224,
+        "Low": 0.5303512165118973,
+        "High": 0.6534411861539311,
+        "Successes": 143,
+        "Trials": 241,
+        "Margin": 0.06154498482101689
+      }
+    },
+    {
+      "CardId": "circle_cadet",
+      "MoveName": "Scout",
+      "UseCount": 463,
+      "GamesUsedIn": 275,
+      "WinsWhenUsed": 157,
+      "OfferCount": 2021,
+      "UseTakeRate": {
+        "Rate": 0.22909450766947057,
+        "Low": 0.21129663581303068,
+        "High": 0.2479202845057699,
+        "Successes": 463,
+        "Trials": 2021,
+        "Margin": 0.018311824346369604
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5709090909090909,
+        "Low": 0.5118304971178703,
+        "High": 0.6280339267610854,
+        "Successes": 157,
+        "Trials": 275,
+        "Margin": 0.05810171482160753
+      }
+    },
+    {
+      "CardId": "circle_planner",
+      "MoveName": "Strike",
+      "UseCount": 459,
+      "GamesUsedIn": 218,
+      "WinsWhenUsed": 108,
+      "OfferCount": 2652,
+      "UseTakeRate": {
+        "Rate": 0.17307692307692307,
+        "Low": 0.15915406436025584,
+        "High": 0.18794551712967153,
+        "Successes": 459,
+        "Trials": 2652,
+        "Margin": 0.014395726384707846
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4954128440366973,
+        "Low": 0.42969941390102795,
+        "High": 0.5612851387155767,
+        "Successes": 108,
+        "Trials": 218,
+        "Margin": 0.06579286240727439
+      }
+    },
+    {
+      "CardId": "t_battery",
+      "MoveName": "Discharge",
+      "UseCount": 456,
+      "GamesUsedIn": 271,
+      "WinsWhenUsed": 133,
+      "OfferCount": 2337,
+      "UseTakeRate": {
+        "Rate": 0.1951219512195122,
+        "Low": 0.17956059266851374,
+        "High": 0.21168395548597038,
+        "Successes": 456,
+        "Trials": 2337,
+        "Margin": 0.016061681408728323
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4907749077490775,
+        "Low": 0.43180158820512315,
+        "High": 0.5500061055090938,
+        "Successes": 133,
+        "Trials": 271,
+        "Margin": 0.05910225865198532
+      }
+    },
+    {
+      "CardId": "circle_mouse",
+      "MoveName": "Evasive",
+      "UseCount": 450,
+      "GamesUsedIn": 222,
+      "WinsWhenUsed": 117,
+      "OfferCount": 3584,
+      "UseTakeRate": {
+        "Rate": 0.12555803571428573,
+        "Low": 0.1151092914053598,
+        "High": 0.13680860107674492,
+        "Successes": 450,
+        "Trials": 3584,
+        "Margin": 0.010849654835692557
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.527027027027027,
+        "Low": 0.461450713937564,
+        "High": 0.5916839056289315,
+        "Successes": 117,
+        "Trials": 222,
+        "Margin": 0.06511659584568374
+      }
+    },
+    {
+      "CardId": "worshipper",
+      "MoveName": "Blessing",
+      "UseCount": 445,
+      "GamesUsedIn": 229,
+      "WinsWhenUsed": 122,
+      "OfferCount": 2344,
+      "UseTakeRate": {
+        "Rate": 0.18984641638225255,
+        "Low": 0.1744822799665753,
+        "High": 0.20622547843002234,
+        "Successes": 445,
+        "Trials": 2344,
+        "Margin": 0.015871599231723515
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5327510917030568,
+        "Low": 0.4681237946564837,
+        "High": 0.5962977223365321,
+        "Successes": 122,
+        "Trials": 229,
+        "Margin": 0.06408696384002421
+      }
+    },
+    {
+      "CardId": "relic",
+      "MoveName": "Unearth",
+      "UseCount": 443,
+      "GamesUsedIn": 235,
+      "WinsWhenUsed": 125,
+      "OfferCount": 3645,
+      "UseTakeRate": {
+        "Rate": 0.1215363511659808,
+        "Low": 0.11132536282042091,
+        "High": 0.13254422398100563,
+        "Successes": 443,
+        "Trials": 3645,
+        "Margin": 0.010609430580292359
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5319148936170213,
+        "Low": 0.46811800762927686,
+        "High": 0.5946851592507874,
+        "Successes": 125,
+        "Trials": 235,
+        "Margin": 0.06328357581075525
+      }
+    },
+    {
+      "CardId": "circle_bender",
+      "MoveName": "Deflect",
+      "UseCount": 440,
+      "GamesUsedIn": 197,
+      "WinsWhenUsed": 83,
+      "OfferCount": 3893,
+      "UseTakeRate": {
+        "Rate": 0.11302337528898022,
+        "Low": 0.10345649250888507,
+        "High": 0.1233532117624888,
+        "Successes": 440,
+        "Trials": 3893,
+        "Margin": 0.009948359626801864
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4213197969543147,
+        "Low": 0.354519763267959,
+        "High": 0.4911296351546941,
+        "Successes": 83,
+        "Trials": 197,
+        "Margin": 0.06830493594336756
+      }
+    },
+    {
+      "CardId": "bubbles",
+      "MoveName": "Fizz",
+      "UseCount": 432,
+      "GamesUsedIn": 244,
+      "WinsWhenUsed": 141,
+      "OfferCount": 1931,
+      "UseTakeRate": {
+        "Rate": 0.22371828068358363,
+        "Low": 0.20568982909548855,
+        "High": 0.24284379876209955,
+        "Successes": 432,
+        "Trials": 1931,
+        "Margin": 0.0185769848333055
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5778688524590164,
+        "Low": 0.5151607803244781,
+        "High": 0.638163042782132,
+        "Successes": 141,
+        "Trials": 244,
+        "Margin": 0.061501131228826944
+      }
+    },
+    {
+      "CardId": "basic_circle",
+      "MoveName": "Rev Up",
+      "UseCount": 416,
+      "GamesUsedIn": 232,
+      "WinsWhenUsed": 113,
+      "OfferCount": 2777,
+      "UseTakeRate": {
+        "Rate": 0.14980194454447246,
+        "Low": 0.1370127601409218,
+        "High": 0.16355865726650795,
+        "Successes": 416,
+        "Trials": 2777,
+        "Margin": 0.013272948562793069
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4870689655172414,
+        "Low": 0.423487754058144,
+        "High": 0.5510714263825607,
+        "Successes": 113,
+        "Trials": 232,
+        "Margin": 0.06379183616220835
+      }
+    },
+    {
+      "CardId": "circle_priest",
+      "MoveName": "Mend",
+      "UseCount": 398,
+      "GamesUsedIn": 194,
+      "WinsWhenUsed": 89,
+      "OfferCount": 2943,
+      "UseTakeRate": {
+        "Rate": 0.13523615358477745,
+        "Low": 0.12335540423135806,
+        "High": 0.14806790443382495,
+        "Successes": 398,
+        "Trials": 2943,
+        "Margin": 0.012356250101233444
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4587628865979381,
+        "Low": 0.3901241370783291,
+        "High": 0.5290030262044694,
+        "Successes": 89,
+        "Trials": 194,
+        "Margin": 0.06943944456307014
+      }
+    },
+    {
+      "CardId": "circle_planner",
+      "MoveName": "Plan Ahead",
+      "UseCount": 396,
+      "GamesUsedIn": 193,
+      "WinsWhenUsed": 99,
+      "OfferCount": 2561,
+      "UseTakeRate": {
+        "Rate": 0.15462709878953534,
+        "Low": 0.1411426572000365,
+        "High": 0.1691460961751594,
+        "Successes": 396,
+        "Trials": 2561,
+        "Margin": 0.01400171948756146
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5129533678756477,
+        "Low": 0.44287462406004247,
+        "High": 0.5825265288699165,
+        "Successes": 99,
+        "Trials": 193,
+        "Margin": 0.06982595240493703
+      }
+    },
+    {
+      "CardId": "t_medic",
+      "MoveName": "Transfusion",
+      "UseCount": 392,
+      "GamesUsedIn": 233,
+      "WinsWhenUsed": 115,
+      "OfferCount": 2607,
+      "UseTakeRate": {
+        "Rate": 0.1503644035289605,
+        "Low": 0.13715889936025177,
+        "High": 0.16459877964446012,
+        "Successes": 392,
+        "Trials": 2607,
+        "Margin": 0.013719940142104176
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.49356223175965663,
+        "Low": 0.42999386856749533,
+        "High": 0.5573394301962841,
+        "Successes": 115,
+        "Trials": 233,
+        "Margin": 0.06367278081439437
+      }
+    },
+    {
+      "CardId": "gravewarden",
+      "MoveName": "Reap",
+      "UseCount": 387,
+      "GamesUsedIn": 225,
+      "WinsWhenUsed": 129,
+      "OfferCount": 3026,
+      "UseTakeRate": {
+        "Rate": 0.1278916060806345,
+        "Low": 0.11646232541378956,
+        "High": 0.14026446027370218,
+        "Successes": 387,
+        "Trials": 3026,
+        "Margin": 0.011901067429956308
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5733333333333334,
+        "Low": 0.5080095830976,
+        "High": 0.6361950560500541,
+        "Successes": 129,
+        "Trials": 225,
+        "Margin": 0.06409273647622704
+      }
+    },
+    {
+      "CardId": "circle_captain",
+      "MoveName": "Wardance",
+      "UseCount": 375,
+      "GamesUsedIn": 202,
+      "WinsWhenUsed": 106,
+      "OfferCount": 3281,
+      "UseTakeRate": {
+        "Rate": 0.11429442243218531,
+        "Low": 0.10385565923107803,
+        "High": 0.1256353126522434,
+        "Successes": 375,
+        "Trials": 3281,
+        "Margin": 0.010889826710582681
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5247524752475248,
+        "Low": 0.4560678546194178,
+        "High": 0.592513223528531,
+        "Successes": 106,
+        "Trials": 202,
+        "Margin": 0.06822268445455659
+      }
+    },
+    {
+      "CardId": "circle_priest",
+      "MoveName": "Focus Strike",
+      "UseCount": 352,
+      "GamesUsedIn": 206,
+      "WinsWhenUsed": 96,
+      "OfferCount": 2279,
+      "UseTakeRate": {
+        "Rate": 0.15445370776656428,
+        "Low": 0.14019934491155298,
+        "High": 0.16987100891326887,
+        "Successes": 352,
+        "Trials": 2279,
+        "Margin": 0.014835832000857946
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.46601941747572817,
+        "Low": 0.39914430226167263,
+        "High": 0.534138662531669,
+        "Successes": 96,
+        "Trials": 206,
+        "Margin": 0.06749718013499817
+      }
+    },
+    {
+      "CardId": "t_body",
+      "MoveName": "Overclock",
+      "UseCount": 343,
+      "GamesUsedIn": 199,
+      "WinsWhenUsed": 105,
+      "OfferCount": 3300,
+      "UseTakeRate": {
+        "Rate": 0.10393939393939394,
+        "Low": 0.09398339661834998,
+        "High": 0.11481641035388931,
+        "Successes": 343,
+        "Trials": 3300,
+        "Margin": 0.010416506867769668
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5276381909547738,
+        "Low": 0.45840985294401043,
+        "High": 0.5958196919462048,
+        "Successes": 105,
+        "Trials": 199,
+        "Margin": 0.06870491950109717
+      }
+    },
+    {
+      "CardId": "monk",
+      "MoveName": "Palm Strike",
+      "UseCount": 328,
+      "GamesUsedIn": 204,
+      "WinsWhenUsed": 109,
+      "OfferCount": 2237,
+      "UseTakeRate": {
+        "Rate": 0.1466249441215914,
+        "Low": 0.13257229711661325,
+        "High": 0.1618891679130061,
+        "Successes": 328,
+        "Trials": 2237,
+        "Margin": 0.014658435398196418
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5343137254901961,
+        "Low": 0.46586137663715843,
+        "High": 0.6014976578661346,
+        "Successes": 109,
+        "Trials": 204,
+        "Margin": 0.0678181406144881
+      }
+    },
+    {
+      "CardId": "monk",
+      "MoveName": "Recover",
+      "UseCount": 313,
+      "GamesUsedIn": 124,
+      "WinsWhenUsed": 75,
+      "OfferCount": 1703,
+      "UseTakeRate": {
+        "Rate": 0.1837933059307105,
+        "Low": 0.16611665409091622,
+        "High": 0.2028932827160493,
+        "Successes": 313,
+        "Trials": 1703,
+        "Margin": 0.018388314312566545
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.6048387096774194,
+        "Low": 0.5168839170144808,
+        "High": 0.6864929861241298,
+        "Successes": 75,
+        "Trials": 124,
+        "Margin": 0.0848045345548245
+      }
+    },
+    {
+      "CardId": "t_battery",
+      "MoveName": "Overload",
+      "UseCount": 307,
+      "GamesUsedIn": 206,
+      "WinsWhenUsed": 100,
+      "OfferCount": 2110,
+      "UseTakeRate": {
+        "Rate": 0.14549763033175356,
+        "Low": 0.1310967658802676,
+        "High": 0.16118696064304275,
+        "Successes": 307,
+        "Trials": 2110,
+        "Margin": 0.015045097381387568
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.4854368932038835,
+        "Low": 0.41808094405965995,
+        "High": 0.5533260408517722,
+        "Successes": 100,
+        "Trials": 206,
+        "Margin": 0.06762254839605611
+      }
+    },
+    {
+      "CardId": "t_medic",
+      "MoveName": "Triage Strike",
+      "UseCount": 298,
+      "GamesUsedIn": 181,
+      "WinsWhenUsed": 92,
+      "OfferCount": 1674,
+      "UseTakeRate": {
+        "Rate": 0.17801672640382318,
+        "Low": 0.16043555929476983,
+        "High": 0.19707227060546495,
+        "Successes": 298,
+        "Trials": 1674,
+        "Margin": 0.018318355655347562
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5082872928176796,
+        "Low": 0.436044156332717,
+        "High": 0.5801859687601963,
+        "Successes": 92,
+        "Trials": 181,
+        "Margin": 0.07207090621373968
+      }
+    },
+    {
+      "CardId": "champion_t",
+      "MoveName": "Unopposed Growth",
+      "UseCount": 283,
+      "GamesUsedIn": 151,
+      "WinsWhenUsed": 86,
+      "OfferCount": 1801,
+      "UseTakeRate": {
+        "Rate": 0.15713492504164353,
+        "Low": 0.14105909424708568,
+        "High": 0.17467027692688086,
+        "Successes": 283,
+        "Trials": 1801,
+        "Margin": 0.01680559133989759
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5695364238410596,
+        "Low": 0.4898032053367615,
+        "High": 0.6458193866468168,
+        "Successes": 86,
+        "Trials": 151,
+        "Margin": 0.07800809065502765
+      }
+    },
+    {
+      "CardId": "worshipper",
+      "MoveName": "Channel",
+      "UseCount": 271,
+      "GamesUsedIn": 172,
+      "WinsWhenUsed": 86,
+      "OfferCount": 2001,
+      "UseTakeRate": {
+        "Rate": 0.13543228385807096,
+        "Low": 0.12113603635154158,
+        "High": 0.1511256212789207,
+        "Successes": 271,
+        "Trials": 2001,
+        "Margin": 0.014994792463689566
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5,
+        "Low": 0.4260977842552995,
+        "High": 0.5739022157447005,
+        "Successes": 86,
+        "Trials": 172,
+        "Margin": 0.07390221574470049
+      }
+    },
+    {
+      "CardId": "bubbles",
+      "MoveName": "Burst",
+      "UseCount": 263,
+      "GamesUsedIn": 204,
+      "WinsWhenUsed": 130,
+      "OfferCount": 1696,
+      "UseTakeRate": {
+        "Rate": 0.15507075471698112,
+        "Low": 0.1386250623000249,
+        "High": 0.17307545312921782,
+        "Successes": 263,
+        "Trials": 1696,
+        "Margin": 0.017225195414596467
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.6372549019607843,
+        "Low": 0.569304746305962,
+        "High": 0.7001313917072105,
+        "Successes": 130,
+        "Trials": 204,
+        "Margin": 0.06541332270062428
+      }
+    },
+    {
+      "CardId": "t_flare",
+      "MoveName": "Flare Burst",
+      "UseCount": 184,
+      "GamesUsedIn": 173,
+      "WinsWhenUsed": 84,
+      "OfferCount": 879,
+      "UseTakeRate": {
+        "Rate": 0.20932878270762229,
+        "Low": 0.18372769032643704,
+        "High": 0.23745943805387226,
+        "Successes": 184,
+        "Trials": 879,
+        "Margin": 0.02686587386371761
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.48554913294797686,
+        "Low": 0.4122001903476143,
+        "High": 0.5595258967835927,
+        "Successes": 84,
+        "Trials": 173,
+        "Margin": 0.07366285321798918
+      }
+    },
+    {
+      "CardId": "t_flare",
+      "MoveName": "Meltdown",
+      "UseCount": 106,
+      "GamesUsedIn": 101,
+      "WinsWhenUsed": 53,
+      "OfferCount": 879,
+      "UseTakeRate": {
+        "Rate": 0.12059158134243458,
+        "Low": 0.10069783639257995,
+        "High": 0.14378712374375335,
+        "Successes": 106,
+        "Trials": 879,
+        "Margin": 0.0215446436755867
+      },
+      "WinRateWhenUsed": {
+        "Rate": 0.5247524752475248,
+        "Low": 0.42824984288700985,
+        "High": 0.6194412141943413,
+        "Successes": 53,
+        "Trials": 101,
+        "Margin": 0.09559568565366572
+      }
+    }
+  ],
+  "MoveUsageCount": 26083,
+  "MoveUsageRate": 0.42945583271589693,
+  "MergeCount": 2635,
+  "MergesPerGame": 6.5875,
+  "CreaturesPlayedCount": 11561,
+  "MergesPerCreaturePlayed": 0.22792146008130784,
+  "MergeTakeRate": {
+    "Rate": 0.35298057602143335,
+    "Low": 0.3422177694520387,
+    "High": 0.36389461597155376,
+    "Successes": 2635,
+    "Trials": 7465,
+    "Margin": 0.010838423259757535
+  },
+  "ResourcesWinners": {
+    "Spike": {
+      "Mean": 5.166020771973337,
+      "StandardDeviation": 5.135454989213289,
+      "Low": 5.040702758867535,
+      "High": 5.29133878507914,
+      "Count": 6451
+    },
+    "Anvil": {
+      "Mean": 4.381646256394357,
+      "StandardDeviation": 4.099770969529575,
+      "Low": 4.281601537246891,
+      "High": 4.481690975541824,
+      "Count": 6451
+    },
+    "Wheel": {
+      "Mean": 4.28445202294218,
+      "StandardDeviation": 3.9414519525484364,
+      "Low": 4.188270685848808,
+      "High": 4.380633360035551,
+      "Count": 6451
+    }
+  },
+  "ResourcesLosers": {
+    "Spike": {
+      "Mean": 4.811192063246009,
+      "StandardDeviation": 4.708034233754758,
+      "Low": 4.696304191178682,
+      "High": 4.926079935313335,
+      "Count": 6451
+    },
+    "Anvil": {
+      "Mean": 4.636180437141529,
+      "StandardDeviation": 4.47471995548284,
+      "Low": 4.526986020054076,
+      "High": 4.745374854228982,
+      "Count": 6451
+    },
+    "Wheel": {
+      "Mean": 4.564873662997985,
+      "StandardDeviation": 4.3543367026099045,
+      "Low": 4.458616899943706,
+      "High": 4.6711304260522635,
+      "Count": 6451
+    }
+  },
+  "ResourcesSeatOne": {
+    "Spike": {
+      "Mean": 6.040458843590141,
+      "StandardDeviation": 4.801750976528517,
+      "Low": 5.923284047380003,
+      "High": 6.157633639800279,
+      "Count": 6451
+    },
+    "Anvil": {
+      "Mean": 5.559138118121221,
+      "StandardDeviation": 4.302553573988854,
+      "Low": 5.454144993596503,
+      "High": 5.664131242645939,
+      "Count": 6451
+    },
+    "Wheel": {
+      "Mean": 5.390792125251899,
+      "StandardDeviation": 3.9564648901138426,
+      "Low": 5.2942444347369655,
+      "High": 5.487339815766832,
+      "Count": 6451
+    }
+  },
+  "ResourcesSeatTwo": {
+    "Spike": {
+      "Mean": 3.936753991629205,
+      "StandardDeviation": 4.830269474701117,
+      "Low": 3.818883272363513,
+      "High": 4.054624710894896,
+      "Count": 6451
+    },
+    "Anvil": {
+      "Mean": 3.4586885754146643,
+      "StandardDeviation": 4.018132168664972,
+      "Low": 3.360636048261516,
+      "High": 3.5567411025678126,
+      "Count": 6451
+    },
+    "Wheel": {
+      "Mean": 3.4585335606882652,
+      "StandardDeviation": 4.124790955050408,
+      "Low": 3.357878290989778,
+      "High": 3.5591888303867525,
+      "Count": 6451
+    }
+  },
+  "CardsDrawnWinners": {
+    "Mean": 27.7325,
+    "StandardDeviation": 10.333823761504481,
+    "Low": 26.719803872255333,
+    "High": 28.74519612774467,
+    "Count": 400
+  },
+  "CardsDrawnLosers": {
+    "Mean": 26.0725,
+    "StandardDeviation": 10.729167317565743,
+    "Low": 25.02106091537973,
+    "High": 27.12393908462027,
+    "Count": 400
+  },
+  "CardsDrawnSeatOne": {
+    "Mean": 26.9925,
+    "StandardDeviation": 10.389287125083154,
+    "Low": 25.974368562458675,
+    "High": 28.010631437541324,
+    "Count": 400
+  },
+  "CardsDrawnSeatTwo": {
+    "Mean": 26.8125,
+    "StandardDeviation": 10.739211815867362,
+    "Low": 25.760076572626268,
+    "High": 27.864923427373732,
+    "Count": 400
+  },
+  "UnopposedSlotRate": {
+    "Rate": 0.1678209620033135,
+    "Low": 0.16403846928820115,
+    "High": 0.17167276235820256,
+    "Successes": 6179,
+    "Trials": 36819,
+    "Margin": 0.003817146535000704
+  },
+  "UnopposedCreaturesPerStep": {
+    "Mean": 0.5435770768904566,
+    "StandardDeviation": 0.3336824661817103,
+    "Low": 0.5204544864080853,
+    "High": 0.566699667372828,
+    "Count": 800
+  },
+  "LongestUnopposedStreak": {
+    "Mean": 3.4675,
+    "StandardDeviation": 1.769988651031682,
+    "Low": 3.344848297006522,
+    "High": 3.5901517029934777,
+    "Count": 800
+  },
+  "GamesWithNoSustainedUnopposed": 0,
+  "CostPressure": {
+    "Rate": 0.3862798998892217,
+    "Low": 0.38354986315500705,
+    "High": 0.3890171058240838,
+    "Successes": 47074,
+    "Trials": 121865,
+    "Margin": 0.002733621334538361
+  },
+  "EndingCounts": {
+    "ScoreThreshold": 400
+  }
+}
