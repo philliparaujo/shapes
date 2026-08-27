@@ -42,7 +42,7 @@ public class AnimationScriptTests
         Assert.Equal(P1Slot0, step.Slot);
     }
 
-    // PLAN.md 5.C-UI: scoring cues each CREATURE that earned a point, not just the total. The
+    // DESIGN.md 5.C-UI: scoring cues each CREATURE that earned a point, not just the total. The
     // slots are not in the diff's slot changes at all -- scoring moves no creature -- so they are
     // recovered from the before-board's unopposed slots (StateDiff.ScoringSlotsOf).
     [Fact]

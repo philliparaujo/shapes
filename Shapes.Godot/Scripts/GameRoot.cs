@@ -18,19 +18,19 @@ namespace Shapes.Godot.Scripts;
 // Sub-views never touch GameSession directly -- they raise Godot signals (SlotTapped,
 // EndTurnRequested, ...) that GameRoot listens to and turns into GameSession.Submit calls,
 // then pushes the resulting StateDiff/legal-action list back down to RefreshAll. This keeps
-// every scene a pure view: PLAN.md A2's "UI only ever submits GameActions and never mutates
+// every scene a pure view: DESIGN.md A2's "UI only ever submits GameActions and never mutates
 // state" boundary, extended down to the scene tree.
 //
-// PLAN.md B1a: playing a card is drag-only now -- there is no tap-to-play fallback and no
-// card-detail inspect panel. Full card/move detail is available on hover instead (PLAN.md
+// DESIGN.md B1a: playing a card is drag-only now -- there is no tap-to-play fallback and no
+// card-detail inspect panel. Full card/move detail is available on hover instead (DESIGN.md
 // B1a2, HoverDetailPanel) -- BoardView owns showing/hiding it directly since hover never
 // submits a GameAction, so GameRoot never sees those events at all.
 //
-// PLAN.md C1 (AI-opponent wiring pulled forward from C5, 2026-08-09): either seat, both, or
+// DESIGN.md C1 (AI-opponent wiring pulled forward from C5, 2026-08-09): either seat, both, or
 // neither can be AI-controlled -- Lobby.cs builds the per-seat SeatConfig and GameRoot only
 // ever sees "is this seat's IAgent null (human) or not."
 //
-// PLAN.md C5 (2026-08-09): AI turns run off the main thread and pace themselves, so an AI-v-AI
+// DESIGN.md C5 (2026-08-09): AI turns run off the main thread and pace themselves, so an AI-v-AI
 // game is actually watchable instead of the loop running to completion in one synchronous frame
 // (the earlier C1 cut) and only the final game-over screen ever rendering. RunAiTurns is now
 // `async void` -- the correct shape for a Godot event-loop entry point with no caller awaiting
@@ -42,7 +42,7 @@ namespace Shapes.Godot.Scripts;
 // `_aiTurnToken` is cancelled in _ExitTree so a search in flight when the scene is torn down
 // does not resume on the main thread afterward and touch freed nodes.
 //
-// PLAN.md C6 (interrupted-game persistence): seed + action log, not a serialized GameState --
+// DESIGN.md C6 (interrupted-game persistence): seed + action log, not a serialized GameState --
 // see SavedMatch's own header in Shapes.Godot.Adapter for why. `_actionLog` mirrors exactly
 // what every Submit call (human or AI) has applied so far, `_matchConfig`/`_seed` are what
 // GameSession.Resume needs to rebuild from scratch, and MatchSaveStore.Save is called after
@@ -60,7 +60,7 @@ public partial class GameRoot : Control
     // card for RecapHoldSeconds, and a beat shorter than that would replace an entry before it had
     // been looked at).
     //
-    // An [Export] rather than a const (PLAN.md D2 item 1): this is a feel value, and the only way
+    // An [Export] rather than a const (DESIGN.md D2 item 1): this is a feel value, and the only way
     // to tune feel is to watch it, so it is settable from the editor's inspector without a rebuild.
     // Still applied uniformly across every agent -- see RunAiTurns on why the rhythm of watching
     // must not change with which agent happens to be playing.
@@ -71,7 +71,7 @@ public partial class GameRoot : Control
     private Dictionary<PlayerId, IAgent?> _agents = new();
     private readonly CancellationTokenSource _aiTurnToken = new();
 
-    // PLAN.md D2 item 5. Distinct from `_actionLog` below, which is C6's REPLAY log -- a bare list
+    // DESIGN.md D2 item 5. Distinct from `_actionLog` below, which is C6's REPLAY log -- a bare list
     // of GameActions that GameSession.Resume re-applies to rebuild a match. This one is for
     // READING: it pairs each action with the StateDiff it produced, which is the only place the
     // effects (damage, scoring, resource spend) exist in a form anything can render. Keeping them
@@ -79,12 +79,12 @@ public partial class GameRoot : Control
     // and a save file must not grow a rendering concern it has no use for.
     private readonly ActionLog _readableLog = new();
 
-    // PLAN.md D2 item 3. Keeps a used move marked until that seat's OWN next turn, which the
+    // DESIGN.md D2 item 3. Keeps a used move marked until that seat's OWN next turn, which the
     // engine's own flag cannot do -- it clears at the owner's turn END, so the marking would
     // disappear precisely while the opponent is acting. See SpentMoveTracker's header.
     private readonly SpentMoveTracker _spentMoves = new();
 
-    // Whose seat the screen is drawn from (PLAN.md D1) -- resolved per Render from the two seat
+    // Whose seat the screen is drawn from (DESIGN.md D1) -- resolved per Render from the two seat
     // configs, never stored as a seat, so it cannot drift from the match it describes. Defaults to
     // hotseat, matching the fallback everywhere else here: a GameRoot.tscn opened directly in the
     // editor has no MatchConfig and is a two-human game, which is the mode that flips.
@@ -93,11 +93,11 @@ public partial class GameRoot : Control
     // Guards against RunAiTurns being entered twice concurrently -- Submit calls it after every
     // human action, and a fast double-submit (or a human action landing while a prior RunAiTurns
     // call is still mid-await) would otherwise start a second loop racing the first over the same
-    // GameSession, which owns no locking of its own (PLAN.md A2: GameSession is the one place
+    // GameSession, which owns no locking of its own (DESIGN.md A2: GameSession is the one place
     // allowed to touch GameState, not a place designed for concurrent callers).
     private bool _aiTurnInProgress;
 
-    // PLAN.md C6: the two things GameSession.Resume needs alongside the action log, kept for
+    // DESIGN.md C6: the two things GameSession.Resume needs alongside the action log, kept for
     // the lifetime of the match so every Submit can append-and-save without re-deriving them.
     private ulong _seed;
     private MatchConfig? _matchConfig;
@@ -105,10 +105,10 @@ public partial class GameRoot : Control
 
     private BoardView? _boardView;
 
-    // PLAN.md D5: set only for a network match (PendingMatch.Transport), null for every local
+    // DESIGN.md D5: set only for a network match (PendingMatch.Transport), null for every local
     // mode -- its presence is what tells Submit/RunAiTurns/SaveProgress "this game has a remote
     // peer" without a separate boolean that could disagree with it. Owned here rather than by
-    // Lobby because GameRoot is already the one place allowed to drive a match end-to-end (PLAN.md
+    // Lobby because GameRoot is already the one place allowed to drive a match end-to-end (DESIGN.md
     // A2), and a transport's lifetime is exactly the match's lifetime.
     private IMatchTransport? _transport;
 
@@ -141,12 +141,12 @@ public partial class GameRoot : Control
         _boardView.BackToLobbyRequested += OnBackToLobbyRequested;
         _boardView.ExitRequested += OnExitRequested;
 
-        // Pulled on open rather than pushed on every action (PLAN.md D2 item 5): the overlay is
+        // Pulled on open rather than pushed on every action (DESIGN.md D2 item 5): the overlay is
         // closed for nearly the whole match, so nothing should be spent keeping its nodes current
         // while nobody is looking at it.
         _boardView.ActionLogSource = () => _readableLog.Entries;
 
-        // PLAN.md C6: Resume takes priority over a fresh MatchConfig -- Lobby only ever sets one
+        // DESIGN.md C6: Resume takes priority over a fresh MatchConfig -- Lobby only ever sets one
         // of the two before changing scene (see Lobby.OnResumePressed/OnStartPressed), but
         // checking Resume first means a stray Config left over from a previous run can never
         // silently override an explicit resume request.
@@ -174,7 +174,7 @@ public partial class GameRoot : Control
         PendingMatch.Config = null;
         var seed = config?.Seed ?? (Seed == 0 ? (ulong)DateTime.UtcNow.Ticks : Seed);
 
-        // PLAN.md D5: a live, already-paired transport means Lobby ran a Host/Join flow -- picked
+        // DESIGN.md D5: a live, already-paired transport means Lobby ran a Host/Join flow -- picked
         // up here the same way Config is, since Godot has no other way to carry a constructed
         // object across ChangeSceneToFile (PendingMatch's own header).
         _transport = PendingMatch.Transport;
@@ -191,7 +191,7 @@ public partial class GameRoot : Control
         var random = new SeededRandom(seed);
         _session = new GameSession(rules, _cards, random, PlayerId.One);
 
-        // Per-seat decks from the lobby's deck dropdowns (PLAN.md C2). Null for either seat means
+        // Per-seat decks from the lobby's deck dropdowns (DESIGN.md C2). Null for either seat means
         // the default deck, so a config from before decks existed -- or one where the player left
         // the dropdowns alone -- deals exactly as it always did.
         _session.Start(rules.StartingHandSize, config?.DeckOne, config?.DeckTwo);
@@ -209,7 +209,7 @@ public partial class GameRoot : Control
         RunAiTurns();
     }
 
-    // PLAN.md C6: rebuilds via GameSession.Resume (seed replayed through Start + every logged
+    // DESIGN.md C6: rebuilds via GameSession.Resume (seed replayed through Start + every logged
     // action, in order) instead of GameSession's plain constructor -- see SavedMatch/
     // GameSession.Resume's own headers for why replay reproduces the exact original state
     // rather than an approximation of it.
@@ -237,7 +237,7 @@ public partial class GameRoot : Control
         _actionLog.Clear();
         _actionLog.AddRange(saved.Actions);
 
-        // The READABLE log (PLAN.md D2 item 5) starts empty on a resume, and deliberately so.
+        // The READABLE log (DESIGN.md D2 item 5) starts empty on a resume, and deliberately so.
         // GameSession.Resume replays the saved actions internally, below both submit seams, so no
         // StateDiff is produced for any of them -- and a diff is the only place an action's EFFECTS
         // exist. Reconstructing them would mean replaying the match a second time out here purely
@@ -260,7 +260,7 @@ public partial class GameRoot : Control
     }
 
     // Gives each seat a creature's art as its portrait, the two of different resource types
-    // (PLAN.md 5.C-UI) -- see CardArt.AvatarCandidates for why those two filters.
+    // (DESIGN.md 5.C-UI) -- see CardArt.AvatarCandidates for why those two filters.
     //
     // Seed-derived rather than random, and picked here rather than in BoardView, for the reasons
     // in AvatarPicker's header -- the short version being that a resumed match must not change
@@ -307,19 +307,19 @@ public partial class GameRoot : Control
     // agent's own RNG stream is derived from the match seed.
     private void BuildAgents(ulong seed, MatchConfig? config)
     {
-        // Perspective is decided from the same config, in the same place, as the agents (PLAN.md
+        // Perspective is decided from the same config, in the same place, as the agents (DESIGN.md
         // D1) -- the two answer one question between them ("which seats are human, and which of
         // them is looking at this screen"), and deriving them apart is how they would drift. A
         // null config is the direct-from-editor case: two humans, hotseat, board flips.
         //
         // Routed through config.Viewer (not ViewerMode.For directly) so a network match's
-        // ViewerOverride (PLAN.md D5) actually takes effect here -- MatchConfig.Viewer is the one
+        // ViewerOverride (DESIGN.md D5) actually takes effect here -- MatchConfig.Viewer is the one
         // place that decision was meant to live; reading ViewerMode.For directly would silently
         // bypass it for exactly the case it exists to handle.
         _viewerMode = config?.Viewer ?? ViewerMode.Hotseat;
 
         // The deck each agent's OPPONENT is playing -- asked for PER SEAT, because the two seats
-        // can now be playing different decklists (PLAN.md C2). It must be passed, because an
+        // can now be playing different decklists (DESIGN.md C2). It must be passed, because an
         // IS-MCTS agent without it determinizes against the ruleset's SYMMETRIC decklist instead,
         // which is CopiesPerCard (2) of every card and therefore twice the size of the deck
         // actually in play. See AgentFactory.Build's note: the size disagreement makes
@@ -344,7 +344,7 @@ public partial class GameRoot : Control
         };
     }
 
-    // PLAN.md C6: called after every action lands (Submit, RunAiTurns) so the on-disk save is
+    // DESIGN.md C6: called after every action lands (Submit, RunAiTurns) so the on-disk save is
     // never more than one action stale -- the only save that actually survives a mobile OS
     // killing this process with no shutdown hook. A human-only or PlayerOne-null MatchConfig
     // still saves fine: SeatConfig.Human round-trips through SavedMatch/ActionDto exactly like
@@ -352,7 +352,7 @@ public partial class GameRoot : Control
     // whether to save at all.
     [Export] public string LobbyScenePath { get; set; } = "res://Scenes/Lobby.tscn";
 
-    // ESC opens the pause menu (PLAN.md 5.C-UI). Handled here rather than in BoardView because
+    // ESC opens the pause menu (DESIGN.md 5.C-UI). Handled here rather than in BoardView because
     // this node owns the match and the save; BoardView only owns the panel that displays it.
     //
     // _UnhandledInput, not _Input: a control with focus (the End Turn button, a card) gets first
@@ -379,7 +379,7 @@ public partial class GameRoot : Control
             return;
         }
 
-        // PLAN.md D4: the Sounds panel opens over the pause menu exactly as the tutorial does, so
+        // DESIGN.md D4: the Sounds panel opens over the pause menu exactly as the tutorial does, so
         // it needs the same treatment and for the same reason. The two never open together (both
         // are reached from the menu beneath them), so their relative order here is arbitrary --
         // what matters is that both precede the menu itself.
@@ -390,7 +390,7 @@ public partial class GameRoot : Control
             return;
         }
 
-        // Same topmost-first rule for the match log (PLAN.md D2 item 5). Unlike the tutorial it
+        // Same topmost-first rule for the match log (DESIGN.md D2 item 5). Unlike the tutorial it
         // opens straight from the board rather than over the pause menu, so closing it reveals the
         // board -- but it still has to be tested BEFORE the menu, or ESC would open the pause menu
         // behind an already-open log.
@@ -421,7 +421,7 @@ public partial class GameRoot : Control
         GetViewport().SetInputAsHandled();
     }
 
-    // PLAN.md C6: the save is deliberately LEFT behind. Walking away mid-match is exactly the
+    // DESIGN.md C6: the save is deliberately LEFT behind. Walking away mid-match is exactly the
     // interruption the action log exists to survive, so the Lobby's Resume button picks this game
     // back up. Only game-over clears it (see RefreshAll), because a finished game has nothing to
     // return to.
@@ -444,7 +444,7 @@ public partial class GameRoot : Control
             return;
         }
 
-        // PLAN.md D5: no local save for a network match. C6's resume replays the action log
+        // DESIGN.md D5: no local save for a network match. C6's resume replays the action log
         // against a peer that (for this minimal cut) no longer exists once the connection drops --
         // there is nothing to resume TO, only a game to end (see ShowDisconnected). Saving anyway
         // would surface a phantom "Resume" button in the lobby for a match this process can never
@@ -470,7 +470,7 @@ public partial class GameRoot : Control
         MatchSaveStore.Save(saved);
     }
 
-    // The seat the screen is currently drawn from (PLAN.md D1). Resolved on each read rather than
+    // The seat the screen is currently drawn from (DESIGN.md D1). Resolved on each read rather than
     // cached, because under FollowsActive the answer changes with the turn -- caching it would
     // reintroduce the stale-perspective bug in a new place.
     private PlayerId Viewer =>
@@ -502,7 +502,7 @@ public partial class GameRoot : Control
         {
             _boardView.ShowGameOver(_session.State.Winner);
 
-            // PLAN.md C6: a finished game has nothing left to resume -- leaving the save behind
+            // DESIGN.md C6: a finished game has nothing left to resume -- leaving the save behind
             // would resurrect a dead game the next time the app launches into the lobby.
             MatchSaveStore.Clear();
         }
@@ -521,7 +521,7 @@ public partial class GameRoot : Control
     // Each iteration awaits twice -- Task.Run for the search itself, then a SceneTreeTimer for
     // the pacing delay -- so between any two AI actions control fully returns to Godot's own
     // frame loop and BoardView actually redraws, instead of the whole game resolving inside one
-    // synchronous call as it did when this was a plain while loop (PLAN.md C1's cut).
+    // synchronous call as it did when this was a plain while loop (DESIGN.md C1's cut).
     private async void RunAiTurns()
     {
         if (_session is null || _cards is null || _boardView is null || _aiTurnInProgress)
@@ -552,7 +552,7 @@ public partial class GameRoot : Control
                     return;
                 }
 
-                // Cloned BEFORE Submit (PLAN.md D2 items 2/4/5): both the recap and the log name
+                // Cloned BEFORE Submit (DESIGN.md D2 items 2/4/5): both the recap and the log name
                 // things the action may destroy -- a lethal move's own creature, a played card
                 // that has left the hand -- so describing against the post-action state would
                 // silently lose exactly the names worth showing. Same before/after reasoning
@@ -567,7 +567,7 @@ public partial class GameRoot : Control
                 SaveProgress();
                 RefreshAll();
 
-                // Oriented to the VIEWER, not the active player (PLAN.md D1): BoardAnimator mirrors
+                // Oriented to the VIEWER, not the active player (DESIGN.md D1): BoardAnimator mirrors
                 // its cues about the seat it is given, so passing the acting seat here would play
                 // the AI's attack travelling up the screen -- away from the human it is aimed at --
                 // now that the board no longer turns around to match.
@@ -606,7 +606,7 @@ public partial class GameRoot : Control
         }
     }
 
-    // A hand card dropped directly on a board slot (PLAN.md B1a) -- the drag already supplied
+    // A hand card dropped directly on a board slot (DESIGN.md B1a) -- the drag already supplied
     // the slot a tap-then-tap flow would otherwise need a separate step to collect.
     private void OnCardDroppedOnSlot(string cardId, SlotIndex slot)
     {
@@ -665,7 +665,7 @@ public partial class GameRoot : Control
         OnSpellDroppedOnSelfArea(cardId);
     }
 
-    // A friendly creature dropped onto another friendly slot (PLAN.md B1a) -- replaces the old
+    // A friendly creature dropped onto another friendly slot (DESIGN.md B1a) -- replaces the old
     // tap-slot-then-pick-"Merge into X"-from-a-menu path with one drag gesture.
     private void OnCreatureDroppedOnSlot(SlotIndex source, SlotIndex target)
     {
@@ -684,7 +684,7 @@ public partial class GameRoot : Control
         }
     }
 
-    // A targetless spell dropped anywhere on the self panel's background (PLAN.md B1a) rather
+    // A targetless spell dropped anywhere on the self panel's background (DESIGN.md B1a) rather
     // than a specific slot, since it never occupies the board.
     private void OnSpellDroppedOnSelfArea(string cardId)
     {
@@ -724,13 +724,13 @@ public partial class GameRoot : Control
             return;
         }
 
-        // A slot tap outside targeting is otherwise a no-op (PLAN.md B1a): playing a card is
+        // A slot tap outside targeting is otherwise a no-op (DESIGN.md B1a): playing a card is
         // drag-only (OnCardDroppedOnSlot), using a move is a tap on that move's own
         // always-visible button (OnMoveChosen), and merge is a drag (OnCreatureDroppedOnSlot),
         // so a bare tap on a slot has nothing left to do.
     }
 
-    // A move's own always-visible board button was tapped (PLAN.md B1a, replacing the old
+    // A move's own always-visible board button was tapped (DESIGN.md B1a, replacing the old
     // tap-slot-then-MoveMenu-popup flow).
     private void OnMoveChosen(SlotIndex source, int moveIndex)
     {
@@ -793,7 +793,7 @@ public partial class GameRoot : Control
         }
     }
 
-    // PLAN.md D4: the audio half of PlayAnimation, called from all three apply paths (local
+    // DESIGN.md D4: the audio half of PlayAnimation, called from all three apply paths (local
     // Submit, RunAiTurns, DrainRemoteActions) so a card played by a human, an AI, or a remote peer
     // sounds identical. Kept as its own method rather than folded into the animation call because
     // the two answer different questions -- PlayAnimation needs the VIEWER's seat to orient a
@@ -809,7 +809,7 @@ public partial class GameRoot : Control
         }
     }
 
-    // PLAN.md D2 items 2/4. Not every action earns a recap -- ActionRecap.For returns null for
+    // DESIGN.md D2 items 2/4. Not every action earns a recap -- ActionRecap.For returns null for
     // EndTurn/Discard, which are either already obvious from the board or not worth interrupting
     // the panel for. Shown for both seats; see ActionRecap's header for that decision.
     private void ShowRecapFor(GameAction action, GameState before)
@@ -832,7 +832,7 @@ public partial class GameRoot : Control
             return;
         }
 
-        // Nothing may be submitted on a seat the viewer is not sitting in (PLAN.md D1). Every
+        // Nothing may be submitted on a seat the viewer is not sitting in (DESIGN.md D1). Every
         // handler that reaches here already filtered against `LegalActions()`, but that list
         // belongs to the ACTIVE player, so during an AI turn a stray click could match a legal
         // action and submit it on the AI's behalf. Under FollowsActive the viewer IS the active
@@ -846,7 +846,7 @@ public partial class GameRoot : Control
             return;
         }
 
-        // The StateDiff A2 built this whole adapter to produce, finally consumed (PLAN.md B1d).
+        // The StateDiff A2 built this whole adapter to produce, finally consumed (DESIGN.md B1d).
         // Captured BEFORE RefreshAll, because it describes the transition into the state that
         // RefreshAll is about to draw -- and played after, so the cues land over the new board.
         //
@@ -868,7 +868,7 @@ public partial class GameRoot : Control
         _boardView.PlayAnimation(diff, Viewer);
         PlaySoundsFor(action, diff);
 
-        // PLAN.md D5: tell the peer what just happened, once it has already been applied locally.
+        // DESIGN.md D5: tell the peer what just happened, once it has already been applied locally.
         // Fire-and-forget from this method's point of view -- a send failure surfaces later as
         // PeerDisconnected (raised by the transport's own receive loop noticing the socket died),
         // not as an exception here, because the local action is already committed and there is
@@ -887,7 +887,7 @@ public partial class GameRoot : Control
         RunAiTurns();
     }
 
-    // PLAN.md D5: hooks a live transport into the same apply path Submit uses, minus the "is this
+    // DESIGN.md D5: hooks a live transport into the same apply path Submit uses, minus the "is this
     // my seat" guard -- an action arriving here already passed the PEER's copy of that guard (its
     // own GameSession.LegalActions), the same trust RunAiTurns places in agent.Choose's output.
     // Called once per match from StartNewGame; a no-op when there is no transport (every local

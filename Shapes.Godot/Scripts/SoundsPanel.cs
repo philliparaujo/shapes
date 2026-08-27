@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The Sounds overlay (PLAN.md D4) -- music and SFX volume, each on a 0-5 scale.
+// The Sounds overlay (DESIGN.md D4) -- music and SFX volume, each on a 0-5 scale.
 //
 // Same dimmed-backdrop-plus-centered-panel pattern as TutorialOverlay and MenuPanel, deliberately:
 // this is the third modal in the project and inventing a fourth visual language for it would undo
@@ -41,7 +41,7 @@ public partial class SoundsPanel : Control
     private readonly List<Button> _sfxButtons = [];
 
     // Wide enough for a single digit with room around it, and tall enough to be a comfortable
-    // touch target on the mobile export (PLAN.md's Android target) -- 44px is the conventional
+    // touch target on the mobile export (DESIGN.md's Android target) -- 44px is the conventional
     // minimum and the same height the lobby's own dropdowns use.
     private static readonly Vector2 StepSize = new(64, 44);
 

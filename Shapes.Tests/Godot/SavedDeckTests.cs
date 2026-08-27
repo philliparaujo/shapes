@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md C2: SavedDeck/DeckSlots are the deckbuilder's persistence format. The bar here is that
+// DESIGN.md C2: SavedDeck/DeckSlots are the deckbuilder's persistence format. The bar here is that
 // a deck built in the UI becomes a REAL engine Deck -- validated by the same DeckBuilder path
 // every other engine uses -- rather than a Godot-only parallel notion of a decklist.
 public class SavedDeckTests

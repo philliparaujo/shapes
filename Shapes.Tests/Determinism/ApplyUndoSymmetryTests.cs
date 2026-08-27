@@ -9,7 +9,7 @@ namespace Shapes.Tests.Determinism;
 
 // Phase 1 exit criterion: "Apply/undo property tests pass."
 //
-// PLAN.md's own design section ("Apply/undo over clone") is explicit that the undo-RECORD
+// DESIGN.md's own design section ("Apply/undo over clone") is explicit that the undo-RECORD
 // mechanism itself is a Phase 2 optimization -- Shapes.Core has no Undo API yet, only Clone().
 // It also says to write this property "in Phase 1 even while still cloning": right now, CLONE
 // *is* the undo mechanism -- reverting a speculative action means discarding the mutated clone

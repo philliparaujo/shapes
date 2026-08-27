@@ -5,7 +5,7 @@ namespace Shapes.Core.Effects;
 // Renders an effect tree (a move's or spell's Effects list) into short human-readable rules text,
 // e.g. "Deal 1" or "Deal 2 to this. Your right friendly gains +4 max health".
 //
-// No card ever carries hand-authored description text (see PLAN.md Phase 4 step 4/5) -- the
+// No card ever carries hand-authored description text (see DESIGN.md Phase 4 step 4/5) -- the
 // card JSON schema has no "text" field, deliberately, so a balance edit to an effect's numbers
 // can never drift out of sync with a description someone forgot to update. This is therefore a
 // SYNTHESIS from the op vocabulary, not a lookup, and is the one place that vocabulary is turned
@@ -35,7 +35,7 @@ public static class EffectText
     // is what the reference text uses and what any plain-text consumer (console log, Sim report)
     // wants. Godot swaps in a real inline icon by passing its own formatter -- that is the whole
     // reason this is injectable rather than a constant: Shapes.Core must not gain a UI dependency
-    // (PLAN.md 3, enforced by CorePurityTests), but it is still the layer that knows WHERE in a
+    // (DESIGN.md 3, enforced by CorePurityTests), but it is still the layer that knows WHERE in a
     // sentence the resource belongs.
     public static string DefaultResourceFormat(ResourceType type) =>
         $"[{type.ToString().ToLowerInvariant()}]";

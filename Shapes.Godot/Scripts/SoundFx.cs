@@ -3,7 +3,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The one call every sound goes through (PLAN.md D4).
+// The one call every sound goes through (DESIGN.md D4).
 //
 // A facade over AudioDirector.Instance, and it earns its file by removing a null check from every
 // call site. The autoload is null in exactly two situations -- a scene run directly from the editor

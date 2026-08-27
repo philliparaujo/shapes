@@ -6,7 +6,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Tests.Fuzz;
 
-// PLAN.md step 1.12: thousands of seeded random-play games over the REAL ~36-card set, asserting
+// DESIGN.md step 1.12: thousands of seeded random-play games over the REAL ~36-card set, asserting
 // termination and no illegal state.
 //
 // LegalActionSoundnessTests already runs this shape of property at a few hundred games against
@@ -185,7 +185,7 @@ public class FuzzHarnessTests
                 creature.Health <= creature.MaxHealth,
                 $"seed {seed}: creature in {slot} is over max health ({creature.Health}/{creature.MaxHealth}).");
 
-            // "No duplicate card instances" (PLAN.md's invariant list) means no two BOARD slots
+            // "No duplicate card instances" (DESIGN.md's invariant list) means no two BOARD slots
             // share the same merge-lineage identity, not that a card id can't recur -- the deck
             // legitimately holds CopiesPerCard of each. A slot's identity is its own position
             // plus its MergedFrom lineage, which is unique by construction (a card instance can

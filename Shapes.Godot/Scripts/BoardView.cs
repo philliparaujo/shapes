@@ -12,16 +12,16 @@ namespace Shapes.Godot.Scripts;
 
 // The whole play area: both players' slot rows, both hands, both resource/score panels, and
 // the end-turn control. Pure view over whatever GameRoot.Render feeds it -- it never touches
-// GameSession, only raises C# events for GameRoot to translate into GameActions (PLAN.md A2's
+// GameSession, only raises C# events for GameRoot to translate into GameActions (DESIGN.md A2's
 // boundary). Plain events rather than Godot [Signal]s: SlotIndex/GameAction are not
 // Variant-marshalable, and nothing here needs to be wired from the editor's Node dock.
 // Targeting/placement are UI-only state that resets every RefreshAll.
 //
-// PLAN.md B1a: play/merge are drag-and-drop (routed through PlayerPanel/SlotView's drag
+// DESIGN.md B1a: play/merge are drag-and-drop (routed through PlayerPanel/SlotView's drag
 // events below); using a move is a tap on that move's always-visible button on the board
 // (MoveChosen), not a drag -- a drag alone can't disambiguate a creature with 2+ legal moves.
 // SlotTapped survives only for A5's chosen-target resolution now; there is no tap-to-play
-// fallback (CardDetailPanel was removed with this step). PLAN.md B1a2 replaced it with
+// fallback (CardDetailPanel was removed with this step). DESIGN.md B1a2 replaced it with
 // HoverDetailPanel (fixed in one screen corner -- see its own header), owned directly here
 // rather than bubbled up to GameRoot since hover never submits a GameAction -- see _Ready below.
 public partial class BoardView : Control
@@ -74,19 +74,19 @@ public partial class BoardView : Control
     private ActionLogOverlay? _actionLogOverlay;
     private Button? _logButton;
 
-    // Supplies the log's entries at the moment it opens (PLAN.md D2 item 5). A callback rather
+    // Supplies the log's entries at the moment it opens (DESIGN.md D2 item 5). A callback rather
     // than a stored list because GameRoot owns the log -- it is the only thing that sees every
     // action, human and AI alike -- and this view should not hold a second reference that could
     // fall out of date with it.
     public Func<IReadOnlyList<ActionLogEntry>>? ActionLogSource { get; set; }
 
-    // Lives here rather than inside a PlayerPanel because the board frame (PLAN.md 5.C-UI) wraps
+    // Lives here rather than inside a PlayerPanel because the board frame (DESIGN.md 5.C-UI) wraps
     // the six slots only, so the fanned hand has to sit outside it. Handed to whichever panel is
     // the active seat each Render -- which seat that is swaps every turn.
     private HandFan? _hand;
 
     // Left edge shared by the type-cycle chart and the hover tooltip below it, so the two read as
-    // one column (PLAN.md D7). Matches HoverDetailPanel.tscn's own offset_left.
+    // one column (DESIGN.md D7). Matches HoverDetailPanel.tscn's own offset_left.
     private const float TypeChartLeft = 12f;
 
     // How far the side rail moves left of its authored position on touch, so the settings gear and
@@ -106,11 +106,11 @@ public partial class BoardView : Control
 
     public override void _Ready()
     {
-        // PLAN.md D3 phase 1. Applied here rather than on GameRoot because this is the node that
+        // DESIGN.md D3 phase 1. Applied here rather than on GameRoot because this is the node that
         // owns the visual tree -- the overlays (menu, rules, log) are its children, so they inherit
         // too. C-UI already styled most of this screen by hand, so the theme mainly reaches the
         // controls that were left stock: the pause menu's buttons and the log overlay's chrome.
-        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // DESIGN.md D7: content scale, applied before anything measures itself. Idempotent and
         // no-op on desktop -- see Platform.ApplyContentScale.
         Platform.ApplyContentScale(this);
 
@@ -156,7 +156,7 @@ public partial class BoardView : Control
             panel.CreatureDroppedOnSlot += (source, target) => CreatureDroppedOnSlot?.Invoke(source, target);
             panel.SpellDroppedOnSelfArea += id => SpellDroppedOnSelfArea?.Invoke(id);
 
-            // PLAN.md B1a2: hover never submits a GameAction, so unlike every other gesture in
+            // DESIGN.md B1a2: hover never submits a GameAction, so unlike every other gesture in
             // this file it terminates here rather than bubbling up to GameRoot -- there is
             // nothing for GameRoot to decide. HoverDetailPanel is fixed in one screen corner (see
             // its own header), so every source just says what to show, never where.
@@ -176,13 +176,13 @@ public partial class BoardView : Control
         _cancelTargetingButton.Pressed += ClearSelection;
 
         // Forwarded rather than handled here: leaving a match means deciding what happens to the
-        // save file, which is GameRoot's business (PLAN.md C6), not this view's.
+        // save file, which is GameRoot's business (DESIGN.md C6), not this view's.
         _menuPanel.BackToLobbyRequested += () => BackToLobbyRequested?.Invoke();
         _menuPanel.ExitRequested += () => ExitRequested?.Invoke();
         _menuPanel.ResumeRequested += () => _menuPanel.Close();
         _menuPanel.RulesRequested += () => _tutorialOverlay!.Open();
 
-        // PLAN.md D4: Sounds sits directly below Rules in the pause menu and opens the same panel
+        // DESIGN.md D4: Sounds sits directly below Rules in the pause menu and opens the same panel
         // scene the lobby's own Sounds button does -- one page, two entry points, exactly as C7
         // arranged for the rules overlay.
         _menuPanel.SoundsRequested += () => _soundsPanel!.Open();
@@ -199,7 +199,7 @@ public partial class BoardView : Control
         // to the pause menu, not a second menu with its own behaviour.
         _settingsButton!.Pressed += OpenPauseMenu;
 
-        // PLAN.md D2 item 5. Bottom-RIGHT because the hover detail panel and the recap both own the
+        // DESIGN.md D2 item 5. Bottom-RIGHT because the hover detail panel and the recap both own the
         // bottom-left; the corner is otherwise unused (the settings gear is top-right) and HandFan
         // spans that band with mouse_filter = ignore, so nothing swallows the click.
         _logButton!.Pressed += OpenActionLog;
@@ -209,7 +209,7 @@ public partial class BoardView : Control
         ApplyTouchLayout();
     }
 
-    // PLAN.md D7's mobile fit-and-finish, in one place and behind one gate.
+    // DESIGN.md D7's mobile fit-and-finish, in one place and behind one gate.
     //
     // EVERY LINE BELOW IS INERT ON DESKTOP, and deliberately by an early return rather than by
     // arithmetic that comes out even (Platform's header explains why that distinction is the point
@@ -263,7 +263,7 @@ public partial class BoardView : Control
         _typeCycleChart.OffsetLeft = TypeChartLeft;
         _typeCycleChart.OffsetRight = TypeChartLeft + chartWidth;
 
-        // The rail clears the corner buttons (PLAN.md D7). Both buttons are anchored to the right
+        // The rail clears the corner buttons (DESIGN.md D7). Both buttons are anchored to the right
         // edge and, once inset, land at roughly x -44..-88 from it -- squarely on top of the rail's
         // top panel, which is what put the settings gear over the opponent's avatar. Shifting the
         // whole rail left by the button column's width moves it out from under both at once, and
@@ -295,7 +295,7 @@ public partial class BoardView : Control
         ScaleBoardToFit();
     }
 
-    // Grows the board subtree to fill its region, preserving the 10:9 proportion (PLAN.md D7).
+    // Grows the board subtree to fill its region, preserving the 10:9 proportion (DESIGN.md D7).
     //
     // DEFERRED, because it measures. On the frame _Ready runs, BoardArea has not been laid out and
     // reports a zero rect -- the same pre-layout (0,0) read SideRail.Align documents and guards
@@ -334,7 +334,7 @@ public partial class BoardView : Control
 
     public void CloseActionLog() => _actionLogOverlay!.Close();
 
-    // PLAN.md D2 items 2/4: shows one action on the recap panel. Called for BOTH seats -- see
+    // DESIGN.md D2 items 2/4: shows one action on the recap panel. Called for BOTH seats -- see
     // ActionRecap's header for why that was chosen rather than restricting it to the opponent.
     public void ShowRecap(ActionRecap recap) => _actionRecapPanel!.ShowRecap(recap);
 
@@ -345,17 +345,17 @@ public partial class BoardView : Control
     public bool IsMenuOpen => _menuPanel?.Visible ?? false;
 
     // True while the Rules/Tutorial overlay is up. Checked separately from IsMenuOpen so GameRoot
-    // can make ESC close the topmost thing first: the tutorial opens OVER the pause menu (PLAN.md
+    // can make ESC close the topmost thing first: the tutorial opens OVER the pause menu (DESIGN.md
     // 5.C-UI's "Rules" entry), so a bare IsMenuOpen check would leave ESC unable to dismiss it
     // without also punching through to the menu underneath.
     public bool IsTutorialOpen => _tutorialOverlay?.Visible ?? false;
 
-    // True while the Sounds panel is up (PLAN.md D4). Its own flag for the same reason
+    // True while the Sounds panel is up (DESIGN.md D4). Its own flag for the same reason
     // IsTutorialOpen is separate from IsMenuOpen: it opens OVER the pause menu, so ESC has to be
     // able to dismiss just this without punching through to the menu underneath.
     public bool IsSoundsOpen => _soundsPanel?.Visible ?? false;
 
-    // PLAN.md 5.C-UI: ESC opens the same panel the game-over screen uses, minus the finality --
+    // DESIGN.md 5.C-UI: ESC opens the same panel the game-over screen uses, minus the finality --
     // a paused game keeps its Resume button, a finished one does not.
     public void OpenPauseMenu() => _menuPanel!.Open("Paused", canResume: true);
 
@@ -369,7 +369,7 @@ public partial class BoardView : Control
     // pause menu it was opened over rather than falling all the way back to the board.
     public void CloseTutorial() => _tutorialOverlay!.Close();
 
-    // ESC's equivalent for the Sounds panel (PLAN.md D4) -- closes just this, revealing the pause
+    // ESC's equivalent for the Sounds panel (DESIGN.md D4) -- closes just this, revealing the pause
     // menu it was opened over.
     public void CloseSounds() => _soundsPanel!.Close();
 
@@ -386,7 +386,7 @@ public partial class BoardView : Control
         _avatars.TryGetValue(player, out var texture) ? texture : null;
 
     // Each seat's deck NAME (not the Deck itself -- this view has no business touching GameSession,
-    // per PLAN.md A2's boundary; GameRoot resolves the name once via GameSession.DeckOne/DeckTwo
+    // per DESIGN.md A2's boundary; GameRoot resolves the name once via GameSession.DeckOne/DeckTwo
     // and hands it down, the same split SetAvatars already uses). Stored rather than formatted into
     // "Player N - ..." here, so IdentityOf can reuse it against whichever PlayerId a panel is
     // showing this Render -- the panel/player mapping swaps every turn, the deck name does not.
@@ -414,13 +414,13 @@ public partial class BoardView : Control
     }
 
     // `viewer` is the seat this screen is drawn from -- NOT necessarily the seat whose turn it is
-    // (PLAN.md D1). This method used to compute `self = state.ActivePlayer` itself, which made the
+    // (DESIGN.md D1). This method used to compute `self = state.ActivePlayer` itself, which made the
     // board flip sides every turn; that is right for hotseat and wrong against an AI, so the
     // decision moved up to GameRoot's ViewerMode and arrives here as a parameter.
     //
     // Everything below keys off these two locals, so this substitution is the whole perspective
     // change: the panels, the rail, the avatars, the identities and the hand fan all follow.
-    // `spentMoves` carries which moves to mark as already used (PLAN.md D2 item 3). Supplied by
+    // `spentMoves` carries which moves to mark as already used (DESIGN.md D2 item 3). Supplied by
     // GameRoot rather than read off the creatures here, because the engine's own flag clears at the
     // owner's turn end and the marking is meant to persist through the opponent's turn -- see
     // SpentMoveTracker's header.
@@ -449,7 +449,7 @@ public partial class BoardView : Control
         _selfPanel.Render(
             state, cards, self, showHand: true, interactive: isViewersTurn, legalActions, spentMoves);
 
-        // Counts/resources/health live on the right rail now (PLAN.md 5.C-UI), not in the removed
+        // Counts/resources/health live on the right rail now (DESIGN.md 5.C-UI), not in the removed
         // top status bar. Read straight off GameState, the same way the status bar did.
         var otherState = state[other];
         var selfState = state[self];
@@ -492,12 +492,12 @@ public partial class BoardView : Control
             _selfPanel.SetTargetable(targetable);
         }
 
-        // The standalone turn label is gone (PLAN.md 5.C-UI): whose turn it is already reads off
+        // The standalone turn label is gone (DESIGN.md 5.C-UI): whose turn it is already reads off
         // the End Turn button's enabled state and the rail's two panels, so the button carries
         // the turn NUMBER -- the one piece that had nowhere else to live -- and takes over the
         // label's job of announcing a discard/targeting prompt.
         //
-        // Under a Fixed viewer the button also has to say whose turn it is OUTRIGHT (PLAN.md D1).
+        // Under a Fixed viewer the button also has to say whose turn it is OUTRIGHT (DESIGN.md D1).
         // The old design could leave that implicit because the board itself flipped -- the fact
         // that you were looking at your own hand meant it was your turn. Once the view stops
         // moving, a disabled End Turn button is the only thing distinguishing "your turn" from
@@ -523,7 +523,7 @@ public partial class BoardView : Control
         RefreshAnimatorLayout();
     }
 
-    // Slot rects for BoardAnimator (PLAN.md B1d). Deferred by one frame on purpose: RenderSlots
+    // Slot rects for BoardAnimator (DESIGN.md B1d). Deferred by one frame on purpose: RenderSlots
     // has just replaced every SlotView, and a freshly added Control's Size/GlobalPosition are
     // not settled until Godot's layout pass runs -- reading them synchronously here yields the
     // pre-layout (0,0) rect, the same trap ResourceIconFactory's own notes already document for
@@ -585,14 +585,14 @@ public partial class BoardView : Control
         _menuPanel!.Open(title, canResume: false);
     }
 
-    // PLAN.md D5: a network match's peer connection dropped. Reuses the same modal ShowGameOver
+    // DESIGN.md D5: a network match's peer connection dropped. Reuses the same modal ShowGameOver
     // does rather than a bespoke dialog -- the player's only real options are identical (go back
     // to the lobby, or quit), and there is nothing to resume to: an interrupted remote match has
     // no local save (GameRoot skips MatchSaveStore for network games) and no peer left to replay
     // actions against, so canResume is false for the same reason it is on a finished game.
     public void ShowDisconnected() => _menuPanel!.Open("Opponent disconnected.", canResume: false);
 
-    // A move or spell needing a chosen target (single-target rule, PLAN.md A5) highlights the
+    // A move or spell needing a chosen target (single-target rule, DESIGN.md A5) highlights the
     // legal target slots and remembers the actions that produced them, so the next SlotTapped
     // on one of those slots resolves back to a real GameAction via TryResolveTarget rather than
     // GameRoot having to re-derive "which chosen_* action did this tap mean."

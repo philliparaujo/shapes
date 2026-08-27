@@ -16,7 +16,7 @@
     (Shapes.Content.csproj's CopyToOutputDirectory) lands next to the DLLs, which is a real folder
     on desktop but only a zip entry inside the APK on Android, so AppContext.BaseDirectory-based
     loading throws there (Lobby.cs's card load used to run before any Home button got wired, so
-    the throw looked exactly like "touch doesn't work"; see PLAN.md D6). Mirroring it into this
+    the throw looked exactly like "touch doesn't work"; see DESIGN.md D6). Mirroring it into this
     project's own Content folder puts it through Godot's normal resource import, the same path
     Art and Audio already use, so it packs into the .pck/APK identically to every other asset.
     export_presets.cfg's include_filter must also name Content/*.json explicitly: Godot does not

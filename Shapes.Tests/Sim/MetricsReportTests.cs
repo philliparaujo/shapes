@@ -4,7 +4,7 @@ using Shapes.Sim;
 
 namespace Shapes.Tests.Sim;
 
-// PLAN.md Phase 4 step 1: win rate by seat, game length, per-card play/draw/win-rate correlation,
+// DESIGN.md Phase 4 step 1: win rate by seat, game length, per-card play/draw/win-rate correlation,
 // move usage, merge frequency, resource flow, ending type -- plus step 3's prerequisites
 // (confidence intervals, opportunity denominators, score margin). Testing is brief per the step's
 // own scope -- these pin the aggregation arithmetic against small, literal GameResults rather than

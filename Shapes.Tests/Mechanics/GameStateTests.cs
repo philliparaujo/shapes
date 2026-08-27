@@ -35,7 +35,7 @@ public class GameStateTests
         RuleSet.Default.MaxCopiesPerCard,
         RuleSet.Default.TypeChart);
 
-    // Seat-two starting compensation (PLAN.md step 4.8). The knobs are only worth having if
+    // Seat-two starting compensation (DESIGN.md step 4.8). The knobs are only worth having if
     // ApplySecondSeatCompensation actually moves seat two and leaves seat one untouched -- a
     // compensation that quietly hit both seats would read as "no effect" in a balance run.
     [Fact]
@@ -276,7 +276,7 @@ public class GameStateTests
         Assert.Equal(0, state[PlayerId.Two].Score);
     }
 
-    // -- Fatigue (PLAN.md step 5b) --------------------------------------------------------------
+    // -- Fatigue (DESIGN.md step 5b) --------------------------------------------------------------
 
     [Fact]
     public void Fatigue_scores_for_the_OPPONENT_of_the_player_who_ran_out_of_cards()
@@ -366,7 +366,7 @@ public class GameStateTests
     public void Fatigue_eventually_ends_a_game_neither_player_can_score_in()
     {
         // The reason the rule exists: an empty board scores nothing under the unopposed rule, so
-        // without fatigue this state would loop forever (PLAN.md step 5b's 501-turn game). Driving
+        // without fatigue this state would loop forever (DESIGN.md step 5b's 501-turn game). Driving
         // the real turn loop rather than asserting on the rule in isolation is the point.
         var state = new StateBuilder()
             .ActivePlayer(PlayerId.One)

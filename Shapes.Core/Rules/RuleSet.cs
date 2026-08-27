@@ -66,7 +66,7 @@ public sealed class RuleSet
     //
     // Score rather than damage, deliberately. Scoring here is gated on holding an unopposed
     // creature, so it requires killing something -- which means any board where defence meets
-    // offence stops scoring permanently and the game cannot end (PLAN.md step 5b: 7 of 26
+    // offence stops scoring permanently and the game cannot end (DESIGN.md step 5b: 7 of 26
     // creatures stalemate their own mirror, and one sweep game ran 501 turns frozen at 9-9).
     // Fatigue-as-damage would resolve the BOARD, but the failure mode is a board that cannot be
     // resolved at all; awarding score bypasses it entirely, so no defensive card can answer it.
@@ -76,7 +76,7 @@ public sealed class RuleSet
     // diverges and ScoreToWin is always reached.
     public int FatigueScorePerTurn { get; }
 
-    // Second-seat compensation (PLAN.md step 4.8). Player two starts with these on top of the
+    // Second-seat compensation (DESIGN.md step 4.8). Player two starts with these on top of the
     // normal opening deal, all zero by default so every pre-step-8 balance run stays reproducible.
     //
     // These exist because seat one's advantage is a TEMPO asymmetry that predates the first card

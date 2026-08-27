@@ -8,7 +8,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md C1 (AI-opponent wiring pulled forward from C5): AgentFactory is Lobby.cs's picker
+// DESIGN.md C1 (AI-opponent wiring pulled forward from C5): AgentFactory is Lobby.cs's picker
 // turned into an IAgent, the same BuildAgent switch Shapes.Console uses. Tested here rather
 // than only by hand in the editor because it is plain data-in/object-out logic with no Godot
 // node concept in it -- the same reasoning GameSessionTests already applies to GameSession.
@@ -82,7 +82,7 @@ public class MatchConfigTests
         Assert.Contains(chosenTwo, contextTwo.LegalActions);
     }
 
-    // PLAN.md D1: the viewer seat is derived from the seat configs, never picked in the lobby, so
+    // DESIGN.md D1: the viewer seat is derived from the seat configs, never picked in the lobby, so
     // these cases ARE the feature -- every one of them is a mode the UI has to render correctly,
     // and getting the derivation wrong is how the AI's hand ends up face-up on screen again.
     private static SeatConfig Ai(AgentKind kind = AgentKind.Greedy) => new(kind, Iterations: 50);
@@ -136,7 +136,7 @@ public class MatchConfigTests
         Assert.Equal(PlayerId.One, config.Viewer.Resolve(PlayerId.Two));
     }
 
-    // PLAN.md D5: a network match is Human vs Human (the exact shape Two_humans_keep_the_hotseat_flip
+    // DESIGN.md D5: a network match is Human vs Human (the exact shape Two_humans_keep_the_hotseat_flip
     // above proves flips every turn), but must never flip -- ViewerOverride is the one field that
     // makes MatchConfig.Viewer diverge from ViewerMode.For, and this pins that it actually wins,
     // for BOTH resolved seats, rather than only coincidentally matching one of them.

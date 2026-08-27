@@ -20,7 +20,7 @@ public static class CardTextFormat
 // pre-joined into Summary) so the scene can size/style them differently -- a move row is a
 // name, a cost badge, and a rules line, not one paragraph. PrimaryType is the same derivation
 // as MoveDefinition.AttackType (single-type cost, or null for free/mixed) -- Godot's move-cost
-// badge (PLAN.md B1c) needs a ResourceType to pick a shape/color, not just the pre-formatted
+// badge (DESIGN.md B1c) needs a ResourceType to pick a shape/color, not just the pre-formatted
 // glyph string ResourceIcons.DescribeCost already gives it; CostAmount is that type's pip count,
 // for the badge's number overlay (0 / meaningless when PrimaryType is null).
 //
@@ -59,17 +59,17 @@ public sealed record MoveText(
 // text (see EffectText's own header) -- every string here is synthesized, so a balance edit
 // to a card's numbers can never leave a stale description behind.
 //
-// PrimaryType (PLAN.md B1c): the single resource type Godot's hand/tooltip/in-play views use to
+// PrimaryType (DESIGN.md B1c): the single resource type Godot's hand/tooltip/in-play views use to
 // pick a placeholder-art shape/color and cost-badge number. "Type comes from resource cost,
-// always" (PLAN.md 0. Confirmed ruleset) -- a creature's defensive type IS its play cost's type.
+// always" (DESIGN.md 0. Confirmed ruleset) -- a creature's defensive type IS its play cost's type.
 // CardDefinition.SingleCostType is the authoritative derivation but is internal to Shapes.Core
 // (no InternalsVisibleTo to this project), so SinglePipType below is a second copy of the same
 // few lines -- same accepted duplication ResourceIcons' own header already documents for this
 // project, rather than widening Shapes.Core's public surface for a Godot-only convenience.
 // Public (not internal) because Shapes.Godot's SlotView also needs it, for a merged creature's
-// per-source-card art pane (PLAN.md B1c) -- a second cross-assembly copy inside Shapes.Godot
+// per-source-card art pane (DESIGN.md B1c) -- a second cross-assembly copy inside Shapes.Godot
 // itself would triple the duplication instead of keeping it at the one accepted layer.
-// CardId travels with the text (PLAN.md B1c) so a view can look up that card's art. Every art
+// CardId travels with the text (DESIGN.md B1c) so a view can look up that card's art. Every art
 // site is reached through a CardText already -- the hand card's face, its hover tooltip, and a
 // board creature's hover all carry one -- so carrying the id here is what lets art resolve
 // without threading a second parameter through three event signatures. It is the card's stable

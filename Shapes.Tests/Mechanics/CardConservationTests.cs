@@ -20,7 +20,7 @@ namespace Shapes.Tests.Mechanics;
 // decklist both players share, and deals the remainder into a hand and deck of the observed
 // sizes. If a card can leave the game without landing in a visible zone, that subtraction
 // over-counts and the determinizer samples opponent hands containing cards that are physically
-// dead -- exactly the "sampling a deck containing a card already in the graveyard" bug PLAN.md
+// dead -- exactly the "sampling a deck containing a card already in the graveyard" bug DESIGN.md
 // calls out as silently degrading play.
 //
 // It failed before GameState.DestroyCreature existed: a destroyed creature was removed from the

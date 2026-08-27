@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    UI adapter layer for the Godot client (PLAN.md Phase 5 step A2): GameSession/StateDiff,
+    UI adapter layer for the Godot client (DESIGN.md Phase 5 step A2): GameSession/StateDiff,
     the only code allowed to touch GameState. A plain class library rather than living inside
     Shapes.Godot itself, so it builds and tests under a normal dotnet build/dotnet test call.
     The Godot.NET.Sdk's source generator requires a GodotProjectDir MSBuild property that only

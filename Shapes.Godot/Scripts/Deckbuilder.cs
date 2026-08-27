@@ -10,7 +10,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The deckbuilding tab (PLAN.md C2): ten slots, each a 40-card decklist with at most 3 copies of
+// The deckbuilding tab (DESIGN.md C2): ten slots, each a 40-card decklist with at most 3 copies of
 // any card, edited as two columns -- the whole collection on the left, the current decklist on
 // the right -- with a slot picker above them.
 //
@@ -136,14 +136,14 @@ public partial class Deckbuilder : Control
 
     public override void _Ready()
     {
-        // PLAN.md D3 phase 1 -- the project theme, inherited by everything below this root.
-        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // DESIGN.md D3 phase 1 -- the project theme, inherited by everything below this root.
+        // DESIGN.md D7: content scale, applied before anything measures itself. Idempotent and
         // no-op on desktop -- see Platform.ApplyContentScale.
         Platform.ApplyContentScale(this);
 
         UiTheme.ApplyTo(this);
 
-        // PLAN.md D7c: this screen's Layout is anchored to all four edges, so on a phone it draws
+        // DESIGN.md D7c: this screen's Layout is anchored to all four edges, so on a phone it draws
         // under the system bars and any display cutout (the Android preset sets immersive mode).
         // Inert on desktop by TouchLayout's own gate -- the .tscn offsets are left untouched there.
         TouchLayout.InsetOffsets(GetNodeOrNull<Control>("Layout"));
@@ -203,7 +203,7 @@ public partial class Deckbuilder : Control
         _completeDeckButton.Pressed += OnCompleteDeckPressed;
         _backButton.Pressed += () => GetTree().ChangeSceneToFile(LobbyScenePath);
 
-        // The return leg of the browser's own link (PLAN.md D3 phase 3). Safe as an unconditional
+        // The return leg of the browser's own link (DESIGN.md D3 phase 3). Safe as an unconditional
         // scene change for the reason this class's header already gives about Back: every edit is
         // written through to DeckStore immediately, so there is no unsaved state to guard.
         _cardBrowserButton.Pressed += () => GetTree().ChangeSceneToFile(CardBrowserScenePath);
@@ -232,7 +232,7 @@ public partial class Deckbuilder : Control
         AddChild(_hoverPanel);
     }
 
-    // Wording matches CardBrowser.PopulateFilters exactly (PLAN.md D3 phase 3's "one console, two
+    // Wording matches CardBrowser.PopulateFilters exactly (DESIGN.md D3 phase 3's "one console, two
     // screens" reasoning) -- a player moving between the two card screens should not have to
     // learn that Deckbuilding's "Type" is CardBrowser's "Type" under a different name.
     private void PopulateFilters()
@@ -611,7 +611,7 @@ public partial class Deckbuilder : Control
 
     private void OnHoverEnded() => _hoverPanel!.Hide();
 
-    // Cost, then name -- the same key CardBrowser sorts by (PLAN.md C4's sort rule), so the two
+    // Cost, then name -- the same key CardBrowser sorts by (DESIGN.md C4's sort rule), so the two
     // card screens present the set in one order rather than two.
     private static (int Cost, string Name) SortKey(CardDefinition card)
     {

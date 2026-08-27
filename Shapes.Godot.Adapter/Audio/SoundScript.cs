@@ -2,7 +2,7 @@ using Shapes.Core.Actions;
 
 namespace Shapes.Godot.Adapter;
 
-// Turns one action into the sounds it should make (PLAN.md D4).
+// Turns one action into the sounds it should make (DESIGN.md D4).
 //
 // The audio counterpart of AnimationScript, and deliberately a separate translation rather than a
 // filter over that one -- see SoundCue's header for why the two vocabularies differ at both ends.

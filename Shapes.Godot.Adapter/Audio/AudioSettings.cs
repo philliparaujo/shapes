@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Shapes.Godot.Adapter;
 
 // The player's two volume levels as they live on disk, plus the level -> decibel conversion
-// (PLAN.md D4).
+// (DESIGN.md D4).
 //
 // Split from the Godot-side SettingsStore for the same reason SavedDeck is split from DeckStore
 // and SavedMatch from MatchSaveStore: this half is pure and testable outside the editor, while

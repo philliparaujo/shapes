@@ -6,7 +6,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The Godot-specific half of deck persistence (PLAN.md C2) -- user:// file I/O for the ten deck
+// The Godot-specific half of deck persistence (DESIGN.md C2) -- user:// file I/O for the ten deck
 // slots. SavedDeck/DeckSlots/DeckSlotsJsonContext live in Shapes.Godot.Adapter (pure, testable
 // outside the editor); this class is the thin wrapper that actually reads and writes them, since
 // System.IO.File does not resolve a user:// path -- only Godot's FileAccess API does. Exactly the

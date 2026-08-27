@@ -3,7 +3,7 @@ using Godot;
 namespace Shapes.Godot.Scripts;
 
 // The one place a card's outer shape lives: rounded corners, border weight, and the card-stock
-// palette shared by the three views that draw a card (PLAN.md 5.C-UI).
+// palette shared by the three views that draw a card (DESIGN.md 5.C-UI).
 //
 // A hand card, a creature in play, and the hover tooltip are three separate scenes that each used
 // to bring their own panel -- Godot's default Button/PanelContainer styling in two of them, and a
@@ -17,7 +17,7 @@ public static class CardStyle
     // Card stock and its edge. Dark because every card's art and text are authored against a dark
     // face -- the tan board changed what sits AROUND a card, not the card itself.
     //
-    // Aliases onto Palette (PLAN.md D3 phase 1) rather than holding its own literals, so a card and
+    // Aliases onto Palette (DESIGN.md D3 phase 1) rather than holding its own literals, so a card and
     // a themed panel cannot disagree about what "card stock" is. Kept as names here because these
     // two are what the card-drawing code has always called them.
     public static readonly Color StockColor = Palette.Surface;

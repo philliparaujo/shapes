@@ -3,7 +3,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// A card as it looks IN THE COLLECTION (PLAN.md C2): the full card face, clickable, with a
+// A card as it looks IN THE COLLECTION (DESIGN.md C2): the full card face, clickable, with a
 // copies-in-deck badge in the corner.
 //
 // The collection and the decklist deliberately no longer share one row type. They are asking two

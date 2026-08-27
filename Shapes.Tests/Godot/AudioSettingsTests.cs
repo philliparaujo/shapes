@@ -2,7 +2,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D4: the audio settings model and the music rotation. The bar here is that the two rules
+// DESIGN.md D4: the audio settings model and the music rotation. The bar here is that the two rules
 // with real consequences hold -- a level from disk can never reach the mixer out of range, and the
 // rotation visits every track before repeating any.
 public class AudioSettingsTests

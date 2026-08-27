@@ -4,7 +4,7 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Scripts;
 
-// The deck's mana curve, as a stacked bar per cost (PLAN.md C2's deckbuilding tab).
+// The deck's mana curve, as a stacked bar per cost (DESIGN.md C2's deckbuilding tab).
 //
 // The one deck statistic that is a SHAPE rather than a number. Deckbuilder's stats line already
 // prints the same totals this chart sums (Spike/Anvil/Wheel counts, mean cost), and printed

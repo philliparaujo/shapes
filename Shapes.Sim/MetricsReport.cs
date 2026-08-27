@@ -4,7 +4,7 @@ using Shapes.Core.Primitives;
 namespace Shapes.Sim;
 
 // Identifies WHAT PRODUCED a metrics report. Phase 4's method is paired comparison -- change one
-// card or rule, rerun, diff against a frozen baseline (PLAN.md step 4.4) -- and a diff between
+// card or rule, rerun, diff against a frozen baseline (DESIGN.md step 4.4) -- and a diff between
 // two reports is meaningless if you cannot tell what differed between the runs that made them.
 // Without this, a balance/ directory of report files is a pile of anonymous numbers.
 //
@@ -23,7 +23,7 @@ public sealed class RunProvenance
     public required int Iterations { get; init; }
 
     // Name of the ruleset in play. Every balance experiment is "a named ruleset file" by design
-    // (PLAN.md's rules-as-configuration decision), so this is the primary axis a sweep varies.
+    // (DESIGN.md's rules-as-configuration decision), so this is the primary axis a sweep varies.
     public required string RuleSetName { get; init; }
 
     // Fingerprint of the card data actually loaded, so two reports can be compared for
@@ -348,7 +348,7 @@ public sealed class ResourceSeriesProfile
     public required IReadOnlyList<MeanEstimate> Wheel { get; init; }
 }
 
-// Whole-batch metrics: PLAN.md Phase 4 step 1's list, extended by step 3's prerequisites
+// Whole-batch metrics: DESIGN.md Phase 4 step 1's list, extended by step 3's prerequisites
 // (confidence intervals, opportunity denominators, score margin, provenance). Computed once over
 // every game in a BatchResult rather than per-pairing -- a per-card correlation or a seat win
 // rate is only meaningful pooled across the whole matrix, unlike PairingSummary's
@@ -362,7 +362,7 @@ public sealed class MetricsReport
     public required int GameCount { get; init; }
 
     // Seats, never pooled -- same reasoning as PairingSummary: pooling hides first-player
-    // advantage, which is exactly what this number exists to surface (PLAN.md step 4.5's "watch
+    // advantage, which is exactly what this number exists to surface (DESIGN.md step 4.5's "watch
     // for first-player advantage beyond ~55%").
     public required Interval SeatOneWinRate { get; init; }
 
@@ -452,7 +452,7 @@ public sealed class MetricsReport
     // would destroy the provenance those files exist to preserve.
     public Distribution GameLengthDistribution { get; init; }
 
-    // FATIGUE (PLAN.md step 5b), per seat. DeckExhaustionRate is the share of games where that
+    // FATIGUE (DESIGN.md step 5b), per seat. DeckExhaustionRate is the share of games where that
     // seat ever started a turn with an empty deck; FirstFatigueTurn is when it first happened,
     // over only the games where it happened at all (so it reads as "when it fires, it fires
     // around turn N," not diluted by games that never reached it).

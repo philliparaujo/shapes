@@ -279,7 +279,7 @@ public class DiscardTests
     [Fact]
     public void Discarding_several_cards_narrows_the_choice_one_card_at_a_time()
     {
-        // PLAN.md's stated shape: a four-card hand owing 3 offers 4 options, then 3, then 2,
+        // DESIGN.md's stated shape: a four-card hand owing 3 offers 4 options, then 3, then 2,
         // then ordinary play resumes. Linear in hand size rather than binomial in combinations.
         string[] hand = [TestCards.Bolt, TestCards.Striker, TestCards.Chooser, TestCards.Gated];
         var state = PendingDiscardState(count: 3, hand: hand);

@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// TEMPORARY -- the other half of the PLAN.md D1 check, deleted alongside ViewerSeatShotHarness.
+// TEMPORARY -- the other half of the DESIGN.md D1 check, deleted alongside ViewerSeatShotHarness.
 // That harness proves the view STOPS following the active player when one seat is an AI; this one
 // proves it still DOES follow when both seats are human, which is D1's compatibility bar: local
 // two-player hotseat is one screen passed between two people, and there flipping is correct.

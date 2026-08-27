@@ -1,5 +1,5 @@
 // Headless batch runner: N seeded games in parallel per agent pairing, emitting a win-rate/
-// behaviour-count matrix. Implements PLAN.md Phase 3, step 1 -- everything after it (playout
+// behaviour-count matrix. Implements DESIGN.md Phase 3, step 1 -- everything after it (playout
 // policy, tuning, performance work) is gated on this existing, since an unmeasured optimization
 // is a guess.
 //
@@ -123,7 +123,7 @@ var cardsDir = Path.Combine(AppContext.BaseDirectory, "Content", "cards");
 var cards = CardLoader.FromDirectory(cardsDir);
 var rules = RuleSet.Default;
 
-// --calibration adds the six deliberately mispriced spells (PLAN.md step 4.2e) on top of the
+// --calibration adds the six deliberately mispriced spells (DESIGN.md step 4.2e) on top of the
 // real set, so the metrics detectors can be checked against a known-wrong answer. Loaded from a
 // separate directory rather than merged into cards\ on disk, so CardSetHash (which only hashes
 // cards\) and BuildSymmetricDeck's card count are unaffected for every non-calibration run.
@@ -245,7 +245,7 @@ var provenance = ProvenanceBuilder.Build(options, cards, rules, cardsDir);
 var metrics = MetricsReport.From(result.AllGames, provenance);
 
 Console.WriteLine();
-Console.WriteLine("-- Metrics (PLAN.md Phase 4 steps 1/3) -----------------------------------");
+Console.WriteLine("-- Metrics (DESIGN.md Phase 4 steps 1/3) -----------------------------------");
 Console.WriteLine($"Ruleset / cards    {provenance.RuleSetName}  cards={provenance.CardCount} "
     + $"hash={provenance.CardSetHash}");
 Console.WriteLine(
@@ -265,7 +265,7 @@ Console.WriteLine($"Game length        {metrics.GameLength} turns");
 
 // The distribution, not just the mean: one non-terminating game moves the mean and standard
 // deviation far more than the median, so a mean well above p50 is the signal that some games are
-// not ending rather than that all games got longer (PLAN.md step 5b).
+// not ending rather than that all games got longer (DESIGN.md step 5b).
 Console.WriteLine($"                   {metrics.GameLengthDistribution}");
 
 var fatigueOne = metrics.DeckExhaustionRateSeatOne;

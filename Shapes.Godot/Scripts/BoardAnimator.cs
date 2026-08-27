@@ -6,7 +6,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// Plays A2's StateDiff as visible feedback (PLAN.md B1d).
+// Plays A2's StateDiff as visible feedback (DESIGN.md B1d).
 //
 // ARCHITECTURE -- the choice B1d called "the step":
 // This is an OVERLAY, not a reconciliation of the existing card nodes. PlayerPanel.RenderSlots
@@ -51,7 +51,7 @@ public partial class BoardAnimator : Control
     private static readonly Color MergeColor = new("ffc94a");
     private static readonly Color DestroyColor = new("ff3b3b");
     // Score now reads as the opponent LOSING health, so it shares the damage red rather than
-    // keeping its own yellow (PLAN.md 5.C-UI). ScoreColor survives as the highlight on the
+    // keeping its own yellow (DESIGN.md 5.C-UI). ScoreColor survives as the highlight on the
     // creature that earned it -- that one really is a gain, and gold reads as such.
     private static readonly Color ScoreColor = new("ffd479");
     private static readonly Color HealthLossColor = new("ff5a5a");

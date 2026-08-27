@@ -10,7 +10,7 @@ using Shapes.Godot.Adapter;
 namespace Shapes.Godot.Scripts;
 
 // One board slot: empty, or a creature summary (name, health, type icons) plus a row of
-// always-visible move buttons -- PLAN.md B1a's replacement for the tap-slot-then-MoveMenu-popup
+// always-visible move buttons -- DESIGN.md B1a's replacement for the tap-slot-then-MoveMenu-popup
 // path, chosen specifically so a creature's moves are readable without any interaction (fixes
 // "moves not shown on the board") and so using a move is one click instead of two. Every move
 // the creature has renders, not just the currently-usable ones -- an unusable move (on cooldown
@@ -29,7 +29,7 @@ namespace Shapes.Godot.Scripts;
 // Also a drag source (a friendly creature can be dragged onto an adjacent friendly slot to
 // merge) and a drop target (a hand card can be dragged here to play/place; a friendly creature
 // can be dragged here to merge into this one). Moves are deliberately NOT drag targets -- see
-// PLAN.md B1a's note on why a drag alone can't disambiguate a creature with 2+ legal moves.
+// DESIGN.md B1a's note on why a drag alone can't disambiguate a creature with 2+ legal moves.
 public partial class SlotView : Button
 {
     public event Action? Tapped;
@@ -41,10 +41,10 @@ public partial class SlotView : Button
     public event Action<string>? HandCardDropped;
     public event Action<SlotIndex>? CreatureDropped;
 
-    // PLAN.md B1a2: a board creature's hover payload is its full MERGED move list (MovesOf
+    // DESIGN.md B1a2: a board creature's hover payload is its full MERGED move list (MovesOf
     // across every card folded into it), which isn't any single CardDefinition's CardText -- see
     // HoverDetailPanel's header for why that rules out reusing CardFace's CardText-shaped event.
-    // Carries a whole CardText (PLAN.md B1c): the board creature's hover used to send only a name
+    // Carries a whole CardText (DESIGN.md B1c): the board creature's hover used to send only a name
     // and a move list, so its tooltip had no cost pip, no art and no printed HP -- the three
     // things that make a tooltip look like the card it describes. The live Health/MaxHealth still
     // travels separately, since that is instance state the CardDefinition cannot know.
@@ -167,7 +167,7 @@ public partial class SlotView : Button
         // The HP/status band along the card's foot. Styled EXPLICITLY rather than left to inherit:
         // it is a bare PanelContainer, so before the project theme existed it drew Godot's default
         // panel, and once the theme gave every PanelContainer card stock plus a 2px border it
-        // suddenly read as a second card nested inside the first (PLAN.md D3 phase 3). A band on a
+        // suddenly read as a second card nested inside the first (DESIGN.md D3 phase 3). A band on a
         // card is not itself a card -- it takes a darker fill, no border, and only the bottom
         // corners rounded so it sits flush into the card's own foot.
         _statusBar?.AddThemeStyleboxOverride("panel", StatusBandStyle);
@@ -198,7 +198,7 @@ public partial class SlotView : Button
     }
 
     // Which merged-art treatment to use. Static so one switch changes every slot and the card
-    // browser at once -- it exists to compare the three candidates side by side (PLAN.md 5.C-UI),
+    // browser at once -- it exists to compare the three candidates side by side (DESIGN.md 5.C-UI),
     // and should collapse to whichever wins.
     public static MergedArtStyle MergedStyle { get; set; } = MergedArtStyle.AngledSoft;
 
@@ -317,7 +317,7 @@ public partial class SlotView : Button
         }
 
         // Resource/type icons sit inline with the name (top-left) rather than the name owning
-        // the whole header row -- PLAN.md B1b: a merged creature's concatenated name
+        // the whole header row -- DESIGN.md B1b: a merged creature's concatenated name
         // ("Cadet+Medic") is the one thing here that can genuinely run long, so it's the label
         // that gets size_flags_horizontal=3 (expand + wrap) while everything else claims only
         // the width it needs. Health moved to its own row (StatusRow) alongside the status
@@ -349,7 +349,7 @@ public partial class SlotView : Button
             _typeBadge.AddChild(ResourceIconFactory.Create(type, ResourceIconFactory.IconSize.Small));
         }
 
-        // Placeholder art (PLAN.md B1c): one giant shape for an unmerged creature, or two
+        // Placeholder art (DESIGN.md B1c): one giant shape for an unmerged creature, or two
         // side-by-side (one per source card) for a merged one -- MergedFrom is capped at
         // RuleSet.MaxMergeDepth (2), so "two panes" is the real worst case, not a guess. Each
         // pane keys off that source card's own play-cost type (CardText.SinglePipType's
@@ -396,7 +396,7 @@ public partial class SlotView : Button
         _hoveredCardIndex = -1;
 
         // "Used since this seat's last turn" comes from the tracker, not from
-        // CreatureInstance.HasUsedMove (PLAN.md D2 item 3). The engine flag is the right source for
+        // CreatureInstance.HasUsedMove (DESIGN.md D2 item 3). The engine flag is the right source for
         // LEGALITY but the wrong one for DISPLAY: it clears at the owner's turn end, so reading it
         // here made the marking vanish for the whole of the opponent's turn -- which is exactly
         // when someone watching wants to see what was just spent. Falls back to the engine flag

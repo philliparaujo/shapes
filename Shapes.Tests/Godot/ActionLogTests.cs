@@ -6,7 +6,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D2 item 5. The log is a RENDERING of StateDiff, so what it says is a pure function of
+// DESIGN.md D2 item 5. The log is a RENDERING of StateDiff, so what it says is a pure function of
 // (action, diff, before-state, cards) -- which is exactly why it lives in the adapter and can be
 // tested here, with no Godot scene and no editor, unlike the screenshot harnesses.
 //

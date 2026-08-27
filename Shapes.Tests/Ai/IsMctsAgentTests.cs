@@ -10,7 +10,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Ai;
 
-// PLAN.md step 2.6: IS-MCTS -- selection, expansion, playout, backprop, per-iteration resampling.
+// DESIGN.md step 2.6: IS-MCTS -- selection, expansion, playout, backprop, per-iteration resampling.
 //
 // == What is hard to test here, and how these tests handle it ==
 //
@@ -161,7 +161,7 @@ public class IsMctsAgentTests
     [Fact]
     public void Identical_actions_from_different_worlds_pool_into_one_child()
     {
-        // Why GameAction needs value equality (PLAN.md step 1.8 calls this out as the reason).
+        // Why GameAction needs value equality (DESIGN.md step 1.8 calls this out as the reason).
         // The same action generated in two different determinized worlds is two distinct object
         // references; under reference equality they would become two children splitting the
         // statistics, and the search would learn half as much from each while double-counting the
@@ -243,7 +243,7 @@ public class IsMctsAgentTests
     [Fact]
     public void It_resamples_a_new_world_every_iteration()
     {
-        // "Per-iteration resampling" is the phrase PLAN.md step 2.6 uses, and it is the line
+        // "Per-iteration resampling" is the phrase DESIGN.md step 2.6 uses, and it is the line
         // between IS-MCTS and MCTS-on-a-guess. Determinizing once per SEARCH would make every
         // statistic conditional on one imagined opponent hand, and the agent would play around
         // cards the opponent does not hold -- while passing every other test here.
@@ -283,7 +283,7 @@ public class IsMctsAgentTests
             agent.LastDistinctWorldCount > 1,
             $"A 50-iteration search saw only {agent.LastDistinctWorldCount} distinct opponent "
             + "hand(s), so it is sampling one world and reusing it rather than resampling per "
-            + "iteration -- see PLAN.md step 2.6.");
+            + "iteration -- see DESIGN.md step 2.6.");
     }
 
     [Fact]
@@ -557,7 +557,7 @@ public class IsMctsAgentTests
     // -- Step 3.2: pluggable playout policy ----------------------------------------------------
     //
     // The default must stay UniformPlayoutPolicy -- the search's own correctness tests above all
-    // run through Agent(), which does not pass a policy, and PLAN.md is explicit that a heuristic
+    // run through Agent(), which does not pass a policy, and DESIGN.md is explicit that a heuristic
     // playout must not become the default silently: it could paper over a selection/backprop bug
     // by making even broken search play plausibly. These tests pin the wiring only -- whether the
     // heuristic policy is actually stronger is Shapes.Sim's question, not this suite's.

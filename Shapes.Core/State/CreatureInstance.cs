@@ -82,7 +82,7 @@ public sealed class CreatureInstance
     // permanent taunt would simply not set this flag.
     //
     // Exposed read-only (TauntExpiresNextTurn) so a UI can distinguish persistent taunt from
-    // expiring taunt without duplicating the rule that decides it -- PLAN.md B1b's status icons
+    // expiring taunt without duplicating the rule that decides it -- DESIGN.md B1b's status icons
     // need to dim/badge the expiring case, and re-deriving "will this expire" from outside this
     // class would be a second copy of ResetMovesForNewTurn's own logic.
     private bool _tauntExpiresNextTurn;

@@ -3,7 +3,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// PLAN.md D2 items 2 and 4: the last action taken, held briefly on the left edge then faded out.
+// DESIGN.md D2 items 2 and 4: the last action taken, held briefly on the left edge then faded out.
 //
 // WHY THIS EXISTS. The board renders state, not events, so an action's only trace is whatever
 // lasting change it made -- and a move's is just a health number somewhere. This panel is the

@@ -5,7 +5,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md D2 item 5: the running record of everything that has happened in a match -- card plays,
+// DESIGN.md D2 item 5: the running record of everything that has happened in a match -- card plays,
 // move uses, turn ends, and the EFFECTS each caused (damage, healing, destruction, scoring,
 // resource and card-count changes).
 //
@@ -19,7 +19,7 @@ namespace Shapes.Godot.Adapter;
 // "Shapes.Core stays unmodified" rule for no gain.
 //
 // Lives in the adapter, not in Shapes.Godot, so it is `dotnet test`-reachable outside the editor
-// (the reason this project exists at all -- see PLAN.md's project-structure note). Formatting is a
+// (the reason this project exists at all -- see DESIGN.md's project-structure note). Formatting is a
 // pure function of (action, diff, state-before, cards), which is what makes it testable without a
 // running scene; the overlay in Shapes.Godot only renders the entries this produces.
 public sealed class ActionLog

@@ -8,7 +8,7 @@ namespace Shapes.Godot.Adapter;
 
 // Which agent a seat uses, or a human. Mirrors Shapes.Console's --p1/--p2 vocabulary (its
 // BuildAgent switch) so the lobby offers exactly what the console already proves out, rather
-// than inventing a second selection surface (PLAN.md C1, pulled forward to include C5's
+// than inventing a second selection surface (DESIGN.md C1, pulled forward to include C5's
 // AI-opponent wiring rather than leaving picking an AI seat non-functional).
 public enum AgentKind
 {
@@ -27,7 +27,7 @@ public sealed record SeatConfig(AgentKind Kind, int Iterations)
 }
 
 // Whose seat the screen is drawn from -- deliberately NOT the same question as whose turn it is
-// (PLAN.md D1). GameState.ActivePlayer answers turn order and nothing else; this answers "which
+// (DESIGN.md D1). GameState.ActivePlayer answers turn order and nothing else; this answers "which
 // row is the bottom row, and whose hand is legible."
 //
 // The two were the same expression (`self = state.ActivePlayer`) for as long as hotseat was the
@@ -93,7 +93,7 @@ public abstract record ViewerMode
 // built-in way to pass constructor arguments across ChangeSceneToFile, and a static holder set
 // immediately before the scene change and read once in GameRoot._Ready is the smallest
 // mechanism that works, matching how little state actually needs to cross the boundary.
-// `DeckOne`/`DeckTwo` are the decklists the lobby's per-seat deck dropdowns selected (PLAN.md
+// `DeckOne`/`DeckTwo` are the decklists the lobby's per-seat deck dropdowns selected (DESIGN.md
 // C2), null meaning "the default deck" -- the same null-means-default convention GameSession.Start
 // already uses, so an AI-vs-AI game started without touching the dropdowns behaves exactly as it
 // did before decks existed.
@@ -101,14 +101,14 @@ public sealed record MatchConfig(
     SeatConfig PlayerOne, SeatConfig PlayerTwo, ulong Seed, Deck? DeckOne = null, Deck? DeckTwo = null,
     PlayerId? ViewerOverride = null)
 {
-    // Whose seat the screen shows (PLAN.md D1). Derived from the two seat configs rather than
+    // Whose seat the screen shows (DESIGN.md D1). Derived from the two seat configs rather than
     // stored by the lobby, for the reason in ViewerMode.For: every seat pairing has exactly one
     // sensible answer, so making this a settable property would only create a way for a caller to
     // supply a different one. It is also therefore correct for a RESUMED match for free --
     // SavedMatch persists both SeatConfigs already, so a resumed vs-AI game re-derives Fixed
     // without the save file needing to have known about viewers when it was written.
     //
-    // ViewerOverride (PLAN.md D5) is the one exception to "always derive it": a network match is
+    // ViewerOverride (DESIGN.md D5) is the one exception to "always derive it": a network match is
     // SeatConfig.Human vs SeatConfig.Human, the exact shape ViewerMode.For reads as local hotseat
     // and flips every turn -- correct when one screen serves both seats, wrong the moment the two
     // seats are two different processes. Checked first, so every existing local mode (which never

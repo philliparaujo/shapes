@@ -2,7 +2,7 @@ using Shapes.Core.Cards;
 
 namespace Shapes.Tests.Godot;
 
-// Art filenames must name real card ids (PLAN.md B1c).
+// Art filenames must name real card ids (DESIGN.md B1c).
 //
 // CardArt resolves res://art/cards/{cardId}.png and falls back to the geometric placeholder when
 // there is no match -- deliberately, so the set can be filled one card at a time. That fallback

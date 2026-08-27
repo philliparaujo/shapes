@@ -58,7 +58,7 @@ public sealed class ConsoleOptions
     // ending) and a slow-to-read one (a multi-effect spell) in the same game, since both get the
     // same wait. Stepping one action at a time lets the reader set their own pace, which a timer
     // cannot. Independent of --quiet -- it controls PACING, not verbosity -- but its stated
-    // purpose (PLAN.md Phase 4 step 4) is pacing an otherwise-fast --quiet log, so the two are
+    // purpose (DESIGN.md Phase 4 step 4) is pacing an otherwise-fast --quiet log, so the two are
     // meant to be used together even though nothing enforces that.
     public bool Step { get; private set; }
 

@@ -4,7 +4,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md B1b: a compact, always-visible readout of a creature's status/keyword state, so a
+// DESIGN.md B1b: a compact, always-visible readout of a creature's status/keyword state, so a
 // player reads taunt/reflect/ricochet/stun/buffs at a glance instead of needing to tap or hover.
 // One badge per active status; SlotView renders these as a single wrapped icon row under health.
 // IsExpiring marks the "gone at the start of your next turn" case (only reachable today via

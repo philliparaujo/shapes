@@ -9,7 +9,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The collection view (PLAN.md C4): every card, always shown in full detail, filterable, in a
+// The collection view (DESIGN.md C4): every card, always shown in full detail, filterable, in a
 // paginated grid. A separate scene (CardBrowser.tscn) rather than a lobby tab, per explicit
 // direction, reachable the same one-line ChangeSceneToFile way Lobby reaches GameRoot.
 //
@@ -148,7 +148,7 @@ public partial class CardBrowser : Control
     private ScrollContainer? _scrollContainer;
 
     private CardDatabase? _cards;
-    // Creature cards only, pre-sorted cost/name/type (PLAN.md C4's sort rule) -- both the
+    // Creature cards only, pre-sorted cost/name/type (DESIGN.md C4's sort rule) -- both the
     // Original grid and the First/Second merge pickers iterate this same order, so a pairing's
     // "first" and "second" dropdowns list creatures in the same order the plain grid does.
     private List<CardDefinition> _creatureCards = [];
@@ -157,14 +157,14 @@ public partial class CardBrowser : Control
 
     public override void _Ready()
     {
-        // PLAN.md D3 phase 1 -- the project theme, inherited by everything below this root.
-        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // DESIGN.md D3 phase 1 -- the project theme, inherited by everything below this root.
+        // DESIGN.md D7: content scale, applied before anything measures itself. Idempotent and
         // no-op on desktop -- see Platform.ApplyContentScale.
         Platform.ApplyContentScale(this);
 
         UiTheme.ApplyTo(this);
 
-        // PLAN.md D7c: this screen's Layout is anchored to all four edges, so on a phone it draws
+        // DESIGN.md D7c: this screen's Layout is anchored to all four edges, so on a phone it draws
         // under the system bars and any display cutout (the Android preset sets immersive mode).
         // Inert on desktop by TouchLayout's own gate -- the .tscn offsets are left untouched there.
         TouchLayout.InsetOffsets(GetNodeOrNull<Control>("Layout"));
@@ -220,7 +220,7 @@ public partial class CardBrowser : Control
 
         _backButton.Pressed += () => GetTree().ChangeSceneToFile(LobbyScenePath);
 
-        // Straight across to the deckbuilder (PLAN.md D3 phase 3). The two screens render cards
+        // Straight across to the deckbuilder (DESIGN.md D3 phase 3). The two screens render cards
         // with the same components and are used for the same question -- "what is in this set" --
         // so making a player route back through the menu to switch between them was friction with
         // nothing behind it.

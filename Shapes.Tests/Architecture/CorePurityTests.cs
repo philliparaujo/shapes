@@ -4,7 +4,7 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Tests.Architecture;
 
-// Enforces the keystone architectural rule from PLAN.md: Shapes.Core references nothing
+// Enforces the keystone architectural rule from DESIGN.md: Shapes.Core references nothing
 // but the BCL.
 //
 // Everything downstream depends on this. If Core stays pure, Phase 5 is a client swap
@@ -55,7 +55,7 @@ public class CorePurityTests
         Assert.True(
             packages.Count == 0,
             $"Shapes.Core must declare no PackageReference, but declares: {string.Join(", ", packages)}. "
-            + "See PLAN.md 'Core stays pure'.");
+            + "See DESIGN.md 'Core stays pure'.");
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class CorePurityTests
     [Fact]
     public void Core_types_live_under_the_expected_namespaces()
     {
-        // The folder layout is part of the design (PLAN.md project structure). This catches
+        // The folder layout is part of the design (DESIGN.md project structure). This catches
         // types dropped into the assembly root or into an unplanned namespace.
         string[] allowed =
         [

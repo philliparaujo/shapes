@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The project's default control styling (PLAN.md D3 phase 1): one Theme, built once, applied at
+// The project's default control styling (DESIGN.md D3 phase 1): one Theme, built once, applied at
 // every screen's root so its whole subtree inherits it.
 //
 // BUILT IN CODE RATHER THAN AUTHORED AS A .tres. A theme resource would have to restate every

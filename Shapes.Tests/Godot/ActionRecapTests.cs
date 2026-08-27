@@ -6,7 +6,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D2 items 2 and 4: WHAT the recap panel shows for a given action. The decision lives in
+// DESIGN.md D2 items 2 and 4: WHAT the recap panel shows for a given action. The decision lives in
 // the adapter precisely so it can be tested here; the panel in Shapes.Godot owns only the hold and
 // the fade, which are timings and belong to a windowed playtest rather than to a test suite.
 public class ActionRecapTests

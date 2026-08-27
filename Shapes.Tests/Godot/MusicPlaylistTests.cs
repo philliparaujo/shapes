@@ -2,7 +2,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D4: the "1,2,3,4,1,2,3,4,..." rotation the request asked for, pinned as an actual
+// DESIGN.md D4: the "1,2,3,4,1,2,3,4,..." rotation the request asked for, pinned as an actual
 // sequence rather than trusted to modular arithmetic being obviously right.
 public class MusicPlaylistTests
 {

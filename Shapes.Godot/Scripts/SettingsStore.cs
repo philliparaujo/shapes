@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The Godot-specific half of settings persistence (PLAN.md D4) -- user:// file I/O for the
+// The Godot-specific half of settings persistence (DESIGN.md D4) -- user:// file I/O for the
 // player's audio levels. AudioSettings itself lives in Shapes.Godot.Adapter (pure, testable
 // outside the editor); this class is the thin wrapper that reads and writes it, since
 // System.IO.File does not resolve a user:// path -- only Godot's FileAccess API does.

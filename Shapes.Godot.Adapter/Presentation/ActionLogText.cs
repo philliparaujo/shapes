@@ -4,7 +4,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Godot.Adapter;
 
-// How one action reads as a LINE IN THE MATCH LOG (PLAN.md D2 item 5).
+// How one action reads as a LINE IN THE MATCH LOG (DESIGN.md D2 item 5).
 //
 // A separate describer from ActionText, which stays as it is. That one exists to render an action
 // as an identity -- "Play test_bolt [◯1] (Draw 1.)" -- for the console's action menu, where the id

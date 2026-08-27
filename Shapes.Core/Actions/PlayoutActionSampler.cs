@@ -5,7 +5,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Core.Actions;
 
-// PLAN.md step 3.3b: a cheap playout-only path to ONE uniformly-random legal action, without
+// DESIGN.md step 3.3b: a cheap playout-only path to ONE uniformly-random legal action, without
 // materializing Generate's List<GameAction>/HashSet machinery for a caller that only needs a
 // single pick.
 //
@@ -16,7 +16,7 @@ namespace Shapes.Core.Actions;
 // cost: this still has to consider every candidate, and therefore still builds every
 // EffectContext and calls TargetResolver exactly as Generate does, to reservoir-sample correctly
 // over them. The measured win is a real but modest ~1.07x (~6.6%) per-decision speedup, not a
-// re-run of step 3.3a's 2.1x -- see PLAN.md step 3.3b for the numbers and the profiling
+// re-run of step 3.3a's 2.1x -- see DESIGN.md step 3.3b for the numbers and the profiling
 // re-reading that explains the gap.
 //
 // This walks the exact same traversal Generate does -- same order, same legality checks, same

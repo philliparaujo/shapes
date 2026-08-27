@@ -129,7 +129,7 @@ public sealed class GameState
     // the search expands like any other.
     //
     // Deliberately a bare count rather than a queue of pending effects: multiple discard effects
-    // in one turn simply add up, and paying them one card at a time (PLAN.md's turn structure) is
+    // in one turn simply add up, and paying them one card at a time (DESIGN.md's turn structure) is
     // indistinguishable from paying them per-effect. Overdraw does NOT come through here -- an
     // overdrawn card is burned automatically and is never a choice.
     public int PendingDiscards { get; private set; }
@@ -179,7 +179,7 @@ public sealed class GameState
         TurnNumber = 1;
     }
 
-    // Applies the second seat's starting compensation (PLAN.md step 4.8): extra resources, extra
+    // Applies the second seat's starting compensation (DESIGN.md step 4.8): extra resources, extra
     // cards, and extra score, all zero under the shipping ruleset.
     //
     // Lives here rather than in each caller's deal loop because there are three callers that set a

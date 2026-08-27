@@ -9,7 +9,7 @@ namespace Shapes.Ai.Search;
 //
 // In plain MCTS a node is a game state. Here it cannot be: the searching player does not know the
 // state -- they know the actions taken so far and their own cards, and the hidden remainder is
-// resampled every iteration (PLAN.md's "per-iteration resampling"). So a node stands for the whole
+// resampled every iteration (DESIGN.md's "per-iteration resampling"). So a node stands for the whole
 // SET of states consistent with that action sequence, and its statistics are an average over the
 // worlds that were actually sampled. That is the whole idea of Information Set MCTS: the tree is
 // built in the space the player can distinguish, and the sampling supplies the rest.
@@ -44,7 +44,7 @@ namespace Shapes.Ai.Search;
 // flip at backprop; this class only stores what it is given.
 public sealed class SearchNode
 {
-    // Children by the action leading to them. GameAction has value equality (PLAN.md step 1.8
+    // Children by the action leading to them. GameAction has value equality (DESIGN.md step 1.8
     // made that a requirement precisely for this), so two identical actions generated in two
     // different determinized worlds map to ONE child and pool their statistics. Reference
     // equality would split a node's statistics across duplicate children and the search would

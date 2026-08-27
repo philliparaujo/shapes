@@ -6,7 +6,7 @@ namespace Shapes.Sim;
 // How a game concluded. Score-threshold is the only real win condition (RuleSet.ScoreToWin) --
 // NonTerminating exists only as a safety valve (GameRunner's turn cap) so a rules/content bug
 // that produces a stalemate shows up as a distinct, countable outcome in a batch run instead of
-// hanging the whole matrix. PLAN.md step 4.5 calls out "non-terminating games" as something to
+// hanging the whole matrix. DESIGN.md step 4.5 calls out "non-terminating games" as something to
 // watch for explicitly.
 public enum EndingType
 {
@@ -220,7 +220,7 @@ public sealed class GameResult
 
     public required ResourcePool FinalResourcesTwo { get; init; }
 
-    // FATIGUE (PLAN.md step 5b). Per seat: how many times this seat started a turn with an empty
+    // FATIGUE (DESIGN.md step 5b). Per seat: how many times this seat started a turn with an empty
     // deck and handed its opponent score, and the turn number the first one happened on (null if
     // it never did). Two numbers rather than one because "did this seat ever deck out" and "how
     // long did the game run after it started" are different questions: a rule firing once in a
@@ -242,7 +242,7 @@ public sealed class GameResult
 
     public required int FatigueScoreGainedTwo { get; init; }
 
-    // OPPORTUNITY DENOMINATORS (PLAN.md step 4.3's "rank outliers" needs these, not raw counts).
+    // OPPORTUNITY DENOMINATORS (DESIGN.md step 4.3's "rank outliers" needs these, not raw counts).
     //
     // How many distinct decision points offered this card as a legal play, per seat -- counted
     // once per (decision point, card id) even when the card appears as several actions at once
@@ -270,7 +270,7 @@ public sealed class GameResult
 
     public required IReadOnlyDictionary<string, int> MoveOffersTwo { get; init; }
 
-    // PER-TURN opportunity/take denominators (PLAN.md step 4.5) -- the same counts as
+    // PER-TURN opportunity/take denominators (DESIGN.md step 4.5) -- the same counts as
     // CardOffers*/MoveOffers* and Cards/MovesPlayed/Used above, but deduplicated to "did this
     // happen at all this turn" rather than "at how many decision points." CardOffers* counts a
     // card that stays legal across five decisions in a turn as five offers, so a move that is

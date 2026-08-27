@@ -5,7 +5,7 @@ using Shapes.Core.Rules;
 namespace Shapes.Godot.Adapter;
 
 // A player-built decklist as it lives on disk, plus the rules for turning one into a real
-// Shapes.Core Deck (PLAN.md C2).
+// Shapes.Core Deck (DESIGN.md C2).
 //
 // Split from the Godot-side DeckStore for the same reason SavedMatch is split from
 // MatchSaveStore: this half is pure and testable outside the editor, while only the file I/O

@@ -125,7 +125,7 @@ public sealed class GreedyAgent : IAgent
 
     // Merging: mildly positive as a tiebreak, deliberately NOT enthusiastic. The plan flags
     // merge pricing as an open Phase 4 question, and a baseline that merged eagerly would bias
-    // the very measurement meant to answer it (PLAN.md step 4.2a asks whether the AI ever
+    // the very measurement meant to answer it (DESIGN.md step 4.2a asks whether the AI ever
     // DECLINES a merge). Scored below playing a creature, since merging costs a board slot --
     // and with it a scoring body and its income.
     private const double MergeWeight = 0.2;

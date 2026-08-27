@@ -58,7 +58,7 @@ public sealed record SimOptions
 
     public string? MovesCsv { get; private init; }
 
-    // Adds Shapes.Content/cards-calibration's six deliberately mispriced spells (PLAN.md step
+    // Adds Shapes.Content/cards-calibration's six deliberately mispriced spells (DESIGN.md step
     // 4.2e) to the loaded card set, on top of the real ~36. Never combine with a report meant to
     // stand in for a real balance run -- the point is a known-wrong answer to check the
     // detectors against, not a ranking of real cards.
@@ -237,15 +237,15 @@ public sealed record SimOptions
         Console.WriteLine("  --parallelism N    Max concurrent games (default: Environment.ProcessorCount)");
         Console.WriteLine("  --csv PATH         Write per-pairing summary rows to a CSV file");
         Console.WriteLine("  --json PATH        Write the full result set (summary + per-game rows) as JSON");
-        Console.WriteLine("  --metrics-json PATH  Write just the aggregated metrics report (PLAN.md step 4.1) as JSON");
+        Console.WriteLine("  --metrics-json PATH  Write just the aggregated metrics report (DESIGN.md step 4.1) as JSON");
         Console.WriteLine("  --from-metrics-json PATH  Skip playing games; read a saved metrics report instead");
         Console.WriteLine("                     (combine with --report/--cards-csv/--moves-csv to re-derive them)");
         Console.WriteLine("  --compare BASE.json,CANDIDATE.json  Skip playing games; diff two saved metrics reports");
         Console.WriteLine("  --compare-report PATH.html  Write the standalone A/B diff report (required with --compare)");
-        Console.WriteLine("  --report PATH.html Write a self-contained metrics explorer (PLAN.md step 4.2d)");
+        Console.WriteLine("  --report PATH.html Write a self-contained metrics explorer (DESIGN.md step 4.2d)");
         Console.WriteLine("  --cards-csv PATH   Write per-card metrics as a flat CSV");
         Console.WriteLine("  --moves-csv PATH   Write per-move metrics as a flat CSV");
-        Console.WriteLine("  --calibration      Add the 6 deliberately mispriced calibration spells (PLAN.md step 4.2e)");
+        Console.WriteLine("  --calibration      Add the 6 deliberately mispriced calibration spells (DESIGN.md step 4.2e)");
         Console.WriteLine("  --deck MODE        default (one of each card, the default), custom, or random");
         Console.WriteLine("  --deck-file PATH   Decklist to play; required with --deck custom.");
         Console.WriteLine("                     One 'cardId count' or 'cardId' per line; # comments allowed");

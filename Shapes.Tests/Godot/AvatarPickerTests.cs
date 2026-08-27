@@ -4,7 +4,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// The two player portraits (PLAN.md 5.C-UI). Tested here rather than by eye in the editor
+// The two player portraits (DESIGN.md 5.C-UI). Tested here rather than by eye in the editor
 // because the properties that matter are invisible on screen: that a resumed match re-derives
 // the SAME two faces, that the two seats never share a resource type, and that the picks never
 // come from the game's own random stream. All plain data-in/data-out, the same reasoning

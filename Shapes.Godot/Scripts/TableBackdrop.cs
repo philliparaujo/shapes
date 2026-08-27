@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The room the board sits in (PLAN.md 5.C-UI). Drawn behind everything else in BoardView.
+// The room the board sits in (DESIGN.md 5.C-UI). Drawn behind everything else in BoardView.
 //
 // Replaces Godot's default flat clear colour, which was the single largest area on screen and
 // read as "nothing has been set here" -- the cards, pips and avatars all carry gradients and
@@ -15,7 +15,7 @@ public partial class TableBackdrop : Control
 {
     // Deep desaturated slate. Cool and dark so the warm board and the bright card art both read
     // as sitting ON something rather than blending into it.
-    // From Palette (PLAN.md D3 phase 1): these three ARE the app's background, so they belong to
+    // From Palette (DESIGN.md D3 phase 1): these three ARE the app's background, so they belong to
     // the scheme rather than to this one file.
     private static readonly Color TopColor = Palette.BackdropTop;
     private static readonly Color MidColor = Palette.BackdropMid;
@@ -54,7 +54,7 @@ public partial class TableBackdrop : Control
     // THIS USED TO BE 48 FLAT BANDS THAT OVERLAPPED BY A PIXEL, and that was fine for as long as
     // this node was opaque: the overlap row was simply painted twice with the same solid colour and
     // nothing showed. It stopped being fine the moment the node was given a modulate alpha so the
-    // menu artwork could sit behind it (PLAN.md D3) -- a translucent band drawn twice over the same
+    // menu artwork could sit behind it (DESIGN.md D3) -- a translucent band drawn twice over the same
     // row composites twice, so every one of the 48 boundaries became a visibly darker line.
     //
     // The lesson worth keeping: overlap-to-hide-seams is a technique that silently depends on

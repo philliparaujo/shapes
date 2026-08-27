@@ -14,7 +14,7 @@ namespace Shapes.Godot.Scripts;
 // single font size in one view but not another.
 public static class MoveRowFactory
 {
-    // The amber a spent move's text takes (PLAN.md D2 item 3). Unused anywhere else on a move row --
+    // The amber a spent move's text takes (DESIGN.md D2 item 3). Unused anywhere else on a move row --
     // costs are type-coloured and text is otherwise near-white -- so the hue shift alone says
     // "spent" without adding anything to the layout. Paired with SpentMoveOverlay's scrim.
     public static readonly Color SpentTextColor = Palette.Spent;

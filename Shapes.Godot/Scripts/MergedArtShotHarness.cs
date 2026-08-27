@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// TEMPORARY -- scaffolding for comparing the three merged-art treatments (PLAN.md 5.C-UI).
+// TEMPORARY -- scaffolding for comparing the three merged-art treatments (DESIGN.md 5.C-UI).
 // Loads the card browser three times, once per MergedArtStyle, and screenshots each.
 //
 // Uses the browser rather than a live board because its Merged view already renders real merged

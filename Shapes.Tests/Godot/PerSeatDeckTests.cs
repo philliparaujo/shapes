@@ -7,7 +7,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md C2: the two seats can play DIFFERENT decklists, chosen by the lobby's per-seat deck
+// DESIGN.md C2: the two seats can play DIFFERENT decklists, chosen by the lobby's per-seat deck
 // dropdowns. Two properties matter and neither is obvious from the types alone:
 //
 //   1. Each seat is actually dealt its own deck (not both from seat one's).

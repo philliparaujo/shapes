@@ -6,7 +6,7 @@ namespace Shapes.Godot.Adapter;
 // The view-model scenes bind to. Built by comparing GameState before/after one
 // ActionExecutor.Apply call -- see GameSession. Deliberately not sourced from
 // GameState.TurnEvents: TurnEvents has no damage/move-used/resource-change entries and is
-// cleared on EndTurn, so it cannot describe what a single action did (PLAN.md A2).
+// cleared on EndTurn, so it cannot describe what a single action did (DESIGN.md A2).
 public sealed record StateDiff(
     IReadOnlyList<SlotDiff> SlotChanges,
     IReadOnlyList<PlayerDiff> PlayerChanges,
@@ -49,7 +49,7 @@ public sealed record StateDiff(
     }
 
     // WHICH creatures earned the points, so the animator can cue each one rather than only
-    // flashing a total (PLAN.md 5.C-UI). A PlayerDiff says a score went up but not from where;
+    // flashing a total (DESIGN.md 5.C-UI). A PlayerDiff says a score went up but not from where;
     // scoring is per unopposed creature, so the slots are recoverable -- but only from the BEFORE
     // board, since scoring resolves at turn start and the after-board may already differ.
     //

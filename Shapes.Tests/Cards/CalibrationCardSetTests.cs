@@ -2,7 +2,7 @@ using Shapes.Core.Cards;
 
 namespace Shapes.Tests.Cards;
 
-// The six deliberately mispriced calibration spells (PLAN.md Phase 4 step 2e), loaded exactly
+// The six deliberately mispriced calibration spells (DESIGN.md Phase 4 step 2e), loaded exactly
 // as --calibration loads them: from their own directory, separate from the real content set.
 //
 // These exist to check that the metrics detectors register a known-wrong card at all, before

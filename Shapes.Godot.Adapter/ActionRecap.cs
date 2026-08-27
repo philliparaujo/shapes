@@ -5,7 +5,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md D2 items 2 and 4: what the recap panel should show for one action, or null when that
+// DESIGN.md D2 items 2 and 4: what the recap panel should show for one action, or null when that
 // action is not worth showing at all.
 //
 // THE PROBLEM THIS SOLVES. The client renders state, not events -- every action resolves instantly
@@ -17,7 +17,7 @@ namespace Shapes.Godot.Adapter;
 // The decision of WHAT to show lives here, in the adapter, so it is testable without a scene; the
 // panel in Shapes.Godot owns only how long it lingers and how it fades.
 //
-// SHOWN FOR BOTH SEATS, decided rather than assumed (PLAN.md D2 item 2). The uniform rule is
+// SHOWN FOR BOTH SEATS, decided rather than assumed (DESIGN.md D2 item 2). The uniform rule is
 // simpler to reason about and to test, doubles as confirmation feedback for your own plays, and is
 // the only variant that behaves correctly for an AI-vs-AI spectator -- where neither seat is
 // "yours" and a self/opponent split would show nothing at all.
@@ -74,7 +74,7 @@ public sealed record ActionRecap(
             "Played", card.Name, play.Player, CardText.Of(card), ActionRecapKind.Card);
     }
 
-    // A move shows the move NAME plus the creature that used it (PLAN.md D2 item 4) -- "which
+    // A move shows the move NAME plus the creature that used it (DESIGN.md D2 item 4) -- "which
     // creature just did that" is the question a move raises and the board cannot answer, since the
     // move button that fired is identical to the one that did not.
     //

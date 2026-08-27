@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// How a merged creature's two source arts are combined into one band (PLAN.md 5.C-UI).
+// How a merged creature's two source arts are combined into one band (DESIGN.md 5.C-UI).
 public enum MergedArtStyle
 {
     // Two equal halves split by an angled, soft-edged seam.

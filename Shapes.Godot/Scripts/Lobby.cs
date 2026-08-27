@@ -9,7 +9,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// Match setup, shown before GameRoot (PLAN.md C1, with C5's AI-opponent wiring pulled forward
+// Match setup, shown before GameRoot (DESIGN.md C1, with C5's AI-opponent wiring pulled forward
 // rather than shipping a seat picker that silently does nothing when an AI kind is chosen).
 // Each seat is independently Human or one of three CPU difficulty tiers -- 0/2 human players
 // (AI v AI) and 1 human player (the common case) are both just two independent pickers, not a
@@ -39,7 +39,7 @@ public partial class Lobby : Control
     [Export] public string CardBrowserScenePath { get; set; } = "res://Scenes/CardBrowser.tscn";
     [Export] public string DeckbuilderScenePath { get; set; } = "res://Scenes/Deckbuilder.tscn";
 
-    // PLAN.md D5: Online panel (Host/Join). RelayUrl is an [Export] rather than a const for the
+    // DESIGN.md D5: Online panel (Host/Join). RelayUrl is an [Export] rather than a const for the
     // same reason MoveDelaySeconds is (GameRoot's own note) -- a deployment-shaped value someone
     // will want to change without a rebuild, here "which relay to dial" instead of "how fast to
     // watch." Points at the always-on Oracle Cloud relay (Shapes.Relay running as a systemd
@@ -99,7 +99,7 @@ public partial class Lobby : Control
     private TutorialOverlay? _tutorialOverlay;
     private SoundsPanel? _soundsPanel;
 
-    // The two panels this scene switches between (PLAN.md D3 phase 3). One scene rather than two,
+    // The two panels this scene switches between (DESIGN.md D3 phase 3). One scene rather than two,
     // because everything the Play panel needs -- the loaded CardDatabase, the deck slots, the
     // PendingMatch handoff and the deck-legality check -- is already owned here, and splitting it
     // into its own scene would mean either duplicating that or inventing a way to share it.
@@ -121,7 +121,7 @@ public partial class Lobby : Control
     private DeckSlots _decks = DeckSlots.Empty();
     private CardDatabase? _cards;
 
-    // PLAN.md D5: Online panel (Host/Join), now nested inside Play (see LocalTabButtonPath's note)
+    // DESIGN.md D5: Online panel (Host/Join), now nested inside Play (see LocalTabButtonPath's note)
     // rather than a third top-level panel alongside Home/Play.
     private Button? _hostTabButton;
     private Button? _joinTabButton;
@@ -152,10 +152,10 @@ public partial class Lobby : Control
 
     public override void _Ready()
     {
-        // PLAN.md D3 phase 1. The whole subtree inherits, so this one call is what stops the lobby
+        // DESIGN.md D3 phase 1. The whole subtree inherits, so this one call is what stops the lobby
         // rendering in Godot's stock theme -- it carried six theme_overrides, all of them spacing
         // and font size, and not one colour or panel between them.
-        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // DESIGN.md D7: content scale, applied before anything measures itself. Idempotent and
         // no-op on desktop -- see Platform.ApplyContentScale.
         Platform.ApplyContentScale(this);
 
@@ -217,7 +217,7 @@ public partial class Lobby : Control
         _resumeButton.Pressed += OnResumePressed;
         _deckbuilderButton.Pressed += () => GetTree().ChangeSceneToFile(DeckbuilderScenePath);
 
-        // HOME -> PLAY is a panel swap, not a scene change (PLAN.md D3 phase 3): the two share this
+        // HOME -> PLAY is a panel swap, not a scene change (DESIGN.md D3 phase 3): the two share this
         // scene's loaded cards and deck slots, and a scene change would reload both to show the
         // same data. It also keeps Back instant, which matters because backing out of match setup
         // is a common, low-commitment action.
@@ -242,14 +242,14 @@ public partial class Lobby : Control
         // game-over clears the save, walking away never does.
         _exitButton.Pressed += () => GetTree().Quit();
 
-        // PLAN.md C7: the rules page is reachable from the lobby as well as the in-game pause
+        // DESIGN.md C7: the rules page is reachable from the lobby as well as the in-game pause
         // menu (BoardView.OpenPauseMenu), so a player can read the rules before ever starting a
         // match, not only when stuck mid-game. Same overlay scene both places instantiate --
         // there is exactly one Rules page, not a lobby copy and a board copy that could drift.
         _rulesButton.Pressed += _tutorialOverlay!.Open;
         _tutorialOverlay.CloseRequested += _tutorialOverlay.Close;
 
-        // PLAN.md D4: the Sounds panel sits directly below Rules on the home screen and is the
+        // DESIGN.md D4: the Sounds panel sits directly below Rules on the home screen and is the
         // same single panel scene the in-game pause menu opens (BoardView), for the same reason
         // C7 gives for the rules overlay -- there is exactly one Sounds page, not a lobby copy and
         // a board copy that could drift.
@@ -259,7 +259,7 @@ public partial class Lobby : Control
         ShowPlay(false);
     }
 
-    // Swaps between the home menu and match setup. Local and Online (PLAN.md D5) are both inside
+    // Swaps between the home menu and match setup. Local and Online (DESIGN.md D5) are both inside
     // Play now (see LocalTabButtonPath's note on the [Export] block), so entering Play populates
     // every deck picker across both tabs and always lands back on Local -- Online is a deliberate
     // choice made fresh each visit, not a sticky mode that survives a trip back to Home.
@@ -300,7 +300,7 @@ public partial class Lobby : Control
         _play!.Visible = playing;
     }
 
-    // Local <-> Online, the tab pair inside Play (PLAN.md D5, folded in from the old top-level
+    // Local <-> Online, the tab pair inside Play (DESIGN.md D5, folded in from the old top-level
     // Online panel -- see LocalTabButtonPath's note). Switching away from Online abandons any
     // in-flight host/join for the same reason leaving Play entirely does.
     private void ShowPlayMode(bool online)
@@ -333,7 +333,7 @@ public partial class Lobby : Control
             return;
         }
 
-        // PLAN.md D4. Tested before the tutorial for the same topmost-first reason the tutorial is
+        // DESIGN.md D4. Tested before the tutorial for the same topmost-first reason the tutorial is
         // tested before the panels: the two never open together from here, so the relative order of
         // these two is arbitrary, but both must precede the panel swaps below or ESC would back out
         // of the whole screen while a modal is still up.
@@ -435,7 +435,7 @@ public partial class Lobby : Control
         var playerTwo = ReadSeat(_playerTwoKind!);
         var seed = (ulong)DateTime.UtcNow.Ticks;
 
-        // WHERE DECK LEGALITY IS ENFORCED (PLAN.md C2). The deckbuilder deliberately lets a
+        // WHERE DECK LEGALITY IS ENFORCED (DESIGN.md C2). The deckbuilder deliberately lets a
         // partial deck be saved -- losing an in-progress deck to an interruption is worse than
         // carrying an illegal one on disk -- so this is the point at which a decklist has to be
         // a real 40. ReadDeck routes through SavedDeck.ToDeck -> DeckBuilder.Custom, the same
@@ -483,7 +483,7 @@ public partial class Lobby : Control
         return _decks.Slots[slotIndex].ToDeck(_cards!, RuleSet.Default);
     }
 
-    // PLAN.md C6: hands GameRoot nothing but the "resume, not fresh" signal -- GameRoot itself
+    // DESIGN.md C6: hands GameRoot nothing but the "resume, not fresh" signal -- GameRoot itself
     // owns loading MatchSaveStore and rebuilding via GameSession.Resume, the same "Lobby decides
     // WHAT to play, GameRoot owns HOW" split OnStartPressed already follows for a new match.
     private void OnResumePressed()
@@ -537,7 +537,7 @@ public partial class Lobby : Control
         _onlineStatusLabel.Visible = true;
     }
 
-    // PLAN.md D5: opens a relay connection, asks to host, and once a peer joins sends MatchStart
+    // DESIGN.md D5: opens a relay connection, asks to host, and once a peer joins sends MatchStart
     // (this process is the seed/seat authority -- see RelayMatchTransport's own header) before
     // handing off to GameRoot exactly like OnStartPressed does for a local match. async void is
     // the same shape GameRoot's own event-loop entry points use (RunAiTurns) -- a Button.Pressed
@@ -637,7 +637,7 @@ public partial class Lobby : Control
         GetTree().ChangeSceneToFile(GameScenePath);
     }
 
-    // PLAN.md D5: opens a relay connection, asks to join a given code, then waits for the host's
+    // DESIGN.md D5: opens a relay connection, asks to join a given code, then waits for the host's
     // MatchStart before handing off to GameRoot. Mirrors OnHostPressed's shape; the joiner is
     // never the seed/seat authority (RelayMatchTransport's own header explains why: exactly one
     // side has to be, and the host -- the one who picked "Player 1"/"Player 2" -- is it).

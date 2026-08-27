@@ -4,7 +4,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Godot.Adapter;
 
-// Remembers which moves have been used since a seat's last turn (PLAN.md D2 item 3), so the board
+// Remembers which moves have been used since a seat's last turn (DESIGN.md D2 item 3), so the board
 // can keep them marked through the opponent's turn instead of only during the user's own.
 //
 // WHY THIS HAS TO EXIST AT ALL. The obvious source is CreatureInstance.HasUsedMove, which the first

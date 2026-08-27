@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// TEMPORARY -- scaffolding for the PLAN.md D1 (viewer seat) check, deleted once verified. Same
+// TEMPORARY -- scaffolding for the DESIGN.md D1 (viewer seat) check, deleted once verified. Same
 // shape as UiShotHarness, but pointed at the one frame D1 is actually about: the middle of the
 // OPPONENT's turn, which is when the board used to turn around and fan the AI's hand face-up.
 //

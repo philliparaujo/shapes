@@ -4,7 +4,7 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Scripts;
 
-// What's being dragged, for PLAN.md B1a's drag-and-drop gestures (play a card, merge a
+// What's being dragged, for DESIGN.md B1a's drag-and-drop gestures (play a card, merge a
 // creature). Godot's _GetDragData/_DropData trade in Variant, not arbitrary C# objects, so this
 // packs into a Godot.Collections.Dictionary (Variant-compatible) rather than being passed
 // directly -- exactly one of CardId/SourceSlot is set, matching the two drag sources that exist

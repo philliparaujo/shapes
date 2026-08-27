@@ -7,7 +7,7 @@ namespace Shapes.Tests.Console;
 
 // Step 2.5: the console hides the non-active seat's hand unless --reveal is passed.
 //
-// PLAN.md's coverage target says console rendering is not worth testing, and that stands -- none
+// DESIGN.md's coverage target says console rendering is not worth testing, and that stands -- none
 // of this asserts layout, spacing, or wording beyond what it must. What it does assert is WHICH
 // HAND IS HIDDEN, which is not a rendering question: it is the property that makes a human-v-AI
 // result mean anything. Before this step the human read the AI's hand while the AI could not read

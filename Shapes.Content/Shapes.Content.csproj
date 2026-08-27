@@ -26,7 +26,7 @@
       <TargetPath>Content\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
     </Content>
     <!--
-      Calibration spells (PLAN.md step 4.2e): deliberately mispriced cards used to validate
+      Calibration spells (DESIGN.md step 4.2e): deliberately mispriced cards used to validate
       the metrics detectors against a known-wrong answer. Kept in a separate output folder, not
       merged into cards\, so CardDatabase.BuildSymmetricDeck never picks them up for a real run
       and CardSetHash (which only hashes cards\) never sees them.

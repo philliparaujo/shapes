@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// The one place a sound is played (PLAN.md D4).
+// The one place a sound is played (DESIGN.md D4).
 //
 // AN AUTOLOAD (project.godot's [autoload] section), which is the whole reason this is a singleton
 // node rather than a child of some scene. Music has to survive ChangeSceneToFile: the lobby, the

@@ -4,7 +4,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Sim;
 
-// BatchRunner assembles PLAN.md step 3.1's exit bar directly: every ordered pairing, both seat
+// BatchRunner assembles DESIGN.md step 3.1's exit bar directly: every ordered pairing, both seat
 // assignments reported separately, run in parallel without games colliding on a shared seed.
 public class BatchRunnerTests
 {
@@ -34,7 +34,7 @@ public class BatchRunnerTests
     [Fact]
     public void Mirrored_pairings_are_kept_separate_not_pooled()
     {
-        // PLAN.md is explicit that pooling seats hides first-player advantage -- so (A, B) and
+        // DESIGN.md is explicit that pooling seats hides first-player advantage -- so (A, B) and
         // (B, A) must remain two distinct PairingSummary entries, each with its own win rate,
         // never merged into one "A vs B" aggregate.
         var result = BatchRunner.Run(Options(agents: ["random", "greedy"]), TestCards.Database, Rules);

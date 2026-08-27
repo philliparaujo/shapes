@@ -80,7 +80,7 @@ public static class BoardView
     }
 
     // Public for the same reason DescribeHand is: the merged-name property (full MergedFrom,
-    // not just the primary card) is worth pinning by test, even though PLAN.md's coverage note
+    // not just the primary card) is worth pinning by test, even though DESIGN.md's coverage note
     // says console layout/wording in general is not.
     public static string DescribeSlot(GameState state, CardDatabase cards, SlotIndex slot)
     {

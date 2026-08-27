@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// PLAN.md C6: the Godot-specific half of interrupted-game persistence -- user:// file I/O.
+// DESIGN.md C6: the Godot-specific half of interrupted-game persistence -- user:// file I/O.
 // SavedMatch/SavedMatchDto/SavedMatchJsonContext live in Shapes.Godot.Adapter (pure, testable
 // outside the editor, same reasoning as GameSession itself); this class is the thin wrapper
 // that actually reads/writes them, since System.IO.File does not resolve a user:// path --

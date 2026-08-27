@@ -2,7 +2,7 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Adapter;
 
-// What one action should look like (PLAN.md B1d). The five cues the step names, and nothing
+// What one action should look like (DESIGN.md B1d). The five cues the step names, and nothing
 // else -- a cue is "something happened here worth drawing attention to," not a tween.
 public enum AnimationCue
 {
@@ -20,7 +20,7 @@ public enum AnimationCue
 // (Score, which belongs to a player's status readout rather than a slot).
 public sealed record AnimationStep(AnimationCue Cue, SlotIndex? Slot, PlayerId Player, int Amount = 0);
 
-// Turns a StateDiff into an ordered list of cues (PLAN.md B1d).
+// Turns a StateDiff into an ordered list of cues (DESIGN.md B1d).
 //
 // StateDiff is an unordered SET of slot/player changes -- it says what differs, not what
 // happened or in what order. One action routinely produces several: a merge is a destroy plus a
@@ -29,7 +29,7 @@ public sealed record AnimationStep(AnimationCue Cue, SlotIndex? Slot, PlayerId P
 //
 // Deliberately in the Adapter, not in Shapes.Godot: it is pure list-to-list translation with no
 // node/tween/scene concept in it, which makes the ordering rules unit-testable without an editor
-// -- the same reason StateDiff itself lives here (PLAN.md A2) and the same limitation that makes
+// -- the same reason StateDiff itself lives here (DESIGN.md A2) and the same limitation that makes
 // everything in Shapes.Godot editor-only.
 public static class AnimationScript
 {

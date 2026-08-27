@@ -6,7 +6,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// PLAN.md D2 item 5: the full match log, as a scrollable overlay.
+// DESIGN.md D2 item 5: the full match log, as a scrollable overlay.
 //
 // Same dimmed-backdrop-plus-centered-panel pattern MenuPanel and TutorialOverlay already use,
 // rather than a third visual language for a modal -- and raises CloseRequested instead of closing

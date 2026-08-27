@@ -262,7 +262,7 @@ public static class CardValidator
 
     // Counts chosen_* selectors across the card's entire effect tree, moves included.
     //
-    // The single-target rule (see PLAN.md): at most one player-chosen target per card. This is
+    // The single-target rule (see DESIGN.md): at most one player-chosen target per card. This is
     // a schema error rather than a convention precisely so it cannot creep back in during
     // Phase 4 balance edits -- it keeps MCTS branching flat (N actions per move, not N x M),
     // cards readable, and the Phase 5 targeting UI a single state.

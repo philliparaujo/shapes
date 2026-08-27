@@ -7,7 +7,7 @@ namespace Shapes.Tests.Godot;
 // Phase 5 step A2: StateDiff is the view-model scenes render from. Built by comparing
 // GameState before/after ActionExecutor.Apply rather than reading GameState.TurnEvents,
 // because TurnEvents has no damage/move-used/resource-change entries and is cleared on
-// EndTurn (PLAN.md A2). These tests build before/after states directly with StateBuilder so
+// EndTurn (DESIGN.md A2). These tests build before/after states directly with StateBuilder so
 // each assertion is about diff semantics, not about which action produced the change.
 public class StateDiffTests
 {

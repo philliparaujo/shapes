@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// Real card art, keyed on the stable card id (PLAN.md B1c).
+// Real card art, keyed on the stable card id (DESIGN.md B1c).
 //
 // res://Art/cards/{cardId}.png -- the CARD ID, never the JSON filename. Every card's id and
 // filename agree today (safeguard.json carried id "patch_up" until its art silently fell back to

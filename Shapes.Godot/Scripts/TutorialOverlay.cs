@@ -11,7 +11,7 @@ namespace Shapes.Godot.Scripts;
 // reaching the board underneath, mouse_filter = 0), rather than a new visual language for a
 // second kind of modal. Pages are plain data (TutorialPage) built once in code from
 // references/info.md rather than authored per-node in the .tscn, since the page count and text
-// are expected to change as art/gifs are added later (PLAN.md note in the originating request) --
+// are expected to change as art/gifs are added later (DESIGN.md note in the originating request) --
 // a fixed node tree would need editing by hand for every wording change.
 //
 // Raises events instead of closing itself for the same "report, don't decide" reason MenuPanel

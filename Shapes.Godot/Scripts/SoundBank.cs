@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// Which file each SoundCue plays (PLAN.md D4), keyed the same way CardArt keys card art -- one
+// Which file each SoundCue plays (DESIGN.md D4), keyed the same way CardArt keys card art -- one
 // lookup table, cached, with a missing file degrading to silence rather than to an error.
 //
 // THE ASSIGNMENTS ARE A FIRST PASS AND ARE MEANT TO BE RE-POINTED. They were picked by matching

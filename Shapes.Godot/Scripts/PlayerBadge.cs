@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The floating avatar cluster on the right rail (PLAN.md 5.C-UI, from references/game screen.png):
+// The floating avatar cluster on the right rail (DESIGN.md 5.C-UI, from references/game screen.png):
 // a circular portrait with a ring and a health circle at its bottom-RIGHT.
 //
 // Drawn rather than composed from Controls, and deliberately NOT a child of the rail's panel: in

@@ -5,10 +5,10 @@ using Shapes.Godot.Adapter;
 namespace Shapes.Godot.Scripts;
 
 // Builds one move's button for SlotView (board). Content comes from MoveRowFactory -- the same
-// numbered-pip + name-over-description block the tooltip uses (PLAN.md B1c) -- so the two views
+// numbered-pip + name-over-description block the tooltip uses (DESIGN.md B1c) -- so the two views
 // can't drift apart the way they did when each hand-rolled its own row.
 //
-// Every move renders here, usable or not (PLAN.md B1a): an unusable move (condition unmet, used
+// Every move renders here, usable or not (DESIGN.md B1a): an unusable move (condition unmet, used
 // this turn, unaffordable) still tells the player what the creature can do, just not right now, so
 // it renders disabled and dimmed rather than being omitted -- omitting it would make "no moves"
 // and "one move I can't currently use" look identical.
@@ -22,7 +22,7 @@ public static class MoveButtonFactory
 {
     public static float Width => CardMetrics.SlotMoveWidth;
 
-    // NOT separately touch-sized (PLAN.md D7a). An earlier cut raised this to a 48dp floor while
+    // NOT separately touch-sized (DESIGN.md D7a). An earlier cut raised this to a 48dp floor while
     // the move name and description stayed at their CardMetrics font sizes, which made the button
     // taller without making anything in it more legible -- the "too much space" half of the
     // reported symptom. Content scale (see Platform) now grows the button and its text together,
@@ -52,7 +52,7 @@ public static class MoveButtonFactory
         return box;
     }
 
-    // PLAN.md D2 item 3. `wasUsedThisTurn` splits one of the four reasons a move renders disabled
+    // DESIGN.md D2 item 3. `wasUsedThisTurn` splits one of the four reasons a move renders disabled
     // out of the single grey the other three share.
     //
     // Before this, "used already", "condition unmet", "unaffordable" and "not your turn" all
@@ -73,12 +73,12 @@ public static class MoveButtonFactory
             ClipContents = true,
         };
 
-        // PLAN.md D4: pressing this submits a UseMove, which already sounds its own cue -- so it
+        // DESIGN.md D4: pressing this submits a UseMove, which already sounds its own cue -- so it
         // opts out of the automatic UI click rather than firing both on one press. Marked before it
         // enters the tree, which is what SoundFx.Silence requires.
         SoundFx.Silence(button);
 
-        // Styled explicitly, NOT left to the project theme (PLAN.md D3 phase 3). A move button is
+        // Styled explicitly, NOT left to the project theme (DESIGN.md D3 phase 3). A move button is
         // part of a card's printed face, not app chrome -- once UiTheme gave every Button the
         // board's felt-and-gold treatment, these turned green inside a dark card and the six of
         // them on a board read as a control panel bolted over the art. They take a quiet inset

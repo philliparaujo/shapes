@@ -5,7 +5,7 @@ using Shapes.Core.State;
 namespace Shapes.Sim;
 
 // Per-seat balance instrumentation for one played game: unopposed-slot occupancy, creature
-// survival, and affordability pressure (PLAN.md step 4.2c's three additions).
+// survival, and affordability pressure (DESIGN.md step 4.2c's three additions).
 //
 // A class per seat rather than a dozen more paired locals in GameRunner.Play: each of these
 // metrics needs its own running state (a streak counter, a map of live creatures, per-card

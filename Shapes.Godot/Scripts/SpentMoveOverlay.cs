@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The darkened wash over a move already used (PLAN.md D2 item 3). The other half of the marking is
+// The darkened wash over a move already used (DESIGN.md D2 item 3). The other half of the marking is
 // the row's own text, recoloured amber by MoveRowFactory -- see SpentTextColor there.
 //
 // TWO EARLIER CUTS, both dropped. A strike-through hairline read as a rendering artifact: it cut

@@ -3,7 +3,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The modal overlay shown at game over and on ESC (PLAN.md 5.C-UI).
+// The modal overlay shown at game over and on ESC (DESIGN.md 5.C-UI).
 //
 // One scene serving both cases rather than two near-identical panels: they differ only in their
 // heading and in whether the game underneath is still playable, which is a parameter, not a

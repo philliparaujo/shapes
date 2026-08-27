@@ -27,7 +27,7 @@ public static class AvatarPicker
     // a card-database question by the time it reaches here.
     //
     // Type is what the two seats must DIFFER on. "Type comes from resource cost, always"
-    // (PLAN.md 0), so this is CardText.SinglePipType of the card's cost -- the same derivation
+    // (DESIGN.md 0), so this is CardText.SinglePipType of the card's cost -- the same derivation
     // the cost badge and placeholder art use, not a second opinion about what a card's type is.
     public readonly record struct Candidate(string Id, ResourceType Type);
 

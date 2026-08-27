@@ -7,7 +7,7 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md C6: what a resumable game needs on disk. Seed + action log, not a serialized
+// DESIGN.md C6: what a resumable game needs on disk. Seed + action log, not a serialized
 // GameState -- picked deliberately over the plan's other option because replaying the log
 // through the existing GameSession/ActionExecutor/ActionGenerator pipeline rides on Phase 1's
 // determinism guarantee (the same one MCTS and console/Godot parity already depend on) rather

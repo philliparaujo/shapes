@@ -1,9 +1,26 @@
-# Shapes — Development Plan
+# Shapes — Design & Development Record
 
-A 2-player, turn-based, board-and-cards game. Five phases: playable engine → IS-MCTS AI →
-agent measurement & optimization → AI-driven balance → Godot client.
+The ruleset, the decisions behind it, and the record of how the project was built.
+For prerequisites, commands, and project layout see [README.md](README.md).
 
-## Status
+**All five phases are complete** — playable engine, IS-MCTS AI, agent measurement,
+AI-driven balance, and the Godot client. 1225 tests passing. Content is settled at
+`v1.7-final` and the balance record lives in `balance/LOG.md`.
+
+## Open items
+
+Everything else in this document is settled. These are the loose ends:
+
+- **Seat-2 margin.** Phase 4 left a small real seat-2 edge (−0.28 [−0.40, −0.16] at
+  4000 games). The fix is a ruleset knob, but custom decks move the number, so
+  re-measure before touching it. See Phase 4’s closing note.
+- **Determinizer decklist cheat.** IS-MCTS on non-symmetric decks is handed its
+  opponent’s real decklist. Accepted permanently — see the caveat under Design
+  decisions. Consequence: treat any `ismcts` win rate on `--deck random`/`--deck
+  custom` as an optimistic bound, and never compare it against a symmetric-deck run.
+
+<details>
+<summary>Phase completion record</summary>
 
 | Phase                                    | Progress   |
 |------------------------------------------|------------|
@@ -13,25 +30,21 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 4 — AI-driven balance                    | 14 / 14    |
 | 5 — Godot client                         | 25 / 25    |
 
-1225 tests passing. **All five phases are complete.**
-
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**Phase 5 is complete** — the Godot client, all four milestones. A hotseat game is playable end to
-end with drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
-and the in-game pause menu, and the screen is drawn from a fixed seat when you are playing an AI
-rather than flipping to its side on its turn (D1). Two installs can also now host/join a real game
-over a relay (D5), now verified end to end on a real desktop/mobile pair, and export (D6) is done
-too — desktop and Android both build, install, and connect over the relay on real hardware. Music
-and sound effects play, with a Sounds panel controlling both (D4). The mobile UI pass (D7) is done:
+Phase 5 shipped the Godot client across all four milestones: a hotseat game playable end to end
+with drag-and-drop, animation, an AI seat, save/resume, and a rules page; two installs hosting
+and joining over a relay (D5), verified on a real desktop/mobile pair; desktop and Android
+exports (D6); music and sound with a Sounds panel (D4); and the mobile UI pass (D7) —
 landscape-locked, content scaled ~12% on a phone, board centred and clear of the rail, desktop
-rendering unchanged. All 48 cards carry real art (B1c). Content is settled at `v1.7-final`
-and the balance
-record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
-at large samples (see that phase's closing note).
+rendering unchanged. All 48 cards carry real art (B1c).
+
+</details>
+
+## Reading the metrics
 
 **What the metrics can and cannot decide.** They *detect* outliers; they do not *interpret* them.
 A 3% take rate means "cut or buff" for a vanilla creature and "working as designed" for a
@@ -47,34 +60,6 @@ interval, and `Shapes.Sim` closes with a one-line resolution check ("N of M card
 interval still straddling 50%"). At 20 games that reads 36 of 36 — the honest answer to "do I have
 enough data yet," and the number to drive up before believing any ranking.
 
-### Common commands
-
-Run from repo root (`shapes/`, where `Shapes.sln` lives).
-
-| What                          | Command                                              |
-|-------------------------------|-------------------------------------------------------|
-| Build everything              | `dotnet build`                                       |
-| Run all tests                 | `dotnet test Shapes.Tests/Shapes.Tests.csproj`       |
-| Run one test by name          | `dotnet test Shapes.Tests/Shapes.Tests.csproj --filter "FullyQualifiedName~TestMethodName"` |
-| Play the game (console)       | `dotnet run --project Shapes.Console`                |
-| Play against the AI           | `dotnet run --project Shapes.Console -- --p2 greedy` |
-| **Watch a full AI game**      | `dotnet run --project Shapes.Console -- --p1 greedy --p2 random --seed 7 --quiet` |
-| Watch the search play         | `dotnet run --project Shapes.Console -- --p1 ismcts --p2 greedy --seed 7 --quiet` |
-| **Run the agent matrix**      | `dotnet run -c Release --project Shapes.Sim -- --agents random,greedy,ismcts,ismcts-heuristic --games 30` |
-| **See stats from played games** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --metrics-json out/metrics.json` |
-| **Browse stats in the metrics explorer** | `dotnet run -c Release --project Shapes.Sim -- --agents greedy,ismcts --games 30 --report out/report.html` |
-| **Re-explore a saved metrics.json** | `dotnet run -c Release --project Shapes.Sim -- --from-metrics-json out/metrics.json --report out/report.html` |
-| **Compare two saved metrics.json runs** | `dotnet run -c Release --project Shapes.Sim -- --compare baseline/metrics.json,candidate/metrics.json --compare-report out/compare.html` |
-| Run the relay locally           | `dotnet run --project Shapes.Relay -- --port 5080` |
-| SSH into the relay VM          | `ssh -i .secrets/ssh-key-2026-08-18.key ubuntu@192.9.143.181` |
-| Check relay service status/logs | `sudo systemctl status shapes-relay` / `sudo journalctl -u shapes-relay -f` |
-| Restart the relay service       | `sudo systemctl restart shapes-relay` |
-| Redeploy the relay after a code change | `dotnet publish Shapes.Relay/Shapes.Relay.csproj -c Release -r linux-x64 --self-contained false -o publish/relay-linux` then `scp -i .secrets/ssh-key-2026-08-18.key -r publish/relay-linux/. ubuntu@192.9.143.181:~/shapes-relay/` then `ssh -i .secrets/ssh-key-2026-08-18.key ubuntu@192.9.143.181 "sudo systemctl restart shapes-relay"` |
-
-`--p1`/`--p2` each take `human` (default), `random`, `greedy`, `ismcts`, or `ismcts-heuristic`
-(step 3.2's heuristic playout, same search otherwise). `--iterations <n>` sets the `ismcts`/
-`ismcts-heuristic` search budget (default 200, in iterations so seeded games replay exactly).
-`--seed <n>` skips the prompt; `--quiet` gives one line per action. `--help` lists it all.
 
 **Stats are `Shapes.Sim`'s job, not the console's** — the console client only renders the board
 live; it has no stats output of its own. Every `Shapes.Sim` run prints a metrics summary after the
@@ -128,16 +113,6 @@ boundary deck is not double-counted, and empty interior buckets are kept because
 information. **Every group carries a separation verdict**, because bucketed win rates drawn as
 bars always *look* like a trend — the label says whether any two buckets' intervals actually
 separate, and at 800 decks most groups still honestly read "not distinguishable".
-
-**A big matrix shows live progress, not silence until the end** — `Shapes.Sim` redraws a single
-`completed/total games  rate  elapsed` line in place as games finish (only when stdout is a real
-terminal; piping to a file or CI log skips it, so logs stay clean). Nothing to opt into — every
-run gets it.
-
-**The waiting seat's hand renders as a count** (`--reveal` shows both) so a human never reads
-the AI's cards. **Watch games, don't just assert about them** — step 2.4's blocking-slot bug was
-invisible to a passing test suite and only surfaced by reading a played game. `Shapes.Sim`
-(Phase 3 step 1) is the batch/statistical version of the same idea.
 
 ## 0. Confirmed ruleset
 
@@ -204,19 +179,8 @@ swap, not a rewrite, provided the engine takes no UI dependency. `Shapes.Core` i
 library (zero UI deps, enforced by test that it references only the BCL) — console, AI, tests,
 and Godot are interchangeable consumers.
 
-**Project structure:**
-```
-shapes/
-├─ Shapes.Core/           # Pure engine: Primitives, State, Actions, Effects, Rules, Cards
-├─ Shapes.Content/        # JSON card data + rules presets. NOT code.
-├─ Shapes.Ai/              # IS-MCTS, determinizer, playout policies, evaluators
-├─ Shapes.Console/         # Text client
-├─ Shapes.Sim/              # Headless batch runner → CSV/JSON stats
-├─ Shapes.Tests/            # xUnit
-├─ Shapes.Godot.Adapter/    # Phase 5 only: GameSession/StateDiff/text formatting (plain class
-│                           # library, not the Godot project itself -- see A1/A2 note below)
-└─ Shapes.Godot/            # Phase 5 only, references Shapes.Core + Shapes.Godot.Adapter
-```
+**Project structure** — see [README.md](README.md#project-layout) for the full layout. The one
+part that needs explaining is why the Godot client is two projects:
 
 **`Shapes.Godot.Adapter` is a real project, separate from `Shapes.Godot`, and wasn't in the
 original plan.** A2's view-model layer (`GameSession`, `StateDiff`, text formatting) turned out
@@ -531,7 +495,7 @@ games run ~2 turns shorter; the fix is a ruleset knob, not a card edit, and Phas
 will move it again. **Archetype balance was always out of scope** — not measurable on a symmetric
 deck where both seats hold every card.
 
-### Phase 5 — Godot client (desktop + mobile) — 22/25 complete, 2 part-done, in progress
+### Phase 5 — Godot client (desktop + mobile) ✅ complete (25/25)
 
 Target Windows/macOS/Linux desktop and Android from one codebase. Organised as four milestones:
 A got the full rules onto one screen with no art; B made it feel like a game (interaction model,

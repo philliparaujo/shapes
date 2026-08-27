@@ -7,13 +7,13 @@ namespace Shapes.Tests.Sim;
 
 // GameRunner is the headless equivalent of Shapes.Console/Program.cs's game loop (construct
 // state, deal, AdvanceToActions, play to IsOver). The console version is already watched by hand
-// per PLAN.md's guidance; these tests exist to pin the parts that are specific to batch play:
+// per DESIGN.md's guidance; these tests exist to pin the parts that are specific to batch play:
 // same-seed reproducibility, and that every action taken is accounted for in the result.
 public class GameRunnerTests
 {
     private static readonly RuleSet Rules = RuleSet.Default;
 
-    // A ruleset that burns through the deck fast enough for fatigue (PLAN.md step 5b) to actually
+    // A ruleset that burns through the deck fast enough for fatigue (DESIGN.md step 5b) to actually
     // fire inside a normal game: a high draw rate empties the deck, and a high score threshold
     // keeps the game running long enough to get there. Fatigue never triggers under the shipping
     // rules at TestCards' deck size -- games end around turn 14, well before a deck runs out --

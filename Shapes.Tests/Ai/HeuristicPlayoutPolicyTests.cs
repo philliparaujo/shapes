@@ -8,7 +8,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Ai;
 
-// PLAN.md step 3.2: the playout-time heuristic that replaces uniform-random rollout selection.
+// DESIGN.md step 3.2: the playout-time heuristic that replaces uniform-random rollout selection.
 // Mirrors GreedyAgentTests' shape -- one action forced unambiguously correct per test -- but
 // against SelectAction directly rather than through an agent, since this policy is search
 // machinery, not something IAgent-shaped. Written against synthetic TestCards so a Phase 4

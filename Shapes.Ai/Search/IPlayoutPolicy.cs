@@ -5,7 +5,7 @@ using Shapes.Core.State;
 namespace Shapes.Ai.Search;
 
 // How IsMctsAgent's playout phase picks an action once selection/expansion have left the tree
-// and the search is just simulating to a result. PLAN.md step 3.2: uniform-random is the
+// and the search is just simulating to a result. DESIGN.md step 3.2: uniform-random is the
 // original, uninstrumented playout (kept as the control so a heuristic's effect can be measured
 // against it, not assumed); a lightly heuristic policy is the alternative under test.
 //

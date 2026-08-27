@@ -3,7 +3,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The player's hand, laid out as an arc rather than a row (PLAN.md 5.C-UI, from
+// The player's hand, laid out as an arc rather than a row (DESIGN.md 5.C-UI, from
 // references/game screen.png).
 //
 // This is a manual-layout Control, not a container, for three reasons an HBoxContainer cannot

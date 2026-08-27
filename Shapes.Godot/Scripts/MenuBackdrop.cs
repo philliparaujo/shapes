@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The full-bleed art behind the home/menu screens (PLAN.md D3 phase 3), in the shape a game menu
+// The full-bleed art behind the home/menu screens (DESIGN.md D3 phase 3), in the shape a game menu
 // usually takes -- see references/mc_homescreen.png: one photographic scene covering the whole
 // window, with the controls as a narrow column floating over it.
 //
@@ -70,7 +70,7 @@ public partial class MenuBackdrop : Control
     private const int PoolRows = 10;
     private const int PoolColumns = 10;
 
-    // ---- The idle pan (PLAN.md D3 phase 3). ---------------------------------------------------
+    // ---- The idle pan (DESIGN.md D3 phase 3). ---------------------------------------------------
     //
     // How far past a plain cover fit the art is scaled. Deliberately more headroom than the motion strictly needs: the
     // amplitude below spends only part of it, so the art never reaches its own edge even at an

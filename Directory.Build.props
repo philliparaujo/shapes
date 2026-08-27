@@ -13,7 +13,7 @@
   <!--
     iOS export requires AOT compilation, so the engine must stay trim/AOT-safe.
     These analyzers surface reflection-dependent patterns at build time rather than
-    at Phase 4 export time. See PLAN.md "Mobile-specific constraints".
+    at Phase 4 export time. See DESIGN.md "Mobile-specific constraints".
   -->
   <PropertyGroup>
     <IsAotSensitiveProject>false</IsAotSensitiveProject>

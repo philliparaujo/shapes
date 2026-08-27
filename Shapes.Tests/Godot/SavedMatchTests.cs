@@ -8,7 +8,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md C6: SavedMatch (seed + action log) is the persistence format; GameSession.Resume is
+// DESIGN.md C6: SavedMatch (seed + action log) is the persistence format; GameSession.Resume is
 // what proves the log alone is sufficient to reconstruct a game. The real correctness bar here
 // is not "does the DTO round-trip" (necessary but not sufficient) -- it's "does a resumed
 // session end up in EXACTLY the same state as the live session that produced the log," since

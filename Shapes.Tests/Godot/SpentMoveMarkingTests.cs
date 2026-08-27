@@ -5,7 +5,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D2 item 3. The board marks a move that has already been used this turn, reading the flag
+// DESIGN.md D2 item 3. The board marks a move that has already been used this turn, reading the flag
 // straight off CreatureInstance.HasUsedMove -- the same flag ActionGenerator consults for legality,
 // so the marking cannot disagree with the rule it depicts.
 //

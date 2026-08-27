@@ -1,6 +1,6 @@
 namespace Shapes.Godot.Adapter;
 
-// The game events that make a sound (PLAN.md D4).
+// The game events that make a sound (DESIGN.md D4).
 //
 // Deliberately NOT the same enum as AnimationCue, even though three members overlap by name.
 // AnimationCue is "something happened at this slot worth drawing attention to" and is derived per

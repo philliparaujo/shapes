@@ -5,7 +5,7 @@ namespace Shapes.Sim;
 
 // One (agentOne, agentTwo) seat assignment played out over N seeded games, aggregated. A
 // pairing's mirror (agentTwo, agentOne) is a DIFFERENT PairingSummary, never folded into this
-// one -- PLAN.md step 1 requires seats reported separately since pooling them hides first-player
+// one -- DESIGN.md step 1 requires seats reported separately since pooling them hides first-player
 // advantage.
 public sealed class PairingSummary
 {
@@ -35,7 +35,7 @@ public sealed class BatchResult
 
 // Builds the full agent-vs-agent matrix: every ordered pairing (including an agent against
 // itself) across both seat assignments, run for the configured game count. "Every pairing, both
-// seats reported separately" is PLAN.md step 3.1's exit bar -- this is the one place that
+// seats reported separately" is DESIGN.md step 3.1's exit bar -- this is the one place that
 // assembles it.
 public static class BatchRunner
 {

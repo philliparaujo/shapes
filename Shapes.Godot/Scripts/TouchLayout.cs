@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// Positioning fixes the shared Theme cannot make (PLAN.md D7c): pushing corner-anchored
+// Positioning fixes the shared Theme cannot make (DESIGN.md D7c): pushing corner-anchored
 // controls clear of the physical screen edge.
 //
 // DELIBERATELY NOT PART OF UiTheme. D7c is explicit that the inset is a POSITIONING concern, not a
@@ -71,7 +71,7 @@ public static class TouchLayout
         layout.OffsetBottom -= inset.W;
     }
 
-    // Pushes corner-anchored controls in from the screen edge (PLAN.md D7c).
+    // Pushes corner-anchored controls in from the screen edge (DESIGN.md D7c).
     //
     // These need the inset pushed in DIRECTLY rather than inheriting it: they are anchored to
     // BoardView, not to the Layout MarginContainer, so nothing between them and the screen edge

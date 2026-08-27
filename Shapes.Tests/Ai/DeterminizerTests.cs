@@ -9,7 +9,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Ai;
 
-// PLAN.md step 2.3, and the suite its own "Determinization must respect observations -- sampling
+// DESIGN.md step 2.3, and the suite its own "Determinization must respect observations -- sampling
 // a deck containing a card already in the graveyard is a correctness bug that silently degrades
 // play. Needs its own test suite" calls for.
 //
@@ -197,7 +197,7 @@ public class DeterminizerTests
     [Fact]
     public void Sampled_opponent_cards_never_include_a_card_that_is_visibly_elsewhere()
     {
-        // THE bug PLAN.md names: sampling a deck containing a card already in the graveyard. Also
+        // THE bug DESIGN.md names: sampling a deck containing a card already in the graveyard. Also
         // covers the board, which is equally visible. Multiset arithmetic throughout -- with
         // copiesPerCard = 2 the question is never "is this card present" but "how many are left".
         for (ulong seed = 1; seed <= 60; seed++)
@@ -308,7 +308,7 @@ public class DeterminizerTests
     // -- Explicit opponent decklists (non-symmetric play) ----------------------------------------
     //
     // Supplying the opponent's real decklist is a deliberate temporary information cheat that
-    // keeps IS-MCTS usable on random/custom decks -- see Determinizer's class note and PLAN.md
+    // keeps IS-MCTS usable on random/custom decks -- see Determinizer's class note and DESIGN.md
     // D1. These pin that the supplied list is what actually gets sampled from.
 
     [Fact]

@@ -32,7 +32,7 @@ public partial class TypeCycleChart : Control
     // dual-type shapes stay legible, small enough to sit in the corner without competing with
     // the board.
     //
-    // 164 -> 140 to free room in the left column (PLAN.md D2). That column stacks four things
+    // 164 -> 140 to free room in the left column (DESIGN.md D2). That column stacks four things
     // between the top of the screen and the hand: this chart, the action recap, the hover tooltip,
     // and the tooltip's keyword explainer stack -- and the worst case (a played-card recap above a
     // hovered Guardian, whose two moves grant reflect and stun) did not fit. Shrinking the chart is

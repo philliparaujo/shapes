@@ -7,7 +7,7 @@ using Shapes.Core.State;
 namespace Shapes.Godot.Adapter;
 
 // The one place allowed to touch GameState directly. Scenes submit GameActions through
-// Submit and read the resulting StateDiff; nothing else mutates state. This is PLAN.md's A2
+// Submit and read the resulting StateDiff; nothing else mutates state. This is DESIGN.md's A2
 // adapter: "UI only ever submits GameActions and never mutates state; the engine's reply is
 // a view-model the scenes bind to."
 public sealed class GameSession
@@ -39,7 +39,7 @@ public sealed class GameSession
     public void Start(int startingHandSize, Deck? deck = null) =>
         Start(startingHandSize, deck, deck);
 
-    // Per-seat decks (PLAN.md C2): each seat is dealt its OWN decklist, which is what the
+    // Per-seat decks (DESIGN.md C2): each seat is dealt its OWN decklist, which is what the
     // deckbuilder's per-seat lobby dropdowns select. Either may be null, meaning "the default
     // deck" -- so a human-picked deck can face the default without the caller building one.
     //
@@ -87,7 +87,7 @@ public sealed class GameSession
 
     // Applies one action and returns what changed. Clones before applying because
     // ActionExecutor.Apply mutates GameState in place and there is no other snapshot
-    // mechanism (GameState.Clone() IS the undo mechanism -- see PLAN.md A6).
+    // mechanism (GameState.Clone() IS the undo mechanism -- see DESIGN.md A6).
     public StateDiff Submit(GameAction action)
     {
         var before = _state.Clone();
@@ -95,7 +95,7 @@ public sealed class GameSession
         return StateDiff.Between(before, _state);
     }
 
-    // PLAN.md C6: rebuilds a session to exactly the state a SavedMatch's action log left it in,
+    // DESIGN.md C6: rebuilds a session to exactly the state a SavedMatch's action log left it in,
     // by starting fresh from the same seed and resubmitting every logged action in order --
     // the "replay" half of the seed-plus-action-log persistence choice (see SavedMatch's own
     // header for why that was picked over serializing GameState directly). Sound specifically

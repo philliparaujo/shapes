@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D5: RelayEnvelope is the wire shape RelayMatchTransport exchanges once a relay has
+// DESIGN.md D5: RelayEnvelope is the wire shape RelayMatchTransport exchanges once a relay has
 // paired two clients. The correctness bar mirrors SavedMatchTests' own note -- round-tripping the
 // DTO is necessary but not sufficient; what actually matters is that a GameAction/PlayerId/deck
 // survives the exact JSON serialization RelayMatchTransport uses (RelayProtocolJsonContext), the

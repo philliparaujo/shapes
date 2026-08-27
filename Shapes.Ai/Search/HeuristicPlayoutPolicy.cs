@@ -6,7 +6,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Ai.Search;
 
-// PLAN.md step 3.2: a lightly heuristic playout, replacing IsMctsAgent's uniform-random rollout.
+// DESIGN.md step 3.2: a lightly heuristic playout, replacing IsMctsAgent's uniform-random rollout.
 // Uniform playouts waste iterations on lines no real player would take -- passing with
 // resources unspent, ignoring a lethal move -- so a playout biased toward damage/scoring should
 // make the search's statistics converge on better play with the same iteration budget. Whether

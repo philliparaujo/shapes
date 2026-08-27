@@ -1,5 +1,5 @@
 // Shapes relay: pairs two WebSocket clients by a short code and forwards frames between them.
-// PLAN.md D5 -- the piece that lets two installs find each other across different home networks.
+// DESIGN.md D5 -- the piece that lets two installs find each other across different home networks.
 // A router/NAT blocks an unsolicited INBOUND connection, which is what plain host-prints-their-IP
 // direct play would need; a relay works because both clients only ever connect OUT to it, which
 // no home network blocks.
@@ -10,12 +10,12 @@
 //
 // Deployment note: this is an ordinary dotnet-run-able ASP.NET Core app with no assumptions about
 // where it runs. Today: your own machine, for same-machine/LAN testing (point Godot clients at
-// ws://localhost:5080/ws). Later: any always-on VM (PLAN.md's own D5 section names Oracle
+// ws://localhost:5080/ws). Later: any always-on VM (DESIGN.md's own D5 section names Oracle
 // Cloud's Always Free tier) -- moving it is "run this binary there, open the one port, change the
 // client's ws:// URL." Nothing here is Oracle-specific.
 //
 // Deliberately dumb: this process never loads Shapes.Core, never validates a GameAction, and
-// never looks at what it is forwarding once two sockets are paired. Per PLAN.md's redaction
+// never looks at what it is forwarding once two sockets are paired. Per DESIGN.md's redaction
 // decision, a friends-only relay doesn't need to referee rules -- the two clients already trust
 // each other, and giving a public-facing process the full engine buys nothing at this scope.
 

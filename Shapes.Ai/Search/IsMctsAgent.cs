@@ -8,7 +8,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Ai.Search;
 
-// Single-observer Information Set MCTS with per-iteration resampling. PLAN.md step 2.6.
+// Single-observer Information Set MCTS with per-iteration resampling. DESIGN.md step 2.6.
 //
 // One iteration, in the four standard phases:
 //
@@ -18,7 +18,7 @@ namespace Shapes.Ai.Search;
 //      guess." Sampling once per search would make every statistic conditional on whatever hand
 //      the opponent happened to be given, and the search would confidently play around a hand
 //      they do not hold. Resampling makes the tree's statistics an average over the opponent's
-//      plausible hands, which is the thing worth averaging. PLAN.md step 3.4 makes the reuse
+//      plausible hands, which is the thing worth averaging. DESIGN.md step 3.4 makes the reuse
 //      window a measured, opt-in parameter (IterationsPerDeterminization) rather than assuming 1
 //      is always worth its cost -- see its own doc comment for the tradeoff and the measurement.
 //   1. SELECT. Walk down the tree by UCB1 with the availability correction (see SearchNode),
@@ -39,7 +39,7 @@ namespace Shapes.Ai.Search;
 //
 // == One node is one ATOMIC ACTION, never a whole turn ==
 //
-// PLAN.md's branching-factor note ("treat each atomic action as one tree node -- never enumerate
+// DESIGN.md's branching-factor note ("treat each atomic action as one tree node -- never enumerate
 // whole turns as single moves"). A turn here is a sequence of plays, moves and merges ended by
 // EndTurn; enumerating turns as single edges would raise the branching factor to the product of
 // every action sequence, which is exactly the combinatorial explosion the plan rules out. So
@@ -76,7 +76,7 @@ public sealed class IsMctsAgent : IAgent
     // the range Reward() produces -- but that theoretical value assumes plain UCB1, and this
     // search runs the availability-corrected variant (SearchNode's header), whose exploration term
     // already grows differently with sampled availability than the derivation behind sqrt(2)
-    // assumes. PLAN.md step 3.5 measured rather than kept the theoretical default: a round-robin
+    // assumes. DESIGN.md step 3.5 measured rather than kept the theoretical default: a round-robin
     // among five candidates (0.7, 1.0, sqrt(2), 2.0, 2.8), 200 iterations, real card set, both
     // seats per pairing, found c=1.0 winning 53.3% of 120 games (best of the five) against
     // sqrt(2)'s 47.5% (worse than half). A confirmatory 80-game head-to-head (seats alternated)
@@ -92,7 +92,7 @@ public sealed class IsMctsAgent : IAgent
     // because it plays real games from a real start, not because random play is guaranteed to
     // finish from every position. Without a cap a single unlucky playout would hang the search.
     //
-    // In ACTIONS, not turns, since a node is one atomic action (see above). PLAN.md step 3.3a:
+    // In ACTIONS, not turns, since a node is one atomic action (see above). DESIGN.md step 3.3a:
     // TUNED, not a round number -- 200 is the measured p90 of uniform-random playout length from
     // realistic mid-search positions (4000-sample distribution: p50=90, p90=198, p95=244, p99=330,
     // max=541), chosen because profiling (step 3.3) found playout ActionGenerator.Generate and
@@ -103,7 +103,7 @@ public sealed class IsMctsAgent : IAgent
     // worst-case playout cost versus the previous, untuned 400.
     private const int DefaultPlayoutDepth = 200;
 
-    // How many consecutive iterations reuse one determinized world before resampling. PLAN.md
+    // How many consecutive iterations reuse one determinized world before resampling. DESIGN.md
     // step 3.4: per-iteration resampling (1, the default) is what step 2.6's design chose for
     // correctness -- see Determinize's header -- but Determinize itself is ~5.9% of an
     // iteration's cost (step 3's profiling table), so reusing a world for a few iterations in a
@@ -171,7 +171,7 @@ public sealed class IsMctsAgent : IAgent
     // cancelled before its first iteration).
     //
     // Per-decision scratch, exposed for INSPECTION rather than as state: a tree is the only place
-    // a search's reasoning is visible, and PLAN.md's step 2.4 lesson -- that a green suite says
+    // a search's reasoning is visible, and DESIGN.md's step 2.4 lesson -- that a green suite says
     // an agent's decisions were legal, not what it did with its turns -- applies twice over to a
     // search, whose failures are all "played badly" rather than "threw". A test asserting the tree
     // deepens with budget, or a debugging session asking why a move was picked, has no other
@@ -348,7 +348,7 @@ public sealed class IsMctsAgent : IAgent
     // Mutates `state`, which is this iteration's private determinized copy and is discarded
     // immediately afterwards.
     //
-    // PLAN.md step 3.3b: the uniform policy takes a cheap path here that skips
+    // DESIGN.md step 3.3b: the uniform policy takes a cheap path here that skips
     // ActionGenerator.Generate's full List/HashSet/EffectContext materialization -- see
     // PlayoutActionSampler's header. Only safe for UniformPlayoutPolicy: HeuristicPlayoutPolicy
     // genuinely needs every legal action, since it scores each one to pick the best. Branching on

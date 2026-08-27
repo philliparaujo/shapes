@@ -6,7 +6,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// A card as it looks IN A DECKLIST (PLAN.md C2): a short, wide band whose art fills the whole
+// A card as it looks IN A DECKLIST (DESIGN.md C2): a short, wide band whose art fills the whole
 // rectangle, with the cost pip, name and copy count laid over it.
 //
 // THE FOURTH CARD VIEW, alongside in-hand, in-play and tooltip -- and the only one whose job is

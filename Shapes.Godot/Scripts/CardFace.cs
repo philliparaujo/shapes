@@ -10,7 +10,7 @@ namespace Shapes.Godot.Scripts;
 // 7:6 (7:5 art, 5:1 title, 2:1 pip) and no others. No move list and no HP here on purpose: the
 // PDF's hand card is a cut-off full card, and a hand of them is for recognizing what you hold,
 // not reading it. Full text (moves, HP, descriptions) is the hover tooltip's job instead
-// (HoverStarted below, PLAN.md B1a2); there is no tap-to-inspect panel (PLAN.md B1a removed
+// (HoverStarted below, DESIGN.md B1a2); there is no tap-to-inspect panel (DESIGN.md B1a removed
 // CardDetailPanel along with tap-to-play).
 //
 // The script is attached directly to the root Button (CardFace IS the Button) -- load-bearing,
@@ -19,14 +19,14 @@ namespace Shapes.Godot.Scripts;
 // (topmost, default mouse_filter Stop) absorbed the mouse-down-and-drag gesture before the
 // wrapper's override was ever consulted, so drags silently never started.
 //
-// The drag source for PLAN.md B1a: a playable card can be picked up and dropped on a board slot
+// The drag source for DESIGN.md B1a: a playable card can be picked up and dropped on a board slot
 // (play/place) or the self play area (a targetless spell) -- the only way to play a card.
 // Tapped survives only for discard (AwaitingDiscard is tap-based, see PlayerPanel).
 public partial class CardFace : Button
 {
     public event Action? Tapped;
 
-    // PLAN.md B1a2: mouse-only, no touch equivalent -- desktop players get the full detail this
+    // DESIGN.md B1a2: mouse-only, no touch equivalent -- desktop players get the full detail this
     // way instead of needing a click. HoverStarted carries the CardText so GameRoot never has to
     // look the card back up; HoverEnded carries nothing since dismissing needs no card identity.
     // Deliberately NOT resizing this card (or a neighboring spacer) on hover to make room for the
@@ -64,7 +64,7 @@ public partial class CardFace : Button
 
     // Which card this face is showing, and whether it can currently be picked up. Read-only
     // projections of the two fields above, for harnesses that need to assert on what is actually
-    // on screen (PLAN.md D1's check that the fan holds the VIEWER's hand, and that it goes inert
+    // on screen (DESIGN.md D1's check that the fan holds the VIEWER's hand, and that it goes inert
     // on the opponent's turn) -- a screenshot cannot answer either question by itself.
     public string? CardId => _cardId;
 
@@ -136,7 +136,7 @@ public partial class CardFace : Button
                 ResourceIconFactory.Create(costType, ResourceIconFactory.IconSize.Medium, text.CostAmount));
         }
 
-        // A hand card now renders the SAME bands as the tooltip (PLAN.md 5.C-UI): effects, moves
+        // A hand card now renders the SAME bands as the tooltip (DESIGN.md 5.C-UI): effects, moves
         // and a stat line, not just a cropped art thumbnail with a title. MoveRowFactory is the
         // shared component the tooltip and the board's move buttons already use, so a move reads
         // identically everywhere it appears.

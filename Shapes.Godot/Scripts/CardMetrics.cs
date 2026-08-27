@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The one place card proportions live (PLAN.md B1c, from references/card dimensions.pdf).
+// The one place card proportions live (DESIGN.md B1c, from references/card dimensions.pdf).
 //
 // Every previous round of this work sized each view with its own hand-computed pixel budget, and
 // every round some view's real content overflowed a budget that had drifted out of step with the
@@ -20,7 +20,7 @@ public static class CardMetrics
 {
     // --- In hand -----------------------------------------------------------------------------
     // A hand card is now a FULL card face -- cost badge, name, art, effects, moves and a stat
-    // line -- rather than the cropped art thumbnail it used to be (PLAN.md 5.C-UI). That needs
+    // line -- rather than the cropped art thumbnail it used to be (DESIGN.md 5.C-UI). That needs
     // the tooltip's taller 7:10 proportion, not the old 7:6: at 7:6 the move rows had nowhere to
     // go and were clipped away, which is exactly the "cropped card" this replaced.
     public const float HandWidth = 170f;
@@ -85,7 +85,7 @@ public static class CardMetrics
 
     public static Vector2 SlotSize => new(SlotWidth, SlotHeight);
 
-    // --- Board fit (PLAN.md D7b) ---------------------------------------------------------------
+    // --- Board fit (DESIGN.md D7b) ---------------------------------------------------------------
     //
     // THE MEASUREMENT THAT DECIDED THIS, and it inverts D7b's stated premise. D7b assumed the
     // phone's 2.17 aspect makes the binding constraint vertical, and proposed deriving the slot
@@ -124,7 +124,7 @@ public static class CardMetrics
     // both left undisturbed.
     //
     // How much the whole board subtree is scaled up on touch, and the region it is centred in
-    // (PLAN.md D7). Desktop never calls these -- BoardView gates on Platform.IsTouch.
+    // (DESIGN.md D7). Desktop never calls these -- BoardView gates on Platform.IsTouch.
     //
     // A UNIFORM SCALE ON THE SUBTREE, not a new slot width. SlotView.tscn pins 330x297 on its root
     // and four more fixed band heights inside it (264 body, 26 header, 80 art, 33 status), so

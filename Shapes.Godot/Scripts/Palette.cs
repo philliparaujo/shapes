@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The one place a colour is named (PLAN.md D3 phase 1).
+// The one place a colour is named (DESIGN.md D3 phase 1).
 //
 // WHY THIS EXISTS. Before it, ~80 colour literals lived across 19 scripts and 117 theme_overrides
 // across the scenes, with no shared source -- so "what colour is a panel" had as many answers as
@@ -105,7 +105,7 @@ public static class Palette
     public static readonly Color Merge = new("ffc94a");
     public static readonly Color Warning = new("d68f8f");
 
-    // A move already used this turn (PLAN.md D2 item 3) -- amber, on an axis none of the "cannot
+    // A move already used this turn (DESIGN.md D2 item 3) -- amber, on an axis none of the "cannot
     // use this" fades touch, so it survives any amount of dimming.
     public static readonly Color Spent = new(0.65f, 0.42f, 0.10f);
     public static readonly Color SpentDim = new(0.52f, 0.37f, 0.08f);

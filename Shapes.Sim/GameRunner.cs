@@ -15,7 +15,7 @@ public static class GameRunner
 {
     // Safety valve, not an expected length: FuzzHarnessTests bounds random play at 2000 actions
     // over the real card set, and agent play is never longer than random play. A game that hits
-    // this cap is reported as EndingType.NonTerminating instead of hanging the batch -- PLAN.md
+    // this cap is reported as EndingType.NonTerminating instead of hanging the batch -- DESIGN.md
     // step 4.5 calls out "non-terminating games" as a balance smell to watch for, so a stall
     // needs to surface as a counted outcome, not a stuck process.
     private const int MaxTurns = 500;

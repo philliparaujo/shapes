@@ -1,6 +1,6 @@
 namespace Shapes.Godot.Adapter;
 
-// The order the music tracks play in (PLAN.md D4).
+// The order the music tracks play in (DESIGN.md D4).
 //
 // "SHUFFLING BETWEEN .OGG FILES IN A PREDICTABLE ORDER (1,2,3,4,1,2,3,4,...)" -- the request's own
 // words, and the two halves of that phrase pull in opposite directions, so this class is where the

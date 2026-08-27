@@ -21,14 +21,14 @@ public partial class PlayerPanel : Control
     public event Action<SlotIndex, int>? MoveChosen;
     public event Action<string>? DiscardRequested;
 
-    // PLAN.md B1a drag-and-drop events. Card/creature drops land on a specific slot;
+    // DESIGN.md B1a drag-and-drop events. Card/creature drops land on a specific slot;
     // SpellDroppedOnSelfArea is for a targetless spell dragged anywhere onto the self panel's
     // background rather than a particular slot, since it never occupies the board.
     public event Action<string, SlotIndex>? CardDroppedOnSlot;
     public event Action<SlotIndex, SlotIndex>? CreatureDroppedOnSlot;
     public event Action<string>? SpellDroppedOnSelfArea;
 
-    // PLAN.md B1a2 hover events, forwarded from whichever child raised them. HoverDetailPanel is
+    // DESIGN.md B1a2 hover events, forwarded from whichever child raised them. HoverDetailPanel is
     // fixed in one screen corner (see its own header on why), so unlike every drag/drop event
     // above these carry no position -- only what to show.
     public event Action<CardText>? HandCardHoverStarted;
@@ -39,7 +39,7 @@ public partial class PlayerPanel : Control
 
     private HBoxContainer? _slotContainer;
 
-    // The hand is NOT a child of this panel any more (PLAN.md 5.C-UI): the board frame wraps the
+    // The hand is NOT a child of this panel any more (DESIGN.md 5.C-UI): the board frame wraps the
     // six slots only, so the active player's fanned hand has to live outside it, below the frame.
     // BoardView owns that node and hands it over here, which keeps every hand-rendering decision
     // (what's playable, what's discardable, hover wiring) in the one place that already made them.
@@ -60,7 +60,7 @@ public partial class PlayerPanel : Control
         _slotContainer = GetNode<HBoxContainer>(SlotContainerPath);
     }
 
-    // `showHand` and `interactive` were one flag (`isActiveHand`) until PLAN.md D1 split them.
+    // `showHand` and `interactive` were one flag (`isActiveHand`) until DESIGN.md D1 split them.
     // They answer different questions and only coincided because the board used to flip every
     // turn: "is this the viewer's own hand, so should its cards be face-up" is a question about
     // PERSPECTIVE, while "may this seat act right now" is a question about TURN ORDER. Against an
@@ -76,7 +76,7 @@ public partial class PlayerPanel : Control
         _acceptsSpellDrop = interactive && legalActions.OfType<PlayCardAction>()
             .Any(a => a.TargetSlot is null && a.ChosenTarget is null);
 
-        // Neither panel expands any more (PLAN.md 5.C-UI): each is exactly as tall as its slot
+        // Neither panel expands any more (DESIGN.md 5.C-UI): each is exactly as tall as its slot
         // row, and the BoardArea wrapping the pair shrink-centres them. That is what closes the
         // gap the two rows used to have between them -- the self row now sits directly under the
         // frame's centre divider instead of being pushed to the bottom of a half-screen share.
@@ -113,7 +113,7 @@ public partial class PlayerPanel : Control
             var creature = state.Board[slot];
 
             // Board buttons: every move on every creature renders, including the opponent's
-            // (PLAN.md B1a extended by B1c). Ownership decides whether a move is *usable*, never
+            // (DESIGN.md B1a extended by B1c). Ownership decides whether a move is *usable*, never
             // whether it is *visible* -- an opponent's creature is exactly the thing a player
             // needs to read before committing an attack, and hiding its moves made an enemy
             // creature look like it had none. Opponent moves come through with IsUsable false, so
@@ -131,7 +131,7 @@ public partial class PlayerPanel : Control
                     .Select(move => MoveText.Of(move, state.CostOfMove(slot.Owner, move.Cost)))
                     .ToList();
 
-                // Usable only if this panel is the viewer's own AND it is their turn (PLAN.md D1).
+                // Usable only if this panel is the viewer's own AND it is their turn (DESIGN.md D1).
                 // The `slot.Owner == state.ActivePlayer` test this replaces was a correct reading
                 // of "is this my creature" only while the viewer WAS the active player -- under a
                 // Fixed viewer it would light up the opponent's move buttons as usable on the
@@ -146,7 +146,7 @@ public partial class PlayerPanel : Control
 
                 // One CardText per card folded into this creature, in merge order -- the same
                 // order SlotView renders the art panes left to right, so the slot can pick by
-                // which half the cursor is over (PLAN.md B1c). A merged creature's tooltip shows
+                // which half the cursor is over (DESIGN.md B1c). A merged creature's tooltip shows
                 // one original card rather than the merged whole: four moves would make it taller
                 // than every other card's tooltip, and the slot's own 2x2 grid already shows the
                 // full merged move set, so nothing is unreachable.
@@ -176,13 +176,13 @@ public partial class PlayerPanel : Control
         GameState state, CardDatabase cards, PlayerId player, bool showHand, bool interactive,
         IReadOnlyList<GameAction> legalActions)
     {
-        // The seat the viewer is NOT sitting in renders no hand here -- PLAN.md's console
+        // The seat the viewer is NOT sitting in renders no hand here -- DESIGN.md's console
         // precedent (step 2.5) carried over: hiding is done by suppressing what this view shows,
         // not by handing it a narrowed ObservedState, so --reveal-style debugging stays possible
         // later without restructuring this method. The card count itself lives in BoardView's
         // status bar now, next to the opponent's score/resources, not in the hand row.
         //
-        // Gated on showHand rather than on "is it this seat's turn" (PLAN.md D1): those were the
+        // Gated on showHand rather than on "is it this seat's turn" (DESIGN.md D1): those were the
         // same flag until a Fixed viewer made them differ, and this is the line that decides
         // whether an opponent's hand is face-up on screen. Keying it to perspective means the AI's
         // hand stays hidden on the AI's own turn -- which under the old flag was precisely when it
@@ -206,7 +206,7 @@ public partial class PlayerPanel : Control
 
         var hand = state[player].Hand;
 
-        // Empty unless it is actually the viewer's turn (PLAN.md D1). `legalActions` is always the
+        // Empty unless it is actually the viewer's turn (DESIGN.md D1). `legalActions` is always the
         // ACTIVE player's list, so during the opponent's turn these sets would otherwise describe
         // the OPPONENT's options while being applied to the VIEWER's cards -- lighting up cards as
         // draggable by card-id coincidence. The viewer's hand stays on screen either way; it just
@@ -231,10 +231,10 @@ public partial class PlayerPanel : Control
             var isDiscardable = discardableIds.Contains(cardId);
             face.Render(cardId, CardText.Of(card), isPlayable || isDiscardable);
 
-            // Tap-to-play was removed with CardDetailPanel (PLAN.md B1a) -- dragging is the
+            // Tap-to-play was removed with CardDetailPanel (DESIGN.md B1a) -- dragging is the
             // only way to play a card now. A tap still matters for discard, since
             // AwaitingDiscard is a distinct, rare, explicitly-gated mode with no drag
-            // precedent (PLAN.md B1a's own note on why discard stayed tap-based).
+            // precedent (DESIGN.md B1a's own note on why discard stayed tap-based).
             if (isDiscardable)
             {
                 face.Tapped += () =>
@@ -256,7 +256,7 @@ public partial class PlayerPanel : Control
     }
 
     // Where each slot currently sits in global coordinates, for BoardAnimator's overlay
-    // (PLAN.md B1d). Rects, not SlotView references: RenderSlots QueueFrees every view on the
+    // (DESIGN.md B1d). Rects, not SlotView references: RenderSlots QueueFrees every view on the
     // next render, so handing out nodes would hand out something about to dangle -- the overlay
     // needs a position, and a position outlives the node it came from.
     public void CollectSlotRects(Dictionary<SlotIndex, Rect2> into)
@@ -265,7 +265,7 @@ public partial class PlayerPanel : Control
 
         foreach (var (slot, view) in _slotViews)
         {
-            // GetGlobalRect, not (GlobalPosition, Size): PLAN.md D7 scales the whole BoardArea
+            // GetGlobalRect, not (GlobalPosition, Size): DESIGN.md D7 scales the whole BoardArea
             // subtree on touch to fill the phone's taller board region, and a Control's Size is its
             // LOCAL size -- unaffected by an ancestor's scale. Pairing a global position with a
             // local size would hand the animator boxes the right place but the wrong size, so every

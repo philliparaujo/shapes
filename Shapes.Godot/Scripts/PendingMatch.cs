@@ -10,7 +10,7 @@ public static class PendingMatch
 {
     public static MatchConfig? Config { get; set; }
 
-    // PLAN.md C6: set by Lobby's Resume button instead of Config -- GameRoot._Ready checks this
+    // DESIGN.md C6: set by Lobby's Resume button instead of Config -- GameRoot._Ready checks this
     // first and, if true, loads MatchSaveStore's saved match and replays it (GameSession.Resume)
     // instead of building a fresh MatchConfig. A separate flag rather than overloading Config
     // with a sentinel value, since "resume the saved game" and "start this specific new game"
@@ -18,7 +18,7 @@ public static class PendingMatch
     // hotseat" (the pre-C6 default) apart from "no config, but a save exists, resume it."
     public static bool ResumeRequested { get; set; }
 
-    // PLAN.md D5: the live RelayMatchTransport a Host/Join flow already opened and paired in
+    // DESIGN.md D5: the live RelayMatchTransport a Host/Join flow already opened and paired in
     // Lobby, carried across the same ChangeSceneToFile gap Config crosses -- there is no other
     // way to hand a constructed object (let alone one holding an open socket) into GameRoot's
     // _Ready. Null for every local mode (hotseat/vs-AI/resume), which is what tells GameRoot

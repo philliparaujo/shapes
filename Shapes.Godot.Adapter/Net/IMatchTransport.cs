@@ -2,7 +2,7 @@ using Shapes.Core.Actions;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md D5: "define IMatchTransport (queue / send action / receive action / disconnected) with
+// DESIGN.md D5: "define IMatchTransport (queue / send action / receive action / disconnected) with
 // a LocalTransport covering today's hotseat and AI games. Every item above is then buildable and
 // testable with no server running at all." Today's hotseat/vs-AI modes need no implementation of
 // this at all -- GameRoot simply has no transport wired for them, which already IS the local

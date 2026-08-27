@@ -6,7 +6,7 @@ namespace Shapes.Sim;
 // Card/move reference data joined onto a report at write time -- cost, health, resource type,
 // and synthesized effect text -- so reading an outlier in the HTML explorer, a CSV, or the
 // console doesn't require tabbing over to Shapes.Content/cards/ to remember what a card id does
-// (PLAN.md Phase 4 step 5). Deliberately NOT part of MetricsReport/CardStat/MoveStat: those types
+// (DESIGN.md Phase 4 step 5). Deliberately NOT part of MetricsReport/CardStat/MoveStat: those types
 // are pure aggregation over GameResult and stay constructible without a CardDatabase (every
 // MetricsReportTests fixture does exactly that), matching how HtmlReportWriter/ResultWriter
 // already keep the reporting/formatting concern out of Shapes.Core.

@@ -11,7 +11,7 @@ namespace Shapes.Core.Effects;
 // slot a player picked for this effect's chosen_* selector, resolved by legal-action generation
 // (step 1.8) before the op ever runs; the interpreter itself never asks the player anything.
 //
-// A READONLY STRUCT, not a class: PLAN.md step 3.3c found this constructed thousands of times
+// A READONLY STRUCT, not a class: DESIGN.md step 3.3c found this constructed thousands of times
 // per playout (once per hand card/move ActionGenerator/PlayoutActionSampler considers, plus once
 // per ActionExecutor.ResolveEffects call), and every existing usage already passes it by value
 // and never stores it beyond one call (EffectOp.Apply takes it as a parameter; With* methods

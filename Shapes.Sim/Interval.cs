@@ -154,7 +154,7 @@ public readonly record struct MeanEstimate
 // The shape of a sample, not just its centre: min/max, quartiles, and the 5th/95th percentiles.
 //
 // Exists because a mean and a standard deviation cannot show a long tail, and a long tail is
-// exactly what a termination problem produces (PLAN.md step 5b). One 501-turn game in a 400-game
+// exactly what a termination problem produces (DESIGN.md step 5b). One 501-turn game in a 400-game
 // batch moved the reported mean game length from 21.3 to 26.7 and the standard deviation from 9.0
 // to 30.2 -- the mean looked like "games got longer," when the median had barely moved and a
 // single game had failed to end. A median plus a p95 separates those two readings immediately;

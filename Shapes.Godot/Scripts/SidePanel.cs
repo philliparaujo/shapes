@@ -4,7 +4,7 @@ using Shapes.Core.State;
 
 namespace Shapes.Godot.Scripts;
 
-// One seat's block on the right rail (PLAN.md 5.C-UI, from references/game screen.png): a
+// One seat's block on the right rail (DESIGN.md 5.C-UI, from references/game screen.png): a
 // rectangle holding the hand/deck counts and the three resource chips, with a PlayerBadge
 // floating over its left edge.
 //
@@ -374,7 +374,7 @@ public partial class SidePanel : Control
 
     // Scale-bounce on the icon plus a floating number -- the same recipe BoardAnimator.FloatText
     // uses for damage/heal/score. Moved here with the resource row when the top status bar was
-    // removed (PLAN.md 5.C-UI); it stays local rather than routing through BoardAnimator because
+    // removed (DESIGN.md 5.C-UI); it stays local rather than routing through BoardAnimator because
     // a rail total has no StateDiff cue of its own.
     //
     // delta's SIGN drives everything. Spending is not just a gain played backwards: the icon
@@ -427,7 +427,7 @@ public partial class SidePanel : Control
     }
 }
 
-// The soft shade behind a count pip's number (PLAN.md 5.C-UI). Darkest at the centre, fading to
+// The soft shade behind a count pip's number (DESIGN.md 5.C-UI). Darkest at the centre, fading to
 // nothing before the card's edge, so the white count reads against the card back's bright middle
 // without a visible rectangle sitting on the art.
 //

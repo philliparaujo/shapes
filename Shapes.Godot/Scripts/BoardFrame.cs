@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The rectangle framing the six board slots (PLAN.md 5.C-UI, from references/game screen.png):
+// The rectangle framing the six board slots (DESIGN.md 5.C-UI, from references/game screen.png):
 // a filled playfield, a thick bevelled border, and a divider separating the two players' rows.
 //
 // Drawn in _Draw on a mouse-ignoring Control sitting BEHIND the slot rows rather than being a
@@ -25,7 +25,7 @@ public partial class BoardFrame : Control
     // the cards for attention instead of receding behind them; a table surface should be the
     // quietest thing on screen. The rail stays warm wood, which frames the felt without joining
     // the contest.
-    // From Palette (PLAN.md D3 phase 1) -- the felt and its gold frame are part of the scheme.
+    // From Palette (DESIGN.md D3 phase 1) -- the felt and its gold frame are part of the scheme.
     private static readonly Color SurfaceLight = Palette.BoardFelt;
     private static readonly Color SurfaceDark = Palette.BoardFeltDark;
     private static readonly Color FrameBodyColor = Palette.BoardFrameBody;

@@ -28,7 +28,7 @@ public static class RuleSetTestHelper
     public static RuleSet WithScoreByCreatureDelta(bool scoreByCreatureDelta) =>
         Build(scoreByCreatureDelta: scoreByCreatureDelta);
 
-    // Seat-two compensation knobs (PLAN.md step 4.8). Each varies ONE knob against a zeroed base
+    // Seat-two compensation knobs (DESIGN.md step 4.8). Each varies ONE knob against a zeroed base
     // rather than against the shipping ruleset, which now enables all of them -- otherwise a test
     // named for the cards knob would also be handed 1/1/1 of resources, and could not attribute
     // what it observed to the knob it names.

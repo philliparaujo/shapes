@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The right-hand rail (PLAN.md 5.C-UI, from references/game screen.png): opponent panel, End Turn
+// The right-hand rail (DESIGN.md 5.C-UI, from references/game screen.png): opponent panel, End Turn
 // button, player panel, stacked top to bottom.
 //
 // Its only job beyond stacking is vertical alignment: the End Turn button must sit level with the

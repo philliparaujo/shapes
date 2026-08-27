@@ -5,7 +5,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md B1b: StatusIcons.Describe must report one badge per active status, and must
+// DESIGN.md B1b: StatusIcons.Describe must report one badge per active status, and must
 // distinguish persistent taunt from the "until your next turn" form, since that's the one status
 // whose durability the badge itself has to convey (see CreatureInstance.TauntExpiresNextTurn).
 public class StatusIconsTests

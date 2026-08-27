@@ -5,7 +5,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Godot;
 
-// PLAN.md D4: which sounds one action makes. Same testability argument as ActionLogTests -- the
+// DESIGN.md D4: which sounds one action makes. Same testability argument as ActionLogTests -- the
 // mapping is a pure function of (action, diff), so it lives in the adapter and needs no editor.
 //
 // The two rules in SoundScript's header are what these pin: the action decides what the player

@@ -6,7 +6,7 @@ using Shapes.Core.Cards;
 
 namespace Shapes.Sim;
 
-// Self-contained HTML metrics explorer -- PLAN.md Phase 4 step 2d. The report has outgrown
+// Self-contained HTML metrics explorer -- DESIGN.md Phase 4 step 2d. The report has outgrown
 // reading: one run is ~3,700 lines of JSON and ~1,600 numbers for cards alone, and the console
 // output (Program.cs) is a fixed slice chosen in advance. This answers "which cards are outliers
 // on take rate AND have intervals tight enough to act on" by putting every card/move in a

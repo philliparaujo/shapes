@@ -26,14 +26,14 @@ coverage*.xml
 balance/**/*.csv
 balance/**/raw/
 # Sim run artifacts (--metrics-json / --report / --compare-report output).
-# PLAN.md's runbook writes these into out/; the whole directory is generated.
+# DESIGN.md's runbook writes these into out/; the whole directory is generated.
 out/
 
 # Godot (Phase 4)
 .godot/
 *.translation
 
-# Exported builds (PLAN.md D6)
+# Exported builds (DESIGN.md D6)
 Shapes.Godot/Exports/
 
 # Mirrored into the resource tree at build time from Shapes.Content (Shapes.Godot.csproj's
@@ -45,7 +45,7 @@ Thumbs.db
 .DS_Store
 
 # Secrets -- SSH keys for the relay VM live here, never committed.
-# See PLAN.md "SSH into the relay VM" for the deploy commands that read them.
+# See DESIGN.md "SSH into the relay VM" for the deploy commands that read them.
 .secrets/
 server/
 *.key

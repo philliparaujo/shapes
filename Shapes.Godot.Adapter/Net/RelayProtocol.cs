@@ -4,7 +4,7 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md D5: the messages exchanged over a RelayMatchTransport, once Shapes.Relay has paired two
+// DESIGN.md D5: the messages exchanged over a RelayMatchTransport, once Shapes.Relay has paired two
 // sockets by code. Reuses SavedMatch.cs's ActionDto/SeatDto/DeckListDto rather than inventing a
 // second serialization of GameAction/SeatConfig/Deck -- those types already round-trip everything
 // this protocol needs to send, for the same reason SavedMatch itself gives (GameAction is flat,
@@ -34,7 +34,7 @@ public enum RelayMessageKind
     JoinFailed,
 
     // Host -> joiner, once both sides are connected: the actual match parameters. The host is the
-    // authority that picked the seed and resolved "random" seat order (PLAN.md's redaction
+    // authority that picked the seed and resolved "random" seat order (DESIGN.md's redaction
     // decision: the relay itself stays rules-free, so this can't be the server's job).
     MatchStart,
 

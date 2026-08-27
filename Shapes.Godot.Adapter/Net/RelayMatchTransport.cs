@@ -8,10 +8,10 @@ using Shapes.Core.Primitives;
 
 namespace Shapes.Godot.Adapter;
 
-// PLAN.md D5's network IMatchTransport: wraps a ClientWebSocket to a Shapes.Relay instance,
+// DESIGN.md D5's network IMatchTransport: wraps a ClientWebSocket to a Shapes.Relay instance,
 // carries a host or join handshake, then forwards GameActions both ways for the rest of the
 // match. Plain System.Net.WebSockets + the source-generated RelayProtocolJsonContext -- no Godot
-// dependency, matching every other type in this project (PLAN.md A2's project-structure note).
+// dependency, matching every other type in this project (DESIGN.md A2's project-structure note).
 //
 // Two ways to obtain one, matching the two roles a Lobby screen offers:
 //   HostAsync -- opens the socket, asks the relay to host, and returns once a code is assigned.
@@ -105,7 +105,7 @@ public sealed class RelayMatchTransport : IMatchTransport
     }
 
     // HOST side only: sends the resolved match parameters to the joiner once Joined has resolved
-    // true. The host is the seed/seat authority (PLAN.md's redaction decision keeps the relay
+    // true. The host is the seed/seat authority (DESIGN.md's redaction decision keeps the relay
     // itself rules-free), so this is a plain client-to-client message over the now-paired socket,
     // not something the relay computes or inspects.
     public Task SendMatchStartAsync(

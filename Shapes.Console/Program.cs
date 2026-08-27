@@ -1,5 +1,5 @@
 // Text client for Shapes: hotseat human v human, human v AI, and AI v AI play.
-// Implements PLAN.md Phase 1, step 11, plus the agent-driven modes added with step 2.4 and the
+// Implements DESIGN.md Phase 1, step 11, plus the agent-driven modes added with step 2.4 and the
 // hidden-hand rendering added with step 2.5.
 //
 // Usage:

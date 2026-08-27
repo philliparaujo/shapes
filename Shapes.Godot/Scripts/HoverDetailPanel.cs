@@ -5,7 +5,7 @@ using Shapes.Godot.Adapter;
 
 namespace Shapes.Godot.Scripts;
 
-// PLAN.md B1a2: the hover-triggered full-detail view B1a's round 3 promised (three times, in
+// DESIGN.md B1a2: the hover-triggered full-detail view B1a's round 3 promised (three times, in
 // comments, without ever scheduling it) when it compacted hand cards to name+cost and deleted
 // CardDetailPanel entirely. Desktop-only by nature -- there is no hover on a touch device, so
 // this is purely additive over B1a's tap/drag model, never required to see or play a card.
@@ -110,7 +110,7 @@ public partial class HoverDetailPanel : Control
     // name/cost are individually optional (SlotView's board-creature hover has neither -- its
     // display name and stats are already one combined statLine, and a board creature has no
     // cost) so the name label hides rather than rendering an empty line when blank, and
-    // primaryType null skips both the cost badge and the art placeholder (PLAN.md B1c: a board
+    // primaryType null skips both the cost badge and the art placeholder (DESIGN.md B1c: a board
     // creature's hover doesn't need either -- its icons are already visible inline on the slot).
     public void Show(
         string name, string statLine, string spellEffects, IReadOnlyList<MoveText> moves,

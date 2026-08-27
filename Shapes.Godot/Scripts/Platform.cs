@@ -2,7 +2,7 @@ using Godot;
 
 namespace Shapes.Godot.Scripts;
 
-// The one place the client asks "what am I running on" (PLAN.md D7): is this a touch device, how
+// The one place the client asks "what am I running on" (DESIGN.md D7): is this a touch device, how
 // much bigger must content be drawn, and what is the safe-area inset.
 //
 // WHY A GATE AT ALL. Milestone D was tuned against the desktop window, so D7's hard requirement is

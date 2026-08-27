@@ -12,7 +12,7 @@ namespace Shapes.Ai.Search;
 // expand a position it only partly knows, so each iteration draws one *possible world* -- a
 // fully-specified state that agrees with every observation and guesses, uniformly at random,
 // about everything else -- and searches that with the ordinary engine. Averaged over many
-// iterations with a fresh sample each time (per-iteration resampling, PLAN.md step 2.6), the
+// iterations with a fresh sample each time (per-iteration resampling, DESIGN.md step 2.6), the
 // search's statistics approximate play against the real distribution of opponent hands rather
 // than against one imagined hand.
 //
@@ -66,7 +66,7 @@ namespace Shapes.Ai.Search;
 //
 // The correct fix is a belief distribution over decklists -- sample a plausible decklist per
 // iteration, constrained by the cards the opponent has demonstrably played and filled uniformly
-// otherwise. That is PLAN.md Phase 5 step C2/D1, and it changes only UnseenCardsOf: this class's
+// otherwise. That is DESIGN.md Phase 5 step C2/D1, and it changes only UnseenCardsOf: this class's
 // public surface and everything downstream of it stay as they are. Until then, treat any
 // ismcts win rate measured on non-symmetric decks as an OPTIMISTIC bound on that agent's real
 // strength, and do not compare it against a symmetric-deck run.

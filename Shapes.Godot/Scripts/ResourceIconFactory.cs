@@ -6,7 +6,7 @@ namespace Shapes.Godot.Scripts;
 
 // Draws the three resource-type shapes (Spike=triangle, Anvil=square, Wheel=circle) as actual
 // geometry rather than reusing ResourceIcons' text glyphs -- a glyph read fine at label size but
-// goes thin/font-dependent blown up to placeholder-art size (PLAN.md B1c's temporary stand-in
+// goes thin/font-dependent blown up to placeholder-art size (DESIGN.md B1c's temporary stand-in
 // for real card art). One factory, three call sites (hand card cost badge, tooltip cost badge,
 // move cost badges, in-play card art) so the shape/color mapping lives in exactly one place.
 //
@@ -122,7 +122,7 @@ public static class ResourceIconFactory
         return root;
     }
 
-    // A full-panel placeholder for the in-play card's art region (PLAN.md B1c): the same shape
+    // A full-panel placeholder for the in-play card's art region (DESIGN.md B1c): the same shape
     // drawn edge-to-edge rather than as a small badge, standing in for real art until it exists.
     // No number -- this is "the art," not a cost readout.
     // Every caller parents this into a real Container (a MarginContainer art holder, or the

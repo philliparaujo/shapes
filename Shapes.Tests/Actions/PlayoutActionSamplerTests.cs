@@ -5,7 +5,7 @@ using Shapes.Tests.Fixtures;
 
 namespace Shapes.Tests.Actions;
 
-// PLAN.md step 3.3b: PlayoutActionSampler.SampleOne must choose from the IDENTICAL legal set
+// DESIGN.md step 3.3b: PlayoutActionSampler.SampleOne must choose from the IDENTICAL legal set
 // ActionGenerator.Generate would have produced, and with the identical (uniform) distribution --
 // it is a faster path to the same answer, not a second implementation of legality that happens to
 // agree most of the time.
