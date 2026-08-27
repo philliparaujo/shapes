@@ -26,10 +26,6 @@ window/size/viewport_height=1000
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-; PLAN.md D7 decision 1: landscape-locked. The board is two horizontal rows of three slots beside
-; a vertical side rail, so portrait would need a different information architecture rather than a
-; rescaled one. Locking it turns the phone-vs-desktop delta into an aspect-ratio change (~2.17 vs
-; 1.6) instead of an inversion (0.46). Desktop ignores this key entirely.
 window/handheld/orientation="sensor_landscape"
 
 [dotnet]
