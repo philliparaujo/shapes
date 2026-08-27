@@ -155,6 +155,10 @@ public partial class Lobby : Control
         // PLAN.md D3 phase 1. The whole subtree inherits, so this one call is what stops the lobby
         // rendering in Godot's stock theme -- it carried six theme_overrides, all of them spacing
         // and font size, and not one colour or panel between them.
+        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // no-op on desktop -- see Platform.ApplyContentScale.
+        Platform.ApplyContentScale(this);
+
         UiTheme.ApplyTo(this);
 
         _playerOneKind = GetNode<OptionButton>(PlayerOneKindPath);

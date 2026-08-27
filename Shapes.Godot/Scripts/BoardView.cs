@@ -53,6 +53,9 @@ public partial class BoardView : Control
     [Export] public NodePath ActionRecapPanelPath { get; set; } = "ActionRecapPanel";
     [Export] public NodePath ActionLogOverlayPath { get; set; } = "ActionLogOverlay";
     [Export] public NodePath LogButtonPath { get; set; } = "LogButton";
+    [Export] public NodePath LayoutPath { get; set; } = "Layout";
+    [Export] public NodePath BoardAreaPath { get; set; } = "Layout/BoardArea";
+    [Export] public NodePath SideRailPath { get; set; } = "SideRail";
 
     private PlayerPanel? _opponentPanel;
     private PlayerPanel? _selfPanel;
@@ -82,6 +85,15 @@ public partial class BoardView : Control
     // the active seat each Render -- which seat that is swaps every turn.
     private HandFan? _hand;
 
+    // Left edge shared by the type-cycle chart and the hover tooltip below it, so the two read as
+    // one column (PLAN.md D7). Matches HoverDetailPanel.tscn's own offset_left.
+    private const float TypeChartLeft = 12f;
+
+    // How far the side rail moves left of its authored position on touch, so the settings gear and
+    // log button no longer overlap it. The buttons are 44 wide and sit 14 from the edge, plus the
+    // 30-unit safe-area inset and a small gap.
+    private const float RailButtonClearance = 96f;
+
     private IReadOnlyList<GameAction>? _pendingTargetActions;
     private (StateDiff Diff, PlayerId SelfSeat)? _pendingAnimation;
 
@@ -98,6 +110,10 @@ public partial class BoardView : Control
         // owns the visual tree -- the overlays (menu, rules, log) are its children, so they inherit
         // too. C-UI already styled most of this screen by hand, so the theme mainly reaches the
         // controls that were left stock: the pause menu's buttons and the log overlay's chrome.
+        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // no-op on desktop -- see Platform.ApplyContentScale.
+        Platform.ApplyContentScale(this);
+
         UiTheme.ApplyTo(this);
 
         _opponentPanel = GetNode<PlayerPanel>(OpponentPanelPath);
@@ -189,6 +205,125 @@ public partial class BoardView : Control
         _logButton!.Pressed += OpenActionLog;
         _actionLogOverlay!.CloseRequested += () => _actionLogOverlay.Close();
         _actionLogOverlay.Visible = false;
+
+        ApplyTouchLayout();
+    }
+
+    // PLAN.md D7's mobile fit-and-finish, in one place and behind one gate.
+    //
+    // EVERY LINE BELOW IS INERT ON DESKTOP, and deliberately by an early return rather than by
+    // arithmetic that comes out even (Platform's header explains why that distinction is the point
+    // of the whole gate). Milestone D was tuned against the desktop window, so D7's hard
+    // requirement is that desktop renders identically -- with this shape, "the .tscn offsets are
+    // untouched on desktop" is a property of one branch, checkable by reading it.
+    //
+    // APPLIED ONCE FROM _Ready, WITH NO Resized HOOK (D7c iii). The app is landscape-locked, so
+    // neither the safe area nor the canvas aspect changes after startup, and a resize handler would
+    // introduce runtime code mutating positions that are currently purely static -- risking the
+    // pre-layout (0,0) read SideRail.Align already documents.
+    private void ApplyTouchLayout()
+    {
+        if (!Platform.IsTouch)
+        {
+            return;
+        }
+
+        var layout = GetNode<MarginContainer>(LayoutPath);
+
+        // THE VERTICAL BUDGET IS WHAT PAYS FOR THE CONTENT SCALE, and it has to be reclaimed before
+        // anything else: at scale 1.12 the canvas is ~893 units tall, while the desktop margins
+        // (96 top, 210 hand band) plus two 297-unit rows need ~992. Dropping both frees the ~107
+        // units that make the board fit. See Platform.TouchContentScale for the full arithmetic.
+        //
+        // The top margin can go because what it clears -- the type-cycle chart and the settings
+        // gear -- are corner-anchored overlays, not rows above the board, so the board only ever
+        // needed to start below them, and at this scale it still does.
+        layout.AddThemeConstantOverride("margin_top", Platform.TouchTopMargin);
+
+        // The hand band is trimmed to what the fan actually occupies: a hand card is 243 units tall
+        // and HandFan shows VisibleCardFraction (0.62) of it plus an 18-unit arc rise, so ~169
+        // units are used and the desktop 210 carries ~41 units of slack that a phone cannot spare.
+        _hand!.OffsetTop = -Platform.TouchHandBand;
+
+        // D7c: the safe-area inset, fed in at the root for everything inside Layout...
+        TouchLayout.InsetMargins(layout);
+
+        // ...and pushed directly into the corner controls, which are anchored to BoardView rather
+        // than to Layout and so have nothing between them and the screen edge to inherit it from.
+        //
+        // ONLY THE TWO RIGHT-EDGE BUTTONS. The type-cycle chart was briefly in this list and should
+        // not have been: it is anchored top-LEFT, nowhere near a cut corner, and the inset pushed it
+        // 30 units inboard of the hover tooltip directly below it -- two left-edge panels that read
+        // as one column looked misaligned. It gets TypeChartLeft instead, matching the tooltip.
+        TouchLayout.InsetCornerControls(_settingsButton!, _logButton!);
+
+        // The chart shares the tooltip's left edge (HoverDetailPanel.tscn offset_left = 12), so the
+        // two left-edge panels line up as one column. Width is preserved by moving both offsets.
+        var chartWidth = _typeCycleChart!.OffsetRight - _typeCycleChart.OffsetLeft;
+        _typeCycleChart.OffsetLeft = TypeChartLeft;
+        _typeCycleChart.OffsetRight = TypeChartLeft + chartWidth;
+
+        // The rail clears the corner buttons (PLAN.md D7). Both buttons are anchored to the right
+        // edge and, once inset, land at roughly x -44..-88 from it -- squarely on top of the rail's
+        // top panel, which is what put the settings gear over the opponent's avatar. Shifting the
+        // whole rail left by the button column's width moves it out from under both at once, and
+        // the wide phone canvas has the room to give (see CardMetrics' board-fit note).
+        //
+        // Offsets, not Position: SideRail.Align rewrites Position.Y every time the board resizes and
+        // preserves Position.X, so an offset shift survives it while a Position write would be
+        // fought. Additive, so the rail keeps its authored 208 width.
+        var rail = GetNode<Control>(SideRailPath);
+        rail.OffsetLeft -= RailButtonClearance;
+        rail.OffsetRight -= RailButtonClearance;
+
+        // D7b: the board scales up to fill the vertical space and centres in what is actually
+        // VISIBLE. Both halves matter and the second was the bug.
+        //
+        // Layout runs to the bottom of the canvas, but the hand band is anchored over its lower
+        // ~175 units, so a shrink-centred BoardArea centres on a region far taller than the one the
+        // player can see -- which put the board ~78 units too low, cramped against the top margin
+        // with a dead gap above the hand. Reserving the hand band as a bottom margin makes the box
+        // it centres in the box that is actually visible.
+        layout.AddThemeConstantOverride("margin_bottom", Platform.TouchHandBand);
+
+        // Horizontally the same correction, for the rail rather than the hand: reserving the rail's
+        // width keeps the board centred on the free space instead of drifting right behind it.
+        // Uses the shifted rail edge, so the board follows the rail left.
+        layout.AddThemeConstantOverride(
+            "margin_right", Mathf.RoundToInt(CardMetrics.SideRailReserve - RailButtonClearance));
+
+        ScaleBoardToFit();
+    }
+
+    // Grows the board subtree to fill its region, preserving the 10:9 proportion (PLAN.md D7).
+    //
+    // DEFERRED, because it measures. On the frame _Ready runs, BoardArea has not been laid out and
+    // reports a zero rect -- the same pre-layout (0,0) read SideRail.Align documents and guards
+    // against. Deferring lets the container sort first, so the region measured is the real one.
+    private void ScaleBoardToFit() => CallDeferred(nameof(ApplyBoardScale));
+
+    private void ApplyBoardScale()
+    {
+        var boardArea = GetNodeOrNull<Control>(BoardAreaPath);
+        if (boardArea is null)
+        {
+            return;
+        }
+
+        var region = boardArea.GetParent<Control>().Size.Y;
+        var scale = CardMetrics.BoardScale(region);
+
+        // Scale about the top-centre of the board, so growth spreads sideways and downward from
+        // where the container already placed it rather than pulling the board off its own origin.
+        // A Control scales around PivotOffset, which BoardAnimator.Place documents the same trap for.
+        boardArea.PivotOffset = new Vector2(boardArea.Size.X / 2f, 0f);
+        boardArea.Scale = new Vector2(scale, scale);
+
+        // The animator caches slot rects, and every one of them just moved. Re-collecting is what
+        // keeps a played-card cue landing on the slot it belongs to rather than at the unscaled
+        // position -- exactly the "animation renders at the wrong slot" class of bug PlayerPanel's
+        // own RenderSlots note describes.
+        RefreshAnimatorLayout();
     }
 
     // True while the match log is up -- checked separately from the menu and tutorial for the same

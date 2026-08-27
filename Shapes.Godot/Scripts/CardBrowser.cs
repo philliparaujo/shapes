@@ -158,7 +158,16 @@ public partial class CardBrowser : Control
     public override void _Ready()
     {
         // PLAN.md D3 phase 1 -- the project theme, inherited by everything below this root.
+        // PLAN.md D7: content scale, applied before anything measures itself. Idempotent and
+        // no-op on desktop -- see Platform.ApplyContentScale.
+        Platform.ApplyContentScale(this);
+
         UiTheme.ApplyTo(this);
+
+        // PLAN.md D7c: this screen's Layout is anchored to all four edges, so on a phone it draws
+        // under the system bars and any display cutout (the Android preset sets immersive mode).
+        // Inert on desktop by TouchLayout's own gate -- the .tscn offsets are left untouched there.
+        TouchLayout.InsetOffsets(GetNodeOrNull<Control>("Layout"));
 
         GodotTextFormat.Ensure();
         _grid = GetNode<GridContainer>(GridContainerPath);

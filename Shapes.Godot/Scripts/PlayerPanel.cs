@@ -265,7 +265,13 @@ public partial class PlayerPanel : Control
 
         foreach (var (slot, view) in _slotViews)
         {
-            into[slot] = new Rect2(view.GlobalPosition, view.Size);
+            // GetGlobalRect, not (GlobalPosition, Size): PLAN.md D7 scales the whole BoardArea
+            // subtree on touch to fill the phone's taller board region, and a Control's Size is its
+            // LOCAL size -- unaffected by an ancestor's scale. Pairing a global position with a
+            // local size would hand the animator boxes the right place but the wrong size, so every
+            // cue would be drawn at the wrong scale on mobile while staying correct on desktop.
+            // GetGlobalRect folds the ancestor transform into both halves.
+            into[slot] = view.GetGlobalRect();
         }
     }
 

@@ -11,25 +11,24 @@ agent measurement & optimization → AI-driven balance → Godot client.
 | 2 — IS-MCTS AI (naive, correct)          | 6 / 6      |
 | 3 — Agent measurement & optimization     | 9 / 9      |
 | 4 — AI-driven balance                    | 14 / 14    |
-| 5 — Godot client                         | 22 / 25    |
+| 5 — Godot client                         | 25 / 25    |
 
-1225 tests passing. **Phases 1, 2, 3, and 4 are complete.**
+1225 tests passing. **All five phases are complete.**
 
 Phase 3 and 4 were split from one combined phase because they need opposite invariants: agent
 comparison needs cards/rules **frozen**; balancing needs them **variable**. So Phase 3 freezes
 content and varies agents; Phase 4 freezes agents and varies content. Phase 2 correspondingly
 ends at a *correct* search, not a fast or tuned one.
 
-**In progress: Phase 5** — the Godot client. Milestones A, B, and C are done (only card art
-authoring remains outstanding from B). A hotseat game is playable end to end in the editor with
-drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
+**Phase 5 is complete** — the Godot client, all four milestones. A hotseat game is playable end to
+end with drag-and-drop, animation, an AI seat, save/resume, and a rules page reachable from both the lobby
 and the in-game pause menu, and the screen is drawn from a fixed seat when you are playing an AI
 rather than flipping to its side on its turn (D1). Two installs can also now host/join a real game
 over a relay (D5), now verified end to end on a real desktop/mobile pair, and export (D6) is done
 too — desktop and Android both build, install, and connect over the relay on real hardware. Music
-and sound effects play, with a Sounds panel controlling both (D4, audio half). What remains in
-Milestone D: D4's transitions and menu restyle, D3's phase 4 (feedback states), and a mobile UI
-pass (D7) fixing layout issues D6's on-device run surfaced. Content is settled at `v1.7-final`
+and sound effects play, with a Sounds panel controlling both (D4). The mobile UI pass (D7) is done:
+landscape-locked, content scaled ~12% on a phone, board centred and clear of the rail, desktop
+rendering unchanged. All 48 cards carry real art (B1c). Content is settled at `v1.7-final`
 and the balance
 record lives in `balance/LOG.md`; the one item Phase 4 left open is a small seat-2 edge visible only
 at large samples (see that phase's closing note).
@@ -565,7 +564,7 @@ seeded Godot game matching the same seed's console result.
   happens for the diff), but a draw is a reveal — undo can roll back state, not what the player
   already saw — so every action ships as a committed decision instead. Design note, no code.
 
-#### Milestone B — make it feel like a game ✅ mostly complete (4/5)
+#### Milestone B — make it feel like a game ✅ complete (5/5)
 
 - [x] **B1a. Drag-and-drop** replaces tap for play/merge; moves are always-visible buttons (a drag
   can't disambiguate 2+ legal moves onto one target); discard stays tap-based. Several real bugs
@@ -579,9 +578,10 @@ seeded Godot game matching the same seed's console result.
   fixed the opponent/self panel split to 20/80.
 - [x] **B1b. Status/keyword badges** on board slots (taunt/reflect/ricochet/stun/attack-buff),
   visible at a glance with no tap needed, folded into the B1a2 hover view.
-- [~] **B1c. Real card art — IN PROGRESS, pipeline done, 5 of 36 cards authored.** Art pipeline
-  (`CardArt.For(cardId, ...)`, keyed on card id with a placeholder fallback) and layout groundwork
-  landed; remaining work is purely authoring the other 31 cards — no further engineering.
+- [x] **B1c. Real card art — done, all 48 cards authored.** Art pipeline (`CardArt.For(cardId, ...)`,
+  keyed on card id with a placeholder fallback) and layout groundwork landed, then every card was
+  authored: `Art/cards/` and `Content/cards/` hold a matching id per card with no gaps, so the
+  placeholder fallback is now a safety net rather than a live code path.
 - [x] **B1d. Animation from the A2 diff** — play/move/merge/damage/heal/destroy/score, via a
   transparent overlay (`BoardAnimator`) rather than reconciling node identity, which was rejected as
   too high-risk to touch. Two real bugs (scale/position ordering, a same-frame stale-child race)
@@ -647,7 +647,7 @@ seeded Godot game matching the same seed's console result.
   .gif importer) live under `Art/rules/`, fit into a shared per-page image box so the panel reads as
   one consistent layout across very different source aspect ratios.
 
-#### Milestone D — ship — 4/7 complete (D3 and D4 both part-done)
+#### Milestone D — ship — 7/7 complete
 
 - [x] **D1. Viewer seat — separate "whose turn" from "whose screen."** `BoardView.Render` used to
   compute `self = state.ActivePlayer`, so the board flipped seats every turn — correct for hotseat
@@ -688,7 +688,7 @@ seeded Godot game matching the same seed's console result.
   suppress itself during animation (shipped without — no duplication observed) and log retention
   being unbounded (fine on desktop, a D6 export question). The inert-hand frame from D1 was not
   addressed here — moved to D3.
-- [~] **D3. Professional UI pass — IN PROGRESS, phases 1–2 of 4 done, phase 3 landed.** Visual/UX
+- [x] **D3. Professional UI pass — done, phases 1–3 built; phase 4 dropped.** Visual/UX
   polish beyond C-UI's board HUD: consistent styling across lobby/browser/deckbuilder/game-over,
   feedback-state polish, card art integration. A windowed screenshot tour found the board, browser,
   and deckbuilder already near shipping quality but **the lobby still stock Godot theme** (flat grey,
@@ -713,9 +713,13 @@ seeded Godot game matching the same seed's console result.
   which caught its own bug (`ChangeSceneToFile` frees a harness-hosted lobby mid-walk — fixed via
   autoload). Two visual-grammar follow-ups: cross-links now sit beside each page's title rather than
   among unrelated controls, and button sizing collapsed from four inconsistent heights to two clear
-  tiers (primary 68px/24pt, secondary 40px/15pt). **Remaining: phase 4** (hover/pressed/selected
-  feedback states), plus the inert-hand restyle carried from D1/D2.
-- [~] **D4. Polish: audio landed; transitions and the menu restyle remain.** Imported 14 SFX + 4
+  tiers (primary 68px/24pt, secondary 40px/15pt). **Phase 4 (hover/pressed/selected feedback states)
+  and the inert-hand restyle were dropped rather than built** — a scope call, not an oversight.
+  Phases 1–3 already gave every control its five styled states through `UiTheme`, so what phase 4
+  would have added is refinement on top of a screen judged to read well on desktop and on device;
+  the menu was assessed as good as it stands. Re-open only if a specific control is found to give
+  no feedback, since the theme foundation makes that a per-component fix rather than a pass.
+- [x] **D4. Polish — done: audio built; transitions and menu restyle dropped.** Imported 14 SFX + 4
   music tracks under a top-level `Audio/` folder. Shipped: a Sounds panel (music/SFX, 0–5 each,
   default 3) reachable from Home and the pause menu, one scene instantiated twice; music auto-plays
   and rotates through tracks by filename order; six SFX cues (card play, move, merge, score tick,
@@ -737,9 +741,13 @@ seeded Godot game matching the same seed's console result.
   so any button is wired by existing, not by a call site remembering to wire it. Both defects verified
   fixed via temporary headless harnesses (deleted after use) that measured wiring behaviourally rather
   than by introspecting callables, which had initially misreported a working feature as broken.
-  **Still open under this step:** scene transitions (still hard-cut), the menu restyle including the
-  inert-hand-during-AI-turn problem carried from D1/D2/D3, and a cosmetic leaked-audio-resource
-  warning at process exit (autoloads don't run `_ExitTree` on shutdown; needs a different hook).
+  **Dropped rather than built:** scene transitions (scenes still hard-cut) and the menu restyle
+  carried from D1/D2/D3 — both judged unnecessary against the shipped screens rather than deferred.
+  A hard cut between four independent scenes reads as fine in a turn-based game where no animation is
+  interrupted, and `AudioDirector`'s autoload already keeps music continuous across the boundary,
+  which is the part a cut would otherwise expose. **One known cosmetic defect left standing:** a
+  leaked-audio-resource warning at process exit, because autoloads do not run `_ExitTree` on
+  shutdown; it needs a different hook, and it is console noise at teardown with no in-game effect.
 - [x] **D5. Small-scale multiplayer — built.** Two installs can host/join over a relay and play a
   real game: the host picks seat order and their deck, the joiner enters the resulting code and picks
   theirs. Cheaper than expected because three Phase 1 decisions already fit a netcode protocol:
@@ -789,18 +797,55 @@ seeded Godot game matching the same seed's console result.
   and Play Store submission are out of scope** — `.aab` only matters for Play ingestion, not for
   installing or sideloading, and this project's threat model has always been friends-only (see D5);
   revisit only if store distribution becomes an actual goal.
-- [ ] **D7. Mobile UI pass.** The UI so far has been built and eyeballed primarily on desktop
-  (C-UI, D3); D6's first real on-device run surfaced layout issues that only show up on an actual
-  phone screen/DPI/aspect ratio, not in the editor at a desktop window size. Scope: fix rounded-
-  corner clipping on panels/buttons/cards (a `StyleBoxFlat` corner radius that reads fine at
-  desktop scale can get cropped by a parent's clip rect or safe-area inset at phone resolution),
-  increase touch-target sizes where buttons were sized for a mouse cursor rather than a finger
-  (Android's own guidance is a 48dp minimum), and reposition/reflow elements that crowd or overlap
-  at phone aspect ratios rather than the wider desktop window the rest of Milestone D was tuned
-  against. Verify on the same physical Android device D6 used, not just the editor's mobile
-  preview, since D3/D4 already established that Godot layout bugs compile and run clean while
-  being visibly wrong.
+- [x] **D7. Mobile UI pass — done.** Landscape-locked (`sensor_landscape` plus the export preset's
+  `set_orientation`), one adaptive layout, gated so desktop renders identically: a new `Platform`
+  static answers "is this touch" and every consumer takes an early return on the desktop branch.
+  Content is ~12% larger on a phone, the board is centred and clear of the rail, and the corner
+  controls sit inside the safe area.
 
+  **The vertical budget decided this step, and measuring it inverted the plan's premise.** Under
+  `stretch/mode="canvas_items"` with `aspect="expand"`, Godot scales by `min(w/1600, h/1000)`; every
+  landscape phone is wider than the 1.6 design aspect, so **height is always the limiting axis and
+  the canvas is always exactly 1000 units tall** — phone and desktop alike. The aspect change is
+  therefore purely extra *width*, so deriving the slot from available height (as planned) would have
+  computed the identical number on both platforms and changed nothing. And the height is already
+  spent: top margin, two 297-unit rows, and the hand band come to ~992 of 1000. **Eight units of
+  slack** — which is why every adjustment traded one problem for another until the budget was
+  written down, and why cards meaningfully larger than ~12% are not reachable inside one landscape
+  screen showing six slots and a hand. That needs the hand band to stop being a permanent
+  reservation (a collapsing or peek hand), i.e. the second information architecture this step ruled
+  out.
+
+  **Scaling content and scaling touch targets are different jobs; the first cut did the second.**
+  Raising control minimums to a 48dp floor grew buttons around text that stayed put, so the padding
+  read as dead space — and the dp arithmetic double-counted (multiplying DPI density *and* dividing
+  by stretch scale), computing 111–156 canvas units for a 48dp target. Replaced by
+  `Window.ContentScaleFactor`: one property multiplying the root viewport's stretch transform, so
+  controls, fonts, card art and `_Draw` output grow together. `UiTheme` and `MoveButtonFactory`
+  reverted to their design constants — chasing ~15 files of font-size literals would have been the
+  exact drift `CardMetrics`/`MoveRowFactory`/`CardStyle` each exist to prevent. The factor is a
+  constant (1.12) rather than DPI-derived, since the vertical budget bounds it and that budget is
+  identical on every device.
+
+  **Three bugs found only on a physical phone**, same lesson as every other Godot step this phase.
+  (i) `BoardArea` shrink-centred within a `Layout` whose lower ~175 units sit behind the hand band,
+  centring on a taller region than the visible one and putting the board **78 units too low**; fixed
+  by reserving the hand band as `margin_bottom`. (ii) The side rail overlapped the corner buttons by
+  72 units, dropping the settings gear onto the opponent's avatar — it now shifts left via *offsets*,
+  since `SideRail.Align` rewrites `Position.Y` continuously but preserves X. (iii)
+  `GetDisplaySafeArea` is unreliable under `immersive_mode`, commonly reporting the full screen rect
+  and yielding a zero inset, so the inset carries a 30-unit floor.
+
+  **Board scale-up is a uniform transform on the subtree, floored at 1.0.** `SlotView.tscn` pins
+  330x297 on its root *and* four fixed band heights inside it, so widening the root alone would
+  stretch the frame around bands that stayed put. The floor matters because `CardMetrics` holds font
+  sizes constant while cards scale — shrinking re-creates the clipped-move-row bug it documents from
+  the 7:6 era. `PlayerPanel.CollectSlotRects` moved to `GetGlobalRect()` for this: `Size` is local
+  and ignores ancestor scale, so the animator would otherwise get right positions with wrong sizes.
+  On a 2424x1080 device the factor computes to **1.011**, so the visible win there is the centring
+  and the rail shift, not bigger cards. **Verification gap:** desktop confirmed unchanged and mobile
+  confirmed by on-device screenshots, but the mechanical shot-harness pass never ran — the harnesses
+  cannot run `--headless` (no viewport texture), which is pre-existing and unrelated to this step.
 **Exit criteria:** full game playable with visuals on desktop and on a physical Android device;
 a seeded hotseat game matches the console's result for the same seed; deckbuilder validates
 against engine rules; a backgrounded game resumes; a new player can learn the type cycle from the

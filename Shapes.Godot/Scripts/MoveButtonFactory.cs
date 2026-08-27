@@ -22,6 +22,12 @@ public static class MoveButtonFactory
 {
     public static float Width => CardMetrics.SlotMoveWidth;
 
+    // NOT separately touch-sized (PLAN.md D7a). An earlier cut raised this to a 48dp floor while
+    // the move name and description stayed at their CardMetrics font sizes, which made the button
+    // taller without making anything in it more legible -- the "too much space" half of the
+    // reported symptom. Content scale (see Platform) now grows the button and its text together,
+    // so this stays the design constant and the 5:2 block keeps the proportion the card was
+    // drawn to.
     public static float Height => CardMetrics.SlotMoveHeight;
 
     // A move row's own panel, per Button state. Quiet by design: the pip and the text are what a
