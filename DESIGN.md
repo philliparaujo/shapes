@@ -3,7 +3,7 @@
 A design document for brainstorming and finalizing the game's ruleset, structure, and development timeline. Useful context to keep Claude informed and on-track with plans.
 
 ## 1. Ruleset
-Supersedes any reference documents where they disagree (such as resource-acquisition / economy)
+See [info.md](info.md) for a more player-oriented tutorial.
 
 **Resources & types** — three resources in a rock-paper-scissors cycle: △ Spike, ▢ Anvil, ◯ Wheel. Effectiveness: Anvil → Spike → Wheel → Anvil. 2× damage if super effective, otherwise 1× (no resistance/halving).
 

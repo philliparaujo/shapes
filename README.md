@@ -2,7 +2,7 @@
 
 ## Screenshots
 
-Click here to see pictures of the game in action: TODO
+Click here to see pictures of the game in action: https://imgur.com/a/GhsbpQW
 
 ## Description
 
