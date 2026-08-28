@@ -349,9 +349,7 @@ Results:
 - First run had anvils as weakest, second had spikes as weakest and anvils as strongest... (hopefully all resource types are about equal)
 
 ## Overall Results
-**22 of 36 cards changed** across four card passes (change1 → change1fix → change2 → change3),
-plus the three engine fixes in keywordfix and the fatigue rule in change1fix. Card changes
-compared to **v1.4-baseline**:
+**22 of 36 cards changed** across four card passes (change1 → change1fix → change2 → change3), plus the three engine fixes in keywordfix and the fatigue rule in change1fix. Card changes compared to **v1.4-baseline**:
 
 Nerfs
 - (z +1.12 -> +1.03) **Bubbles**:

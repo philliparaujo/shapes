@@ -11,7 +11,7 @@ namespace Shapes.Godot.Scripts;
 // applied to hand-authored prose instead of generated effect text.
 //
 // A resource-type mention (Type != null) is its own run kind rather than Bold-with-a-color: on
-// most pages it renders as bold+tinted text (matching references/info.md's own emphasis), but the
+// most pages it renders as bold+tinted text (matching info.md's own emphasis), but the
 // Economy and Type Effectiveness pages additionally want the drawn shape beside the word, and
 // only TutorialOverlay's render loop knows which behavior the current page wants -- the run
 // itself just carries "this text names this resource," not how that gets drawn.
@@ -44,7 +44,7 @@ public sealed record TutorialLine(IReadOnlyList<TutorialRun> Runs)
 // One block of a tutorial page: either a paragraph (rendered as running prose) or a bullet list
 // (each TutorialLine its own bulleted item). Separate from TutorialLine because a bullet list
 // needs a "•" and a hanging indent per item that a plain paragraph must not get -- the two read
-// as different shapes on the page, matching how references/info.md itself switches from prose
+// as different shapes on the page, matching how info.md itself switches from prose
 // paragraphs to "- " list items on the Merging and Type Effectiveness sections.
 public sealed record TutorialBlock(IReadOnlyList<TutorialLine> Lines, bool IsBulletList = false)
 {
@@ -106,7 +106,7 @@ public sealed record TutorialPage(
     string Title, IReadOnlyList<TutorialBlock> Blocks, bool IconizeTypes = false,
     IReadOnlyList<TutorialImage>? Images = null);
 
-// The Rules/Tutorial overlay's page data, transcribed from references/info.md -- including which
+// The Rules/Tutorial overlay's page data, transcribed from info.md -- including which
 // words that file bolds/italicizes, so the in-game Rules page carries the same emphasis as the
 // source document rather than flattening everything to one weight.
 //

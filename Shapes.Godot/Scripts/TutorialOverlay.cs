@@ -10,7 +10,7 @@ namespace Shapes.Godot.Scripts;
 // Same dimmed-backdrop-plus-centered-panel pattern MenuPanel already uses (Backdrop stops clicks
 // reaching the board underneath, mouse_filter = 0), rather than a new visual language for a
 // second kind of modal. Pages are plain data (TutorialPage) built once in code from
-// references/info.md rather than authored per-node in the .tscn, since the page count and text
+// info.md rather than authored per-node in the .tscn, since the page count and text
 // are expected to change as art/gifs are added later (DESIGN.md note in the originating request) --
 // a fixed node tree would need editing by hand for every wording change.
 //
@@ -290,7 +290,7 @@ public partial class TutorialOverlay : Control
             if (i > 0)
             {
                 // Blank line between blocks so paragraphs and bullet groups read as separate
-                // thoughts, matching the blank-line-separated paragraphs in references/info.md.
+                // thoughts, matching the blank-line-separated paragraphs in info.md.
                 _body.AddText("\n\n");
             }
 
