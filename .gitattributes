@@ -1,0 +1,15 @@
+# Everything under balance/ except the hand-written log is Shapes.Sim output: metrics
+# JSON and the standalone HTML report/compare explorers it renders. Marking it generated
+# keeps ~13 MB of machine-written HTML out of GitHub's language stats (which otherwise
+# reads the project as 85% HTML rather than C#) and collapses it in diffs, where a
+# single-line 700 KB report is not reviewable anyway.
+balance/** linguist-generated=true
+balance/LOG.md -linguist-generated
+
+# Godot writes these sidecars itself; they are tracked because the editor needs them,
+# but they are not authored code.
+*.uid linguist-generated=true
+*.import linguist-generated=true
+
+# Card and ruleset data, not source.
+Shapes.Content/** linguist-detectable=false
