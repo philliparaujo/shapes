@@ -22,10 +22,13 @@ namespace Shapes.Godot.Scripts;
 // click target and the copies badge.
 //
 // A Button wrapping the panel rather than a panel with input handling bolted on, for the same
-// reason DeckRowView is a Button: left click adds a copy, right click removes one, and that has
-// to be the same gesture on both sides of the screen. HoverDetailPanel sets its own MouseFilter
-// to Ignore (see its header -- a tooltip that could be hovered would fight the gesture it
-// describes), which is precisely what lets it sit inside a Button without swallowing the click.
+// reason DeckRowView is a Button: on desktop a left click adds a copy and a right click removes
+// one. Touch has no right click (a finger only synthesizes a LEFT mouse button -- see
+// Platform.IsTouch), so on touch removal moves onto an explicit control: when the card is in the
+// deck its copies badge is rendered as a "-" button that emits RemoveRequested, and a tap on the
+// card face still adds. HoverDetailPanel sets its own MouseFilter to Ignore (see its header -- a
+// tooltip that could be hovered would fight the gesture it describes), which is precisely what
+// lets it sit inside a Button without swallowing the click.
 public partial class CollectionCardView : Button
 {
     // The face is a fixed-size scene, so the cell is too -- the grid column count is computed
@@ -35,6 +38,11 @@ public partial class CollectionCardView : Button
     private const int BadgeFontSize = 15;
     private const float BadgeSize = 30f;
     private const float BadgeInset = 4f;
+
+    // A touch tap target has to clear ~44px; the passive 30px chip does not, so the removable
+    // variant is drawn larger. Wider than tall to fit the leading "-" plus the count.
+    private const float TouchBadgeWidth = 58f;
+    private const float TouchBadgeHeight = 44f;
 
     // Card stock, but a shade lighter than CardStyle.StockColor -- the panel inside this button
     // already paints real card stock, so this outer rect is the MOUNT the card sits on and has to
@@ -110,7 +118,9 @@ public partial class CollectionCardView : Button
 
         if (inDeck)
         {
-            AddChild(BuildBadge(copies, copies >= maxCopies));
+            // On touch the badge is the remove control (a tap emits RemoveRequested); on desktop
+            // it is a passive readout and removal is the right click in OnGuiInput.
+            AddChild(BuildBadge(copies, copies >= maxCopies, touchRemovable: Platform.IsTouch));
         }
 
         ButtonMask = MouseButtonMask.Left | MouseButtonMask.Right;
@@ -143,28 +153,36 @@ public partial class CollectionCardView : Button
     // explicitly: a PanelContainer with a CustomMinimumSize but a half-specified rect gets its
     // size from the anchor span rather than the minimum, which is how an earlier cut of this drew
     // the chip at zero width -- present in the tree, correct in a rect dump, invisible on screen.
-    private static Control BuildBadge(int copies, bool maxed)
+    //
+    // `touchRemovable` swaps the passive chip for a tappable one: the label gains a leading "-"
+    // and the container stops ignoring the mouse and forwards its tap to RemoveRequested. It is
+    // still anchored top-right over the face for the same overlap reason; being interactive does
+    // not change where it sits.
+    private Control BuildBadge(int copies, bool maxed, bool touchRemovable = false)
     {
+        var width = touchRemovable ? TouchBadgeWidth : BadgeSize;
+        var height = touchRemovable ? TouchBadgeHeight : BadgeSize;
+
         var chip = new PanelContainer
         {
-            MouseFilter = MouseFilterEnum.Ignore,
+            MouseFilter = touchRemovable ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore,
             AnchorLeft = 1f,
             AnchorTop = 0f,
             AnchorRight = 1f,
             AnchorBottom = 0f,
-            OffsetLeft = -(BadgeSize + BadgeInset),
+            OffsetLeft = -(width + BadgeInset),
             OffsetTop = BadgeInset,
             OffsetRight = -BadgeInset,
-            OffsetBottom = BadgeSize + BadgeInset,
+            OffsetBottom = height + BadgeInset,
         };
 
         var box = new StyleBoxFlat { BgColor = BadgeFill };
-        box.SetCornerRadiusAll((int)(BadgeSize / 2f));
+        box.SetCornerRadiusAll((int)(height / 2f));
         chip.AddThemeStyleboxOverride("panel", box);
 
         var label = new Label
         {
-            Text = $"x{copies}",
+            Text = touchRemovable ? $"−  x{copies}" : $"x{copies}",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             MouseFilter = MouseFilterEnum.Ignore,
@@ -173,6 +191,20 @@ public partial class CollectionCardView : Button
         label.AddThemeColorOverride("font_color", maxed ? MaxedText : BadgeText);
 
         chip.AddChild(label);
+
+        // A PanelContainer has no Pressed signal, so the tap comes off the raw event. Guarded to
+        // Stop above, so this fires instead of -- not as well as -- the face's add.
+        if (touchRemovable)
+        {
+            chip.GuiInput += @event =>
+            {
+                if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
+                {
+                    EmitSignal(SignalName.RemoveRequested, _cardId);
+                }
+            };
+        }
+
         return chip;
     }
 }

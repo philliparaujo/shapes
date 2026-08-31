@@ -34,10 +34,13 @@ namespace Shapes.Godot.Scripts;
 // view is one HBox of four children, and a scene file for it would add an editor round trip to
 // every change without making the structure any clearer.
 //
-// A Button, not a Panel, so the row is clickable -- the deckbuilder uses a left click to add a
-// copy and a right click to remove one, and hovering shows the full card tooltip through the
-// same HoverDetailPanel every other view uses (so the deckbuilder never needs a second
-// card-detail renderer of its own).
+// A Button, not a Panel, so the row is clickable. On desktop the deckbuilder maps a left click to
+// "add a copy" and a right click to "remove one"; on touch there is no right click (a finger only
+// ever synthesizes a LEFT mouse button -- see Platform.IsTouch), so removing is split off onto an
+// explicit tap target instead: the count chip on the row's right edge becomes a "-" button that
+// emits RemoveRequested, and a tap anywhere else on the row still adds. Hovering shows the full
+// card tooltip through the same HoverDetailPanel every other view uses (so the deckbuilder never
+// needs a second card-detail renderer of its own).
 public partial class DeckRowView : Button
 {
     // Taller than the 34px band this replaced: the art is now the row's full background rather
@@ -53,6 +56,11 @@ public partial class DeckRowView : Button
     // the former (see BuildScrim) so the pip always sits on solid backing rather than on art.
     private const float CostColumnWidth = CostBadgeSize + 12f;
     private const float CountColumnWidth = 40f;
+
+    // The count chip doubles as the remove button on touch, where it has to meet the ~44px minimum
+    // tap target the bare 40px column is just under -- and it carries a leading "-" glyph so the
+    // "tap here to drop a copy" affordance reads without a tooltip.
+    private const float TouchCountColumnWidth = 64f;
 
     // Dimmer than CardStyle.StockColor: forty rows of full card stock reads as a wall, and these
     // sit inside a panel that is itself card stock. Same hue, lifted slightly so a row separates
@@ -71,8 +79,8 @@ public partial class DeckRowView : Button
     private const int TextOutlineSize = 4;
 
     // Fired with this row's card id. Add/Remove rather than a generic Pressed so the deckbuilder
-    // binds intent, not mouse buttons -- which is also what lets the collection list (left adds)
-    // and the decklist (left adds, right removes) share one row type.
+    // binds intent, not mouse buttons -- which is what lets one row type serve both the mouse
+    // gesture (left adds, right removes) and the touch gesture (row taps add, count chip removes).
     [Signal] public delegate void AddRequestedEventHandler(string cardId);
     [Signal] public delegate void RemoveRequestedEventHandler(string cardId);
     [Signal] public delegate void HoverStartedEventHandler(string cardId);
@@ -116,15 +124,27 @@ public partial class DeckRowView : Button
 
         if (count is { } copies)
         {
-            row.AddChild(BuildCount(copies));
+            // On touch the count column is its own tap target (a "- x3" button emitting
+            // RemoveRequested); on desktop it stays a plain label and removal is the right click
+            // handled in OnGuiInput. MouseFilter.Ignore on the desktop label lets the row-level
+            // click see the whole width.
+            if (Platform.IsTouch)
+            {
+                row.AddChild(BuildTouchRemoveButton(copies));
+            }
+            else
+            {
+                row.AddChild(BuildCount(copies));
+            }
         }
 
         MouseEntered += () => EmitSignal(SignalName.HoverStarted, _cardId);
         MouseExited += () => EmitSignal(SignalName.HoverEnded);
 
-        // Left click adds, right click removes. Pressed only reports "a click happened," so the
-        // button-specific split has to come from the raw event -- and MouseButtonMask must include
-        // Right for a Button to report right clicks at all.
+        // Pressed only reports "a click happened," so the button-specific split has to come from
+        // the raw event -- and MouseButtonMask must include Right for a Button to report right
+        // clicks at all. On touch every synthesized click is Left, so OnGuiInput only ever adds;
+        // the touch remove path is the count button built above.
         ButtonMask = MouseButtonMask.Left | MouseButtonMask.Right;
         GuiInput += OnGuiInput;
     }
@@ -144,6 +164,26 @@ public partial class DeckRowView : Button
         {
             EmitSignal(SignalName.RemoveRequested, _cardId);
         }
+    }
+
+    // The touch-only remove control: the count chip rendered as a button that emits
+    // RemoveRequested. Sits in the same HBox slot BuildCount's label would, so the row layout is
+    // unchanged apart from the wider tap target. MouseFilter.Stop (a Button's default) is what
+    // keeps its tap from also reaching the row behind it and adding a copy.
+    private Control BuildTouchRemoveButton(int copies)
+    {
+        var button = new Button
+        {
+            Text = $"− x{copies}",
+            CustomMinimumSize = new Vector2(TouchCountColumnWidth, RowHeight),
+            SizeFlagsHorizontal = SizeFlags.ShrinkEnd,
+            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+            FocusMode = FocusModeEnum.None,
+        };
+
+        button.AddThemeFontSizeOverride("font_size", CountFontSize);
+        button.Pressed += () => EmitSignal(SignalName.RemoveRequested, _cardId);
+        return button;
     }
 
     // One overlapping layer, sized to the button by its own host. See Render on why three hosts
