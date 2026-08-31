@@ -148,6 +148,23 @@ public partial class Deckbuilder : Control
         // Inert on desktop by TouchLayout's own gate -- the .tscn offsets are left untouched there.
         TouchLayout.InsetOffsets(GetNodeOrNull<Control>("Layout"));
 
+        // D7c follow-up: pin Layout's growth to the BOTTOM edge on touch.
+        //
+        // This screen's Layout is a VBoxContainer whose children (the filter bar plus the card
+        // grid) have a combined minimum height of ~1951 canvas units, against a touch canvas only
+        // ~893 tall. A container that cannot meet its minimum grows past its anchors, and with the
+        // default GrowDirection.Both it grows symmetrically -- which pushed the top bar to y -529,
+        // completely off the top of the screen, taking the Back and Card Browser buttons with it.
+        //
+        // Growing downward instead keeps the top edge where the inset put it, so the top bar stays
+        // on screen and tappable; the overflow lands at the bottom, where the grid is already
+        // scrolled. Touch-only, so the desktop canvas -- which is tall enough that the container
+        // never overflows and this never triggers -- is untouched.
+        if (Platform.IsTouch && GetNodeOrNull<Control>("Layout") is { } touchLayout)
+        {
+            touchLayout.GrowVertical = Control.GrowDirection.End;
+        }
+
         GodotTextFormat.Ensure();
 
         _slotPicker = GetNode<OptionButton>(SlotPickerPath);

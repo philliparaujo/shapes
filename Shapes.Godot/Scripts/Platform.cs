@@ -153,7 +153,7 @@ public static class Platform
 
         return new Vector4(
             Mathf.Max(inset.X, MinEdgeInset),
-            Mathf.Max(inset.Y, MinEdgeInset),
+            Mathf.Max(inset.Y, MinTopInset),
             Mathf.Max(inset.Z, MinEdgeInset),
             Mathf.Max(inset.W, MinEdgeInset));
     }
@@ -162,4 +162,27 @@ public static class Platform
     // sit 14 units from the edge in the .tscn, which is comfortable on the desktop canvas and not
     // on a physical corner radius, so this roughly triples that clearance.
     private const float MinEdgeInset = 30f;
+
+    // A SEPARATE, MUCH LARGER FLOOR FOR THE TOP EDGE, and unlike MinEdgeInset this one is not a
+    // clearance judgement -- it is calibrated against measured OS behaviour.
+    //
+    // WHY IT EXISTS. On the target handset Android does not deliver touches to the top ~157
+    // physical pixels (~130 canvas units) of the window, while GetDisplaySafeArea reports only 63
+    // physical pixels as unsafe -- under-reporting the untappable region by ~2.5x. A control placed
+    // using the reported safe area alone therefore renders in a region that is fully visible and
+    // completely inert, which is exactly the "button is there but does not respond" symptom. This
+    // was measured by walking a finger down the screen and logging the first y that produced an
+    // input event; both the immersive and non-immersive builds gave the same boundary.
+    //
+    // WHY IT IS A CONSTANT, AND THE COMPROMISE THAT REPRESENTS. Platform's header argues against
+    // per-handset numbers, and this is a deliberate exception: there is no API that reports the
+    // untappable region -- the one that is supposed to (GetDisplaySafeArea) is the thing that is
+    // wrong -- so the only available input is observed behaviour. 121 is the smallest value that
+    // puts the corner buttons' top edge clear of the measured boundary (14 + 121 = 135 > 130).
+    //
+    // WHY OVER-INSETTING IS SAFE ON OTHER DEVICES. Mathf.Max means a handset whose real top inset
+    // exceeds this keeps its own larger value, so this can only ever push controls further from an
+    // edge, never closer. The cost on a device with no such dead band is purely cosmetic: the two
+    // corner buttons sit lower than they strictly need to.
+    private const float MinTopInset = 121f;
 }
